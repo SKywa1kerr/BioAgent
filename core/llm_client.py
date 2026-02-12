@@ -76,7 +76,12 @@ def call_claude(evidence_text: str,
             "Set it with: export ANTHROPIC_API_KEY=sk-ant-..."
         )
 
-    client = anthropic.Anthropic(api_key=api_key)
+    base_url = os.environ.get("ANTHROPIC_BASE_URL")
+    client_kwargs = {"api_key": api_key}
+    if base_url:
+        client_kwargs["base_url"] = base_url
+
+    client = anthropic.Anthropic(**client_kwargs)
     message = client.messages.create(
         model=model,
         max_tokens=max_tokens,
