@@ -39,7 +39,22 @@ pip install -r requirements.txt
 
 编辑项目根目录下的 `.env` 文件。支持任何 OpenAI 兼容的 API 服务。
 
-**推荐：使用 OpenRouter（有免费模型）**
+**方式一：ChatAnywhere（推荐国内用户，免费，国内直连无需翻墙）**
+
+1. 前往 [chatanywhere/GPT_API_free](https://github.com/chatanywhere/GPT_API_free) 领取免费 API Key
+2. 编辑 `.env`：
+
+```env
+LLM_API_KEY=sk-xxxxxxx
+LLM_BASE_URL=https://api.chatanywhere.tech/v1
+```
+
+3. 运行时指定模型：`python run.py --dataset base --model gpt-4.1-mini`
+
+> 免费额度：200 次请求/天，支持 gpt-4.1 / gpt-4.1-mini / deepseek-chat / o3 / o4-mini 等模型。
+> 国内直连无需翻墙。
+
+**方式二：OpenRouter（推荐国外用户，有免费模型）**
 
 1. 注册 [openrouter.ai](https://openrouter.ai) 获取 API Key
 2. 编辑 `.env`：
@@ -52,14 +67,14 @@ LLM_BASE_URL=https://openrouter.ai/api/v1
 > 注册即可使用免费模型（如 `google/gemma-3-27b-it:free`），无需充值。
 > 充值任意金额（$1 起）可提升免费模型的每日请求上限（20 次 → 200 次），充值金额仅在使用付费模型时扣除。
 
-**其他 API 服务：**
+**方式三：其他 OpenAI 兼容服务**
 
 ```env
-# DeepSeek
+# DeepSeek 官方
 LLM_API_KEY=sk-xxxxxxx
 LLM_BASE_URL=https://api.deepseek.com/v1
 
-# Anthropic 中转站
+# 其他中转站
 LLM_API_KEY=sk-xxxxxxx
 LLM_BASE_URL=https://your-proxy.com/v1
 ```
@@ -83,8 +98,11 @@ LLM_BASE_URL=https://your-proxy.com/v1
 ### 4. 运行
 
 ```bash
-# 使用默认免费模型运行
+# 使用默认免费模型运行（OpenRouter）
 python run.py --dataset base
+
+# 使用 ChatAnywhere（国内推荐）
+python run.py --dataset base --model gpt-4.1-mini
 
 # 指定其他模型
 python run.py --dataset base --model meta-llama/llama-3.3-70b-instruct:free
@@ -137,6 +155,18 @@ C789-1 gene is wrong 移码错误
 | `mistralai/mistral-small-3.1-24b-instruct:free` | 24B | 速度快 |
 
 > 免费模型有每日请求次数限制，被限流时程序会自动等待重试。
+
+## 可用的免费模型（ChatAnywhere）
+
+国内直连，200 次/天，领 Key 地址：[chatanywhere/GPT_API_free](https://github.com/chatanywhere/GPT_API_free)
+
+| 模型 ID | 备注 |
+|---------|------|
+| `gpt-4.1` | GPT 最新旗舰，能力最强 |
+| `gpt-4.1-mini` | 性价比高，推荐日常使用 |
+| `gpt-4.1-nano` | 最轻量，速度最快 |
+| `o3` / `o4-mini` | OpenAI 推理模型 |
+| `deepseek-chat` | DeepSeek V3 |
 
 ## 各模块说明
 
