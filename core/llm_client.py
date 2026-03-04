@@ -3,20 +3,20 @@
 
 """
 core/llm_client.py
-Claude API client for Sanger sequencing QC judgment.
+LLM client for Sanger sequencing QC judgment.
+Supports any OpenAI-compatible API (OpenRouter, DeepSeek, Anthropic proxies, etc.).
 """
 
 import os
 import re
+import time
 from pathlib import Path
 
-import anthropic
+from openai import OpenAI
 
 
 def _load_env():
-    """Load .env file from project root if ANTHROPIC_API_KEY is not set."""
-    if os.environ.get("ANTHROPIC_API_KEY"):
-        return
+    """Load .env file from project root."""
     env_path = Path(__file__).resolve().parent.parent / ".env"
     if env_path.exists():
         for line in env_path.read_text(encoding="utf-8").splitlines():
@@ -64,44 +64,77 @@ SYSTEM_PROMPT = """\
 """
 
 
-def call_claude(evidence_text: str,
-                model: str = "claude-sonnet-4-5-20250929",
-                temperature: float = 0.0,
-                max_tokens: int = 4096) -> str:
-    """Call Claude API with evidence text. Returns raw response text."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
+def call_llm(evidence_text: str,
+             model: str = "google/gemma-3-27b-it:free",
+             temperature: float = 0.0,
+             max_tokens: int = 4096) -> str:
+    """Call LLM API with evidence text. Returns raw response text."""
+    api_key = os.environ.get("LLM_API_KEY")
+    base_url = os.environ.get("LLM_BASE_URL", "https://openrouter.ai/api/v1")
+
+    if not api_key or api_key == "your-api-key-here":
         raise RuntimeError(
-            "ANTHROPIC_API_KEY environment variable not set. "
-            "Set it with: export ANTHROPIC_API_KEY=sk-ant-..."
+            "LLM_API_KEY not configured.\n"
+            "Please edit .env and set your API key.\n"
+            "For OpenRouter (free): register at https://openrouter.ai and get a key."
         )
 
-    base_url = os.environ.get("ANTHROPIC_BASE_URL")
-    client_kwargs = {"api_key": api_key}
-    if base_url:
-        client_kwargs["base_url"] = base_url
+    client = OpenAI(api_key=api_key, base_url=base_url)
 
-    client = anthropic.Anthropic(**client_kwargs)
-    message = client.messages.create(
-        model=model,
-        max_tokens=max_tokens,
-        temperature=temperature,
-        system=SYSTEM_PROMPT,
-        messages=[
-            {"role": "user", "content": evidence_text}
-        ],
-    )
-    return message.content[0].text
+    messages_with_sys = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": evidence_text},
+    ]
+    messages_no_sys = [
+        {"role": "user", "content": SYSTEM_PROMPT + "\n\n" + evidence_text},
+    ]
+    use_messages = messages_with_sys
+
+    # Retry with backoff for rate-limited free APIs
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                messages=use_messages,
+            )
+            result = response.choices[0].message.content
+            if result is None:
+                raise RuntimeError("LLM returned empty content (None)")
+            break
+        except Exception as e:
+            err_str = str(e)
+            # Fallback: merge system prompt into user message
+            if "Developer instruction" in err_str or "system" in err_str.lower():
+                print(f"\n  [INFO] Model does not support system prompt, merging into user message...")
+                use_messages = messages_no_sys
+                continue
+            if ("429" in err_str or "rate" in err_str.lower()) and attempt < max_retries - 1:
+                wait = 15 * (attempt + 1)
+                print(f"\n  [WARN] Rate limited, retrying in {wait}s (attempt {attempt+1}/{max_retries})...")
+                time.sleep(wait)
+            else:
+                raise
+    print('-' * 50)
+    print('LLM message start:')
+    print(result)
+    print('-' * 50)
+    return result
+
+
+# Keep backward compatibility
+call_claude = call_llm
 
 
 def parse_llm_result(raw_text: str) -> list[str]:
-    """Parse Claude response into individual result lines."""
+    """Parse LLM response into individual result lines."""
     lines = []
     for line in raw_text.strip().splitlines():
         line = line.strip()
         if not line:
             continue
-        # Each valid line should start with C followed by digits
         if re.match(r"^C\d+", line):
             lines.append(line)
     return lines

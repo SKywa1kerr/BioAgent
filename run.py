@@ -6,13 +6,13 @@ run.py — BioAgent main entry point.
 
 Two-stage pipeline:
   Stage 1: Bioinformatics (GB/AB1 alignment, mutation detection, AA translation)
-  Stage 2: LLM judgment (Claude API for QC verdict)
+  Stage 2: LLM judgment (AI-powered QC verdict)
 
 Usage:
   python run.py --dataset base
   python run.py --dataset pro
   python run.py --dataset promax
-  python run.py --dataset promax --model claude-sonnet-4-5-20250929
+  python run.py --dataset base --model google/gemma-3-27b-it:free
 """
 
 import argparse
@@ -21,7 +21,7 @@ from pathlib import Path
 
 from core.alignment import analyze_dataset
 from core.evidence import format_evidence_for_llm, format_evidence_table
-from core.llm_client import call_claude, parse_llm_result
+from core.llm_client import call_llm, parse_llm_result
 
 
 def main():
@@ -33,8 +33,8 @@ def main():
         help="Dataset to analyze"
     )
     parser.add_argument(
-        "--model", default="claude-sonnet-4-5-20250929",
-        help="Claude model to use (default: claude-sonnet-4-5-20250929)"
+        "--model", default="google/gemma-3-27b-it:free",
+        help="LLM model to use (default: google/gemma-3-27b-it:free)"
     )
     parser.add_argument(
         "--output-dir", default=None,
@@ -92,16 +92,16 @@ def main():
         print(f"\n  Bio-only result saved to: {result_path}")
         return
 
-    print(f"[Stage 2] Calling Claude API ({args.model})...")
+    print(f"[Stage 2] Calling LLM API ({args.model})...")
     evidence_text = format_evidence_for_llm(samples)
 
     try:
-        raw_response = call_claude(evidence_text, model=args.model)
+        raw_response = call_llm(evidence_text, model=args.model)
     except RuntimeError as e:
         print(f"\n[ERR] {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"\n[ERR] Claude API call failed: {e}")
+        print(f"\n[ERR] LLM API call failed: {e}")
         sys.exit(1)
 
     # Save raw LLM response
