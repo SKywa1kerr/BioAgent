@@ -1,0 +1,10 @@
+C379-a gene is ok
+C397-a gene is wrong S334L
+C373-2 gene is ok 
+C410-a gene is ok
+C397-2 gene is wrong K171M
+C406-2 gene is ok 
+C376-2 gene is ok 
+C402-2 gene is wrong R171M L334S
+C379-2 gene is wrong Q131T
+C405-2 gene is ok

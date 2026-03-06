@@ -1,0 +1,7 @@
+C403-1 gene is ok
+C366-3 gene is wrong 
+C370-2 gene is ok 
+C377-1 gene is ok
+C381-1 gene is ok
+C363-3 gene is ok
+C364-6 gene is ok

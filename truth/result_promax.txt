@@ -1,0 +1,12 @@
+C374-1 gene is ok 未测通
+C373-1 gene is ok 未测通，可能有移码
+C371-1 gene is ok 未测通
+C370-1 gene is wrong 移码错误
+C369-1 gene is ok 未测通
+C368-1 gene is ok 未测通
+C367-1 gene is wrong 测序失败
+C366-2 gene is wrong 重叠峰
+C364-2 gene is wrong 片段缺失
+C363-2 gene is wrong 重叠峰，比对失败
+C358-1 gene is ok 未测通
+C351-2 gene is ok 生工重叠峰
