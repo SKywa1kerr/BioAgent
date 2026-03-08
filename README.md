@@ -1,23 +1,25 @@
-# BioAgent — Sanger 测序质控与突变分析工具
+# BioAgent — 基于 Skill 架构的 Sanger 测序质控工具
 
-BioAgent 是一个两阶段的 Sanger 测序分析流水线：
+BioAgent 是一个借鉴 [OpenClaw](https://github.com/openclaw/openclaw) Skill 架构的生物信息学分析平台。每个分析能力被封装为独立的 Skill 模块，便于扩展和维护。
 
-1. **生物信息学分析** — 将 AB1 测序文件与 GenBank 参考序列进行比对，检测碱基突变、氨基酸变异和移码
-2. **AI 判读** — 将比对结果交给大模型，综合判断每个样本的基因是否正确（ok/wrong）
+当前包含的 Skill：
+- **sanger_qc** — Sanger 测序质控与突变分析（两阶段：生物信息学比对 + AI 判读）
 
 ## 项目结构
 
 ```
 BioAgent/
-├── .env                  # API 配置文件（需要自行填写）
+├── .env.example          # API 配置模板
 ├── requirements.txt      # Python 依赖
-├── run.py                # 主程序入口
-├── core/
-│   ├── alignment.py      # 生物信息学核心：序列比对、突变检测、氨基酸翻译
-│   ├── evidence.py       # 将比对结果格式化为文本，供 AI 分析
-│   └── llm_client.py     # LLM API 调用与结果解析（兼容 OpenAI 格式）
+├── run.py                # 轻量调度器，加载并运行 Skill
+├── skills/               # Skill 目录（借鉴 OpenClaw 设计）
+│   └── sanger_qc/        # Sanger 测序质控技能
+│       ├── SKILL.md      # 技能描述：输入输出、判读规则
+│       ├── alignment.py  # 序列比对、突变检测、AA 翻译
+│       ├── evidence.py   # 结果格式化
+│       └── llm_judge.py  # LLM API 调用与 AI 判读
 └── data/                 # 数据目录（需要自行放入）
-    ├── gb/               # base 数据集的 GenBank 参考序列（.gb/.gbk）
+    ├── gb/               # base 数据集的 GenBank 参考序列
     ├── ab1_files/        # base 数据集的 AB1 测序文件
     ├── gb_pro/           # pro 数据集的参考序列
     ├── ab1_files_pro/    # pro 数据集的测序文件
@@ -98,26 +100,27 @@ LLM_BASE_URL=https://your-proxy.com/v1
 ### 4. 运行
 
 ```bash
-# 使用默认免费模型运行（OpenRouter）
+# 运行 sanger_qc 技能（默认）
 python run.py --dataset base
 
-# 使用 ChatAnywhere（国内推荐）
-python run.py --dataset base --model gpt-4.1-mini
-
-# 指定其他模型
-python run.py --dataset base --model meta-llama/llama-3.3-70b-instruct:free
+# 指定模型
+python run.py --dataset base --model gpt-5
 
 # 仅运行生物信息学分析，跳过 AI 判读（不消耗 API 额度）
 python run.py --dataset base --no-llm
 
 # 指定输出目录
 python run.py --dataset base --output-dir ./my_output
+
+# 显式指定 skill（默认即 sanger_qc）
+python run.py --skill sanger_qc --dataset pro --model gpt-5
 ```
 
 **命令行参数：**
 
 | 参数 | 说明 |
 |------|------|
+| `--skill` | 要运行的技能，默认 `sanger_qc` |
 | `--dataset` | 必填，`base` / `pro` / `promax` |
 | `--model` | 模型名，默认 `google/gemma-3-27b-it:free` |
 | `--output-dir` | 输出目录，默认 `outputs/<dataset>` |
@@ -172,7 +175,16 @@ C789-1 gene is wrong 移码错误
 
 | 文件 | 功能 |
 |---|---|
-| `run.py` | 主入口。解析命令行参数，依次调用生物信息学分析和 AI 判读，输出结果 |
-| `core/alignment.py` | 读取 GenBank 参考序列和 AB1 测序文件，执行双向（正向/反向互补）局部比对，计算 identity、CDS 覆盖率，检测碱基替换/插入/缺失、氨基酸变异、移码突变，并生成 HTML 可视化比对图 |
-| `core/evidence.py` | 将 `alignment.py` 产出的结构化数据格式化为文本摘要，作为 AI 判读的输入 |
-| `core/llm_client.py` | 封装 LLM API 的调用逻辑（兼容任何 OpenAI 格式的 API），包含质控判读的 System Prompt、429 限流自动重试、system prompt 不兼容时自动降级 |
+| `run.py` | 轻量调度器。加载指定 Skill，解析参数并运行 |
+| `skills/sanger_qc/SKILL.md` | Sanger QC 技能的完整描述：输入输出规范、判读规则 |
+| `skills/sanger_qc/alignment.py` | 读取 GenBank 参考序列和 AB1 测序文件，执行双向局部比对，检测突变，生成 HTML 可视化 |
+| `skills/sanger_qc/evidence.py` | 将比对结果格式化为文本摘要，作为 AI 判读的输入 |
+| `skills/sanger_qc/llm_judge.py` | LLM API 调用（兼容 OpenAI 格式），包含判读 System Prompt、限流重试 |
+
+## 架构设计
+
+本项目借鉴 [OpenClaw](https://github.com/openclaw/openclaw) 的 Skill 架构：
+
+- 每个 Skill 是一个独立目录，包含 `SKILL.md`（技能描述）+ Python 代码
+- `run.py` 只负责调度，不包含业务逻辑
+- 新增分析能力只需在 `skills/` 下添加新的 Skill 目录

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/llm_client.py
+skills/sanger_qc/llm_judge.py
 LLM client for Sanger sequencing QC judgment.
 Supports any OpenAI-compatible API (OpenRouter, DeepSeek, Anthropic proxies, etc.).
 """
@@ -10,14 +10,16 @@ Supports any OpenAI-compatible API (OpenRouter, DeepSeek, Anthropic proxies, etc
 import os
 import re
 import time
+import json
 from pathlib import Path
 
+import requests
 from openai import OpenAI
 
 
 def _load_env():
     """Load .env file from project root."""
-    env_path = Path(__file__).resolve().parent.parent / ".env"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     if env_path.exists():
         for line in env_path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -64,20 +66,49 @@ SYSTEM_PROMPT = """\
 """
 
 
-def call_llm(evidence_text: str,
-             model: str = "google/gemma-3-27b-it:free",
-             temperature: float = 0.0,
-             max_tokens: int = 4096) -> str:
-    """Call LLM API with evidence text. Returns raw response text."""
+def _call_anthropic(evidence_text: str, model: str, temperature: float, max_tokens: int) -> str:
+    """Call Anthropic-native API (e.g. anyrouter.top /v1/messages)."""
+    api_key = os.environ.get("LLM_API_KEY")
+    base_url = os.environ.get("LLM_BASE_URL", "https://anyrouter.top/v1").rstrip("/")
+
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "system": SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": evidence_text}],
+    }
+
+    max_retries = 5
+    for attempt in range(max_retries):
+        resp = requests.post(f"{base_url}/messages", headers=headers, json=payload, timeout=120)
+        if resp.status_code == 200:
+            data = resp.json()
+            result = data["content"][0]["text"]
+            break
+        elif resp.status_code == 429 and attempt < max_retries - 1:
+            wait = 15 * (attempt + 1)
+            print(f"\n  [WARN] Rate limited, retrying in {wait}s (attempt {attempt+1}/{max_retries})...")
+            time.sleep(wait)
+        else:
+            raise RuntimeError(f"Anthropic API error {resp.status_code}: {resp.text}")
+
+    print('-' * 50)
+    print('LLM message start:')
+    print(result)
+    print('-' * 50)
+    return result
+
+
+def _call_openai(evidence_text: str, model: str, temperature: float, max_tokens: int) -> str:
+    """Call OpenAI-compatible API."""
     api_key = os.environ.get("LLM_API_KEY")
     base_url = os.environ.get("LLM_BASE_URL", "https://openrouter.ai/api/v1")
-
-    if not api_key or api_key == "your-api-key-here":
-        raise RuntimeError(
-            "LLM_API_KEY not configured.\n"
-            "Please edit .env and set your API key.\n"
-            "For OpenRouter (free): register at https://openrouter.ai and get a key."
-        )
 
     client = OpenAI(api_key=api_key, base_url=base_url)
 
@@ -90,7 +121,6 @@ def call_llm(evidence_text: str,
     ]
     use_messages = messages_with_sys
 
-    # Retry with backoff for rate-limited free APIs
     max_retries = 5
     for attempt in range(max_retries):
         try:
@@ -106,7 +136,6 @@ def call_llm(evidence_text: str,
             break
         except Exception as e:
             err_str = str(e)
-            # Fallback: merge system prompt into user message
             if "Developer instruction" in err_str or "system" in err_str.lower():
                 print(f"\n  [INFO] Model does not support system prompt, merging into user message...")
                 use_messages = messages_no_sys
@@ -117,11 +146,42 @@ def call_llm(evidence_text: str,
                 time.sleep(wait)
             else:
                 raise
+
     print('-' * 50)
     print('LLM message start:')
     print(result)
     print('-' * 50)
     return result
+
+
+_DEFAULT_MODELS = {
+    "anthropic": "claude-sonnet-4-6",
+    "openai": "google/gemma-3-27b-it:free",
+}
+
+
+def call_llm(evidence_text: str,
+             model: str | None = None,
+             temperature: float = 0.0,
+             max_tokens: int = 4096) -> str:
+    """Call LLM API with evidence text. Returns raw response text."""
+    api_key = os.environ.get("LLM_API_KEY")
+
+    if not api_key or api_key == "your-api-key-here":
+        raise RuntimeError(
+            "LLM_API_KEY not configured.\n"
+            "Please edit .env and set your API key.\n"
+            "For OpenRouter (free): register at https://openrouter.ai and get a key."
+        )
+
+    api_format = os.environ.get("LLM_API_FORMAT", "openai").lower()
+    if model is None:
+        model = _DEFAULT_MODELS.get(api_format, _DEFAULT_MODELS["openai"])
+
+    if api_format == "anthropic":
+        return _call_anthropic(evidence_text, model, temperature, max_tokens)
+    else:
+        return _call_openai(evidence_text, model, temperature, max_tokens)
 
 
 # Keep backward compatibility

@@ -2,39 +2,46 @@
 # -*- coding: utf-8 -*-
 
 """
-run.py — BioAgent main entry point.
+run.py — BioAgent skill-based orchestrator.
 
-Two-stage pipeline:
-  Stage 1: Bioinformatics (GB/AB1 alignment, mutation detection, AA translation)
-  Stage 2: LLM judgment (AI-powered QC verdict)
+Loads and dispatches skills from the skills/ directory.
+Currently available skills:
+  - sanger_qc: Sanger sequencing QC & mutation analysis
 
 Usage:
-  python run.py --dataset base
-  python run.py --dataset pro
-  python run.py --dataset promax
-  python run.py --dataset base --model google/gemma-3-27b-it:free
+  python run.py --skill sanger_qc --dataset base
+  python run.py --skill sanger_qc --dataset pro --model gpt-5
+  python run.py --skill sanger_qc --dataset base --no-llm
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-from core.alignment import analyze_dataset
-from core.evidence import format_evidence_for_llm, format_evidence_table
-from core.llm_client import call_llm, parse_llm_result
+from skills.sanger_qc import (
+    analyze_dataset,
+    format_evidence_for_llm,
+    format_evidence_table,
+    call_llm,
+    parse_llm_result,
+)
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="BioAgent: Sanger sequencing QC & mutation analysis"
+        description="BioAgent: Skill-based bioinformatics analysis"
+    )
+    parser.add_argument(
+        "--skill", default="sanger_qc",
+        help="Skill to run (default: sanger_qc)"
     )
     parser.add_argument(
         "--dataset", required=True, choices=["base", "pro", "promax"],
         help="Dataset to analyze"
     )
     parser.add_argument(
-        "--model", default="google/gemma-3-27b-it:free",
-        help="LLM model to use (default: google/gemma-3-27b-it:free)"
+        "--model", default=None,
+        help="LLM model to use (auto-detect based on API format if omitted)"
     )
     parser.add_argument(
         "--output-dir", default=None,
@@ -54,7 +61,7 @@ def main():
 
     # ── Stage 1: Bioinformatics analysis ─────────────────────────────────
     print(f"{'='*60}")
-    print(f" BioAgent — Dataset: {args.dataset}")
+    print(f" BioAgent — Skill: {args.skill} | Dataset: {args.dataset}")
     print(f"{'='*60}")
     print(f"\n[Stage 1] Running bioinformatics analysis...")
 
