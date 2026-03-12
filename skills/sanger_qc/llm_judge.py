@@ -156,7 +156,7 @@ def _call_openai(evidence_text: str, model: str, temperature: float, max_tokens:
 
 _DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-6",
-    "openai": "google/gemma-3-27b-it:free",
+    "openai": "deepseek-v3",
 }
 
 

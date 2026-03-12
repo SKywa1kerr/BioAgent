@@ -1,6 +1,6 @@
 __pycache__/
 *.pyc
-.env
+# .env is tracked with empty API key; fill in locally
 outputs/
 data/
 truth/
