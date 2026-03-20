@@ -1,0 +1,13 @@
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+data:
+  upload_dir: "./uploads"
+  default_gb_dir: ""
+  default_ab1_dir: ""
+  upload_max_size_mb: 10
+  upload_retention_days: 30
+
+database:
+  url: "sqlite:///./bioagent.db"
