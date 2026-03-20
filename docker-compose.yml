@@ -1,0 +1,16 @@
+services:
+  bioagent:
+    build: .
+    ports:
+      - "8501:8501"    # Streamlit UI
+      - "8000:8000"    # FastAPI API (for MCP / external integrations)
+    volumes:
+      - ./data:/app/data
+      - ./backend/rules_config.yaml:/app/backend/rules_config.yaml
+      - bioagent-db:/app
+
+    environment:
+      - PYTHONPATH=/app
+
+volumes:
+  bioagent-db:

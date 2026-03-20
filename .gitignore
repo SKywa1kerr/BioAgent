@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
+*.db
+uploads/
 .env
-outputs/
-data/
-.gitignore
+*.egg-info/
+dist/
+build/
