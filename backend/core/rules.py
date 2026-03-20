@@ -49,7 +49,10 @@ def judge_sample(sample: dict, thresholds: dict | None = None) -> dict:
     if cds_cov < t["cds_coverage_low"] and aa_n == 0 and not frameshift:
         return {"sid": sid, "status": "ok", "reason": "未测通", "rule": 9}
     if identity >= t["identity_high"] and aa_n == 0 and not frameshift:
-        return {"sid": sid, "status": "ok", "reason": "", "rule": 10}
+        ins = sample.get("ins", 0)
+        dels = sample.get("del", 0)
+        note = f"非编码区 ins={ins} del={dels}" if (ins or dels) else ""
+        return {"sid": sid, "status": "ok", "reason": note, "rule": 10}
     return {"sid": sid, "status": "uncertain", "reason": "需人工复核", "rule": -1}
 
 def judge_batch(samples: list[dict], thresholds: dict | None = None) -> list[dict]:

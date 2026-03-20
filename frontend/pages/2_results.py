@@ -49,13 +49,15 @@ df = pd.DataFrame([{
     "SID": s.sid, "状态": s.status, "原因": s.reason or "",
     "Identity": round(s.identity, 4) if s.identity else 0,
     "CDS Coverage": round(s.cds_coverage, 3) if s.cds_coverage else 0,
-    "AA 变异数": s.aa_changes_n or 0, "规则": s.rule_id,
+    "AA 变异数": s.aa_changes_n or 0,
+    "Sub": s.sub_count or 0, "Ins": s.ins_count or 0, "Del": s.del_count or 0,
+    "规则": s.rule_id,
     "序列长度": s.seq_length, "平均质量": round(s.avg_quality, 1) if s.avg_quality else 0,
     "identity": s.identity, "cds_coverage": s.cds_coverage, "status": s.status,
 } for s in samples])
 
 st.dataframe(
-    df[["SID", "状态", "原因", "Identity", "CDS Coverage", "AA 变异数", "规则", "序列长度", "平均质量"]],
+    df[["SID", "状态", "原因", "Identity", "CDS Coverage", "AA 变异数", "Sub", "Ins", "Del", "规则", "序列长度", "平均质量"]],
     use_container_width=True,
     hide_index=True,
 )
