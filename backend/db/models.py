@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, Text, Integer, Real, Boolean, ForeignKey, DateTime
+from sqlalchemy import Column, Text, Integer, Float, Boolean, ForeignKey, DateTime
 from backend.db.database import Base
 
 def new_id() -> str:
@@ -30,8 +30,8 @@ class Sample(Base):
     status = Column(Text)
     reason = Column(Text)
     rule_id = Column(Integer)
-    identity = Column(Real)
-    cds_coverage = Column(Real)
+    identity = Column(Float)
+    cds_coverage = Column(Float)
     frameshift = Column(Boolean)
     aa_changes = Column(Text)
     aa_changes_n = Column(Integer)
@@ -39,7 +39,7 @@ class Sample(Base):
     orientation = Column(Text)
     seq_length = Column(Integer)
     ref_length = Column(Integer)
-    avg_quality = Column(Real)
+    avg_quality = Column(Float)
     sub_count = Column(Integer)
     ins_count = Column(Integer)
     del_count = Column(Integer)
