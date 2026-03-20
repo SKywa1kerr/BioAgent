@@ -15,15 +15,17 @@ from core.alignment import analyze_dataset
 from core.evidence import format_evidence_for_llm, format_evidence_table
 from core.rules import judge_batch, load_thresholds
 from db.database import init_db, get_session_factory
-from db.models import Analysis, Sample
+from db.models import Analysis, Sample, new_id
 
 logging.basicConfig(level=logging.INFO)
 server = Server("bioagent")
 
 
 @server.tool()
-async def analyze_directory(gb_dir: str, ab1_dir: str) -> str:
-    """分析指定目录下的所有 Sanger 测序样本。返回判读结果摘要。"""
+async def analyze_directory(gb_dir: str, ab1_dir: str, name: str = "") -> str:
+    """分析指定目录下的所有 Sanger 测序样本。返回判读结果摘要。结果同时存入数据库，可在 Web 端查看。"""
+    from datetime import datetime, timezone
+
     gb_path, ab1_path = Path(gb_dir), Path(ab1_dir)
     if not gb_path.exists():
         return f"错误: GenBank 目录不存在: {gb_dir}"
@@ -37,10 +39,55 @@ async def analyze_directory(gb_dir: str, ab1_dir: str) -> str:
     thresholds = load_thresholds()
     judgments = judge_batch(samples, thresholds)
 
+    # Save to database (same as Web frontend)
+    init_db()
+    Session = get_session_factory()
+    session = Session()
+    ok = sum(1 for j in judgments if j["status"] == "ok")
+    wrong = sum(1 for j in judgments if j["status"] == "wrong")
+    uncertain = sum(1 for j in judgments if j["status"] == "uncertain")
+
+    analysis = Analysis(
+        id=new_id(),
+        name=name or f"MCP 分析 {datetime.now().strftime('%m-%d %H:%M')}",
+        source_type="scan", source_path=ab1_dir,
+        status="done", total=len(samples),
+        ok_count=ok, wrong_count=wrong, uncertain_count=uncertain,
+        config_snapshot=json.dumps(thresholds),
+        finished_at=datetime.now(timezone.utc),
+    )
+    session.add(analysis)
+
+    for sd, jd in zip(samples, judgments):
+        session.add(Sample(
+            id=new_id(), analysis_id=analysis.id,
+            sid=sd["sid"], clone=sd.get("clone", ""),
+            status=jd["status"], reason=jd.get("reason", ""),
+            rule_id=jd.get("rule"),
+            identity=sd["identity"], cds_coverage=sd["cds_coverage"],
+            frameshift=sd["frameshift"],
+            aa_changes=json.dumps(sd.get("aa_changes", [])),
+            aa_changes_n=sd.get("aa_changes_n", 0),
+            raw_aa_changes_n=sd.get("raw_aa_changes_n", 0),
+            orientation=sd.get("orientation", ""),
+            seq_length=sd.get("seq_length", 0),
+            ref_length=sd.get("ref_length", 0),
+            avg_quality=sd.get("avg_qry_quality"),
+            sub_count=sd.get("sub", 0), ins_count=sd.get("ins", 0),
+            del_count=sd.get("del", 0),
+            ref_gapped=sd.get("ref_gapped", ""),
+            qry_gapped=sd.get("qry_gapped", ""),
+            quality_scores=json.dumps(sd.get("quality_scores", []) or []),
+            raw_data=json.dumps(sd, default=str),
+        ))
+    session.commit()
+    session.close()
+
+    # Build response text
     lines = []
     for s, j in zip(samples, judgments):
         lines.append(f"{s['sid']} gene is {j['status']} {j.get('reason', '')}")
-    lines.append(f"\n共 {len(samples)} 个样本")
+    lines.append(f"\n共 {len(samples)} 个样本 (analysis_id: {analysis.id})")
     lines.append(format_evidence_table(samples))
     return "\n".join(lines)
 
