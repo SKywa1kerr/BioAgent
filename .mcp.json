@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "bioagent": {
+      "command": "python",
+      "args": ["backend/mcp_server.py"]
+    }
+  }
+}
