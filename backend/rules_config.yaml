@@ -1,0 +1,18 @@
+# rules_config.yaml
+thresholds:
+  seq_failure_identity: 0.30
+  seq_failure_min_length: 50
+  identity_high: 0.95
+  identity_medium_low: 0.85
+  cds_coverage_low: 0.55
+  cds_coverage_deletion: 0.80
+  aa_overlap_severe: 40
+  aa_overlap_moderate_min: 25
+  aa_overlap_moderate_max: 40
+  aa_mutation_max: 5
+  aa_deletion_min: 5
+  synthetic_identity_min: 0.85
+  synthetic_identity_max: 0.95
+  synthetic_aa_min: 15
+  quality_trim_min: 20
+  quality_aa_filter: 30
