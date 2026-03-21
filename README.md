@@ -138,7 +138,8 @@ BioAgent_MAX/
 │   │   └── rules.py         # 规则引擎（10 条规则）
 │   ├── db/
 │   │   ├── database.py      # 数据库连接
-│   │   └── models.py        # SQLAlchemy 模型
+│   │   ├── models.py        # SQLAlchemy 模型
+│   │   └── migrations/      # Alembic 数据库迁移
 │   └── api/                 # FastAPI 路由
 ├── frontend/
 │   ├── app.py               # Streamlit 主页

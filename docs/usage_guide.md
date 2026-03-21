@@ -110,7 +110,83 @@ docker-compose up --build
 | 操作 | 命令 |
 |------|------|
 | 启动 Web | `streamlit run frontend/app.py` |
-| 运行测试 | `python -m pytest tests/test_rules.py -v` |
+| 运行测试 | `python -m pytest tests/ -v` |
 | 启动 API 服务 | `uvicorn backend.main:app --port 8000` |
 | 分享页面 | `ngrok http 8501` |
 | Docker 部署 | `docker-compose up --build` |
+
+---
+
+## 9. 数据库迁移（Alembic）
+
+项目使用 Alembic 管理数据库表结构变更。**改了 `backend/db/models.py` 中的表字段后**，需要执行以下步骤：
+
+### 场景：给表加字段 / 改字段 / 删字段
+
+```bash
+# 第 1 步：根据 models.py 的变化，自动生成迁移脚本
+alembic revision --autogenerate -m "描述你改了什么"
+
+# 第 2 步：查看生成的脚本（在 backend/db/migrations/versions/ 下）
+# 确认 upgrade() 里的操作是你想要的
+
+# 第 3 步：执行迁移，更新数据库
+alembic upgrade head
+```
+
+### 示例：给 Sample 表加一个 gc_content 字段
+
+1. 在 `backend/db/models.py` 的 Sample 类里加：
+   ```python
+   gc_content = Column(Float, nullable=True)
+   ```
+
+2. 生成迁移：
+   ```bash
+   alembic revision --autogenerate -m "add gc_content to sample"
+   ```
+
+3. 应用迁移：
+   ```bash
+   alembic upgrade head
+   ```
+
+搞定，老数据不会丢。
+
+### 其他常用命令
+
+| 操作 | 命令 |
+|------|------|
+| 查看当前数据库版本 | `alembic current` |
+| 查看迁移历史 | `alembic history` |
+| 回退一步 | `alembic downgrade -1` |
+| 回退到初始状态 | `alembic downgrade base` |
+
+### 注意事项
+
+- **只改了代码没跑迁移** → 程序会报 `no such column` 错误
+- **SQLite 限制**：不支持直接删列或改列类型，Alembic 会自动用 batch 模式处理（建新表 → 复制数据 → 删旧表 → 重命名）
+- 迁移脚本是代码的一部分，要一起提交到 git
+
+## 10. 环境变量说明
+
+| 变量 | 用途 | 示例 |
+|------|------|------|
+| `LLM_API_KEY` | AI 问答的 API Key | `sk-xxx` |
+| `LLM_BASE_URL` | AI 接口地址 | `https://api.chatanywhere.tech/v1` |
+| `LLM_MODEL` | AI 模型名称 | `gpt-4o-mini` |
+| `DATABASE_URL` | 数据库连接（可选，默认用 config.yaml） | `sqlite:///./db_data/bioagent.db` |
+
+配置优先级：环境变量 > `backend/config.yaml` > 默认值
+
+## 11. 项目维护备忘
+
+| 操作 | 怎么做 |
+|------|--------|
+| 改判读规则 | 编辑 `backend/core/rules.py`，跑 `pytest tests/test_rules.py -v` 验证 |
+| 改判读阈值 | 编辑 `backend/rules_config.yaml`，或在 Web 端 Settings 页面改 |
+| 改表结构 | 改 `backend/db/models.py` → `alembic revision --autogenerate -m "xxx"` → `alembic upgrade head` |
+| 加新 API | 在 `backend/api/` 下加路由文件，在 `backend/main.py` 里 include |
+| 加新页面 | 在 `frontend/pages/` 下加 `N_Name.py`，Streamlit 自动发现 |
+| 跑全部测试 | `python -m pytest tests/ -v` |
+| 更新依赖 | 编辑 `backend/requirements.txt`，跑 `pip install -r backend/requirements.txt` |
