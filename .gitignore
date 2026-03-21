@@ -2,8 +2,9 @@ __pycache__/
 *.pyc
 *.db
 uploads/
-data/uploads/
+data/
 .env
+.claude/
 *.egg-info/
 dist/
 build/
