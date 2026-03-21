@@ -1,6 +1,7 @@
 fastapi>=0.110
 uvicorn>=0.29
 sqlalchemy>=2.0
+alembic>=1.13
 pyyaml>=6.0
 biopython>=1.80
 pandas>=1.5
