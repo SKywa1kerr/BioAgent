@@ -7,12 +7,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from backend.core.alignment import analyze_dataset
 from backend.core.rules import judge_batch, load_thresholds
-from backend.db.database import init_db, get_session_factory
-from backend.db.models import Analysis, Sample, new_id
+from backend.db.database import init_db
+from backend.db.models import save_analysis_with_samples
 from frontend.components.styles import inject_global_css, render_header, render_metric_cards
 
-import json
-from datetime import datetime, timezone
+from datetime import datetime
 
 st.set_page_config(page_title="新建分析", page_icon="🔬", layout="wide")
 
@@ -61,50 +60,15 @@ with tab_scan:
                         thresholds = load_thresholds()
                         judgments = judge_batch(samples, thresholds)
 
-                        # Save to database
-                        Session = get_session_factory()
-                        session = Session()
+                        analysis_id = save_analysis_with_samples(
+                            samples=samples, judgments=judgments, thresholds=thresholds,
+                            name=analysis_name or f"分析 {datetime.now().strftime('%m-%d %H:%M')}",
+                            source_type="scan", source_path=ab1_dir,
+                        )
+                        st.session_state["last_analysis_id"] = analysis_id
                         ok = sum(1 for j in judgments if j["status"] == "ok")
                         wrong = sum(1 for j in judgments if j["status"] == "wrong")
                         uncertain = sum(1 for j in judgments if j["status"] == "uncertain")
-
-                        analysis = Analysis(
-                            id=new_id(),
-                            name=analysis_name or f"分析 {datetime.now().strftime('%m-%d %H:%M')}",
-                            source_type="scan", source_path=ab1_dir,
-                            status="done", total=len(samples),
-                            ok_count=ok, wrong_count=wrong, uncertain_count=uncertain,
-                            config_snapshot=json.dumps(thresholds),
-                            finished_at=datetime.now(timezone.utc),
-                        )
-                        session.add(analysis)
-
-                        for sd, jd in zip(samples, judgments):
-                            session.add(Sample(
-                                id=new_id(), analysis_id=analysis.id,
-                                sid=sd["sid"], clone=sd.get("clone", ""),
-                                status=jd["status"], reason=jd.get("reason", ""),
-                                rule_id=jd.get("rule"),
-                                identity=sd["identity"], cds_coverage=sd["cds_coverage"],
-                                frameshift=sd["frameshift"],
-                                aa_changes=json.dumps(sd.get("aa_changes", [])),
-                                aa_changes_n=sd.get("aa_changes_n", 0),
-                                raw_aa_changes_n=sd.get("raw_aa_changes_n", 0),
-                                orientation=sd.get("orientation", ""),
-                                seq_length=sd.get("seq_length", 0),
-                                ref_length=sd.get("ref_length", 0),
-                                avg_quality=sd.get("avg_qry_quality"),
-                                sub_count=sd.get("sub", 0), ins_count=sd.get("ins", 0),
-                                del_count=sd.get("del", 0),
-                                ref_gapped=sd.get("ref_gapped", ""),
-                                qry_gapped=sd.get("qry_gapped", ""),
-                                quality_scores=json.dumps(sd.get("quality_scores", []) or []),
-                                raw_data=json.dumps(sd, default=str),
-                            ))
-                        session.commit()
-                        session.close()
-
-                        st.session_state["last_analysis_id"] = analysis.id
 
                         st.markdown("")
                         st.success(f"分析完成！共 {len(samples)} 个样本")
@@ -160,49 +124,15 @@ with tab_upload:
                         thresholds = load_thresholds()
                         judgments = judge_batch(samples, thresholds)
 
-                        Session = get_session_factory()
-                        session = Session()
+                        analysis_id = save_analysis_with_samples(
+                            samples=samples, judgments=judgments, thresholds=thresholds,
+                            name=upload_name or f"上传分析 {datetime.now().strftime('%m-%d %H:%M')}",
+                            source_type="upload", source_path=str(upload_base),
+                        )
+                        st.session_state["last_analysis_id"] = analysis_id
                         ok = sum(1 for j in judgments if j["status"] == "ok")
                         wrong = sum(1 for j in judgments if j["status"] == "wrong")
                         uncertain = sum(1 for j in judgments if j["status"] == "uncertain")
-
-                        analysis = Analysis(
-                            id=new_id(),
-                            name=upload_name or f"上传分析 {datetime.now().strftime('%m-%d %H:%M')}",
-                            source_type="upload", source_path=str(upload_base),
-                            status="done", total=len(samples),
-                            ok_count=ok, wrong_count=wrong, uncertain_count=uncertain,
-                            config_snapshot=json.dumps(thresholds),
-                            finished_at=datetime.now(timezone.utc),
-                        )
-                        session.add(analysis)
-
-                        for sd, jd in zip(samples, judgments):
-                            session.add(Sample(
-                                id=new_id(), analysis_id=analysis.id,
-                                sid=sd["sid"], clone=sd.get("clone", ""),
-                                status=jd["status"], reason=jd.get("reason", ""),
-                                rule_id=jd.get("rule"),
-                                identity=sd["identity"], cds_coverage=sd["cds_coverage"],
-                                frameshift=sd["frameshift"],
-                                aa_changes=json.dumps(sd.get("aa_changes", [])),
-                                aa_changes_n=sd.get("aa_changes_n", 0),
-                                raw_aa_changes_n=sd.get("raw_aa_changes_n", 0),
-                                orientation=sd.get("orientation", ""),
-                                seq_length=sd.get("seq_length", 0),
-                                ref_length=sd.get("ref_length", 0),
-                                avg_quality=sd.get("avg_qry_quality"),
-                                sub_count=sd.get("sub", 0), ins_count=sd.get("ins", 0),
-                                del_count=sd.get("del", 0),
-                                ref_gapped=sd.get("ref_gapped", ""),
-                                qry_gapped=sd.get("qry_gapped", ""),
-                                quality_scores=json.dumps(sd.get("quality_scores", []) or []),
-                                raw_data=json.dumps(sd, default=str),
-                            ))
-                        session.commit()
-                        session.close()
-
-                        st.session_state["last_analysis_id"] = analysis.id
                         st.markdown("")
                         st.success(f"分析完成！共 {len(samples)} 个样本")
                         render_metric_cards(len(samples), ok, wrong, uncertain)

@@ -19,9 +19,15 @@ import argparse
 import sys
 from pathlib import Path
 
-from core.alignment import analyze_dataset
-from core.evidence import format_evidence_for_llm, format_evidence_table
-from core.llm_client import call_llm, parse_llm_result
+from backend.core.alignment import analyze_dataset
+from backend.core.evidence import format_evidence_for_llm, format_evidence_table
+from backend.core.llm_client import call_llm, parse_llm_result
+
+DATASET_MAP = {
+    "base": {"gb": "gb", "ab1": "ab1_files"},
+    "pro": {"gb": "gb_pro", "ab1": "ab1_files_pro"},
+    "promax": {"gb": "gb_promax", "ab1": "ab1_files_promax"},
+}
 
 
 def main():
@@ -58,7 +64,10 @@ def main():
     print(f"{'='*60}")
     print(f"\n[Stage 1] Running bioinformatics analysis...")
 
-    samples = analyze_dataset(args.dataset, data_dir, out_html_dir=html_dir)
+    dirs = DATASET_MAP[args.dataset]
+    gb_dir = data_dir / dirs["gb"]
+    ab1_dir = data_dir / dirs["ab1"]
+    samples = analyze_dataset(gb_dir, ab1_dir)
 
     if not samples:
         print("[ERR] No samples analyzed. Check data directory.")

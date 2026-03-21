@@ -2,21 +2,18 @@ import csv
 import io
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
-from backend.db.database import get_session_factory
+from backend.db.database import db_session
 from backend.db.models import Analysis, Sample
 
 router = APIRouter()
 
 @router.get("/export/{analysis_id}")
 def export_report(analysis_id: str, format: str = Query("csv")):
-    Session = get_session_factory()
-    session = Session()
-    analysis = session.get(Analysis, analysis_id)
-    if not analysis:
-        session.close()
-        raise HTTPException(404, "Analysis not found")
-    samples = session.query(Sample).filter(Sample.analysis_id == analysis_id).all()
-    session.close()
+    with db_session() as session:
+        analysis = session.get(Analysis, analysis_id)
+        if not analysis:
+            raise HTTPException(404, "Analysis not found")
+        samples = session.query(Sample).filter(Sample.analysis_id == analysis_id).all()
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["SID","Status","Reason","Rule","Identity","CDS_Coverage","Frameshift","AA_Changes_N","Seq_Length","Avg_Quality"])

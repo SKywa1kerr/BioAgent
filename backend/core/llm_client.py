@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """
-core/llm_client.py
+backend/core/llm_client.py
 LLM client for Sanger sequencing QC judgment.
 Supports any OpenAI-compatible API (OpenRouter, DeepSeek, Anthropic proxies, etc.).
 """
@@ -17,7 +17,7 @@ from openai import OpenAI
 
 def _load_env():
     """Load .env file from project root."""
-    env_path = Path(__file__).resolve().parent.parent / ".env"
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
     if env_path.exists():
         for line in env_path.read_text(encoding="utf-8").splitlines():
             line = line.strip()

@@ -6,9 +6,21 @@ import yaml
 
 DEFAULT_CONFIG = Path(__file__).parent.parent / "rules_config.yaml"
 
+_threshold_cache = None
+_threshold_mtime = 0
+
 def load_thresholds(config_path: Path = DEFAULT_CONFIG) -> dict:
+    global _threshold_cache, _threshold_mtime
+    try:
+        mtime = config_path.stat().st_mtime
+    except OSError:
+        mtime = 0
+    if _threshold_cache is not None and mtime == _threshold_mtime:
+        return dict(_threshold_cache)
     with open(config_path, encoding="utf-8") as f:
-        return yaml.safe_load(f)["thresholds"]
+        _threshold_cache = yaml.safe_load(f)["thresholds"]
+        _threshold_mtime = mtime
+    return dict(_threshold_cache)
 
 class SampleInput(TypedDict, total=False):
     sid: str

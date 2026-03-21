@@ -5,7 +5,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from backend.db.database import init_db, get_session_factory
+from backend.db.database import init_db, db_session
 from backend.db.models import Analysis
 from frontend.components.styles import inject_global_css, render_header, section_title
 
@@ -15,22 +15,19 @@ inject_global_css()
 render_header("📋 历史记录", "浏览所有分析记录，追溯数据质量趋势")
 
 init_db()
-Session = get_session_factory()
-session = Session()
-analyses_orm = session.query(Analysis).order_by(Analysis.created_at.desc()).all()
-
-# Extract data from ORM objects before closing session to avoid DetachedInstanceError
-analyses = []
-for a in analyses_orm:
-    analyses.append({
-        "name": a.name,
-        "created_at": a.created_at.strftime("%Y-%m-%d %H:%M") if a.created_at else "",
-        "total": a.total or 0,
-        "ok_count": a.ok_count,
-        "wrong_count": a.wrong_count,
-        "uncertain_count": a.uncertain_count,
-    })
-session.close()
+with db_session() as session:
+    analyses_orm = session.query(Analysis).order_by(Analysis.created_at.desc()).all()
+    # Extract data from ORM objects before session closes to avoid DetachedInstanceError
+    analyses = []
+    for a in analyses_orm:
+        analyses.append({
+            "name": a.name,
+            "created_at": a.created_at.strftime("%Y-%m-%d %H:%M") if a.created_at else "",
+            "total": a.total or 0,
+            "ok_count": a.ok_count,
+            "wrong_count": a.wrong_count,
+            "uncertain_count": a.uncertain_count,
+        })
 
 if not analyses:
     st.info("暂无分析记录。请先在「新建分析」页面运行分析。")

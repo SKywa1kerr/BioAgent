@@ -12,8 +12,9 @@ _SessionFactory = None
 def get_engine():
     global _engine
     if _engine is None:
+        import os
         cfg = get_config()
-        db_url = cfg.get("database", {}).get("url", "sqlite:///./bioagent.db")
+        db_url = os.environ.get("DATABASE_URL") or cfg.get("database", {}).get("url", "sqlite:///./bioagent.db")
         connect_args = {}
         if db_url.startswith("sqlite"):
             connect_args["check_same_thread"] = False
@@ -29,3 +30,18 @@ def get_session_factory():
 def init_db():
     from backend.db.models import Analysis, Sample  # noqa: ensure models registered
     Base.metadata.create_all(get_engine())
+
+from contextlib import contextmanager
+
+@contextmanager
+def db_session():
+    """Context manager for safe session handling. Auto-commits on success, rolls back on error, always closes."""
+    session = get_session_factory()()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()

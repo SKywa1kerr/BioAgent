@@ -190,7 +190,10 @@ for s in samples:
             st.markdown(f"**Substitutions:** {s['sub_count']}  &nbsp; **Insertions:** {s['ins_count']}  &nbsp; **Deletions:** {s['del_count']}")
         with detail_col2:
             if s["aa_changes"]:
-                aa = json.loads(s["aa_changes"])
+                try:
+                    aa = json.loads(s["aa_changes"])
+                except (json.JSONDecodeError, TypeError):
+                    aa = []
                 if aa:
                     st.markdown(f"**AA 变异 ({len(aa)}):**")
                     st.code(" ".join(aa), language=None)
