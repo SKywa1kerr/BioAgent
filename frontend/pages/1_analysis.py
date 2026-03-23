@@ -12,6 +12,9 @@ from backend.db.models import save_analysis_with_samples
 from frontend.components.styles import inject_global_css, render_header, render_metric_cards
 
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="新建分析", page_icon="🔬", layout="wide")
 
@@ -19,6 +22,48 @@ inject_global_css()
 render_header("🔬 新建分析", "扫描目录或上传文件，启动 QC 分析流程")
 
 init_db()
+
+
+def _run_with_progress(gb_path: Path, ab1_path: Path, analysis_name: str, source_type: str = "scan"):
+    """Run analysis with parallel processing and a progress bar."""
+    progress_bar = st.progress(0, text="正在准备分析...")
+
+    def on_progress(completed, total):
+        progress_bar.progress(completed / total, text=f"正在分析 ({completed}/{total})...")
+
+    try:
+        samples = analyze_dataset(gb_path, ab1_path, progress_callback=on_progress)
+    except FileNotFoundError as e:
+        progress_bar.empty()
+        st.error(str(e))
+        return
+
+    if not samples:
+        progress_bar.empty()
+        st.error("未发现可分析的样本。请检查目录中是否有匹配的 GB 和 AB1 文件。")
+        return
+
+    progress_bar.progress(1.0, text="分析完成！正在保存结果...")
+
+    thresholds = load_thresholds()
+    judgments = judge_batch(samples, thresholds)
+
+    analysis_id = save_analysis_with_samples(
+        samples=samples, judgments=judgments, thresholds=thresholds,
+        name=analysis_name or f"分析 {datetime.now().strftime('%m-%d %H:%M')}",
+        source_type=source_type, source_path=str(ab1_path),
+    )
+    st.session_state["last_analysis_id"] = analysis_id
+    ok = sum(1 for j in judgments if j["status"] == "ok")
+    wrong = sum(1 for j in judgments if j["status"] == "wrong")
+    uncertain = sum(1 for j in judgments if j["status"] == "uncertain")
+
+    progress_bar.empty()
+    st.success(f"分析完成！共 {len(samples)} 个样本")
+    render_metric_cards(len(samples), ok, wrong, uncertain)
+    st.markdown("")
+    st.info("💡 前往「分析结果」页面查看详细报告")
+
 
 tab_scan, tab_upload = st.tabs(["📂 扫描目录", "📤 上传文件"])
 
@@ -52,29 +97,7 @@ with tab_scan:
             elif not ab1_path.exists():
                 st.error(f"AB1 目录不存在: {ab1_dir}")
             else:
-                with st.spinner("正在分析，请稍候..."):
-                    samples = analyze_dataset(gb_path, ab1_path)
-                    if not samples:
-                        st.error("未发现可分析的样本")
-                    else:
-                        thresholds = load_thresholds()
-                        judgments = judge_batch(samples, thresholds)
-
-                        analysis_id = save_analysis_with_samples(
-                            samples=samples, judgments=judgments, thresholds=thresholds,
-                            name=analysis_name or f"分析 {datetime.now().strftime('%m-%d %H:%M')}",
-                            source_type="scan", source_path=ab1_dir,
-                        )
-                        st.session_state["last_analysis_id"] = analysis_id
-                        ok = sum(1 for j in judgments if j["status"] == "ok")
-                        wrong = sum(1 for j in judgments if j["status"] == "wrong")
-                        uncertain = sum(1 for j in judgments if j["status"] == "uncertain")
-
-                        st.markdown("")
-                        st.success(f"分析完成！共 {len(samples)} 个样本")
-                        render_metric_cards(len(samples), ok, wrong, uncertain)
-                        st.markdown("")
-                        st.info("💡 前往「分析结果」页面查看详细报告")
+                _run_with_progress(gb_path, ab1_path, analysis_name)
 
 with tab_upload:
     st.markdown("")
@@ -100,7 +123,6 @@ with tab_upload:
                 st.warning("请至少上传一个 .gb/.gbk 文件")
             elif st.button("🚀 上传并分析", type="primary", use_container_width=True):
               try:
-                # Save files to data/uploads/<timestamp>/
                 import time
                 upload_id = time.strftime("%Y%m%d_%H%M%S")
                 upload_base = Path(__file__).parent.parent.parent / "data" / "uploads" / upload_id
@@ -110,34 +132,19 @@ with tab_upload:
                 upload_ab1.mkdir(parents=True, exist_ok=True)
 
                 for f in gb_files:
-                    (upload_gb / f.name).write_bytes(f.read())
+                    safe_name = Path(f.name).name
+                    (upload_gb / safe_name).write_bytes(f.read())
                 for f in ab1_files:
-                    (upload_ab1 / f.name).write_bytes(f.read())
+                    safe_name = Path(f.name).name
+                    (upload_ab1 / safe_name).write_bytes(f.read())
 
                 st.info(f"文件已保存到 data/uploads/{upload_id}/")
 
-                with st.spinner("正在分析，请稍候..."):
-                    samples = analyze_dataset(upload_gb, upload_ab1)
-                    if not samples:
-                        st.error("未发现可分析的样本，请检查文件是否匹配")
-                    else:
-                        thresholds = load_thresholds()
-                        judgments = judge_batch(samples, thresholds)
-
-                        analysis_id = save_analysis_with_samples(
-                            samples=samples, judgments=judgments, thresholds=thresholds,
-                            name=upload_name or f"上传分析 {datetime.now().strftime('%m-%d %H:%M')}",
-                            source_type="upload", source_path=str(upload_base),
-                        )
-                        st.session_state["last_analysis_id"] = analysis_id
-                        ok = sum(1 for j in judgments if j["status"] == "ok")
-                        wrong = sum(1 for j in judgments if j["status"] == "wrong")
-                        uncertain = sum(1 for j in judgments if j["status"] == "uncertain")
-                        st.markdown("")
-                        st.success(f"分析完成！共 {len(samples)} 个样本")
-                        render_metric_cards(len(samples), ok, wrong, uncertain)
-                        st.markdown("")
-                        st.info("💡 前往「分析结果」页面查看详细报告")
+                _run_with_progress(
+                    upload_gb, upload_ab1,
+                    upload_name or f"上传分析 {datetime.now().strftime('%m-%d %H:%M')}",
+                    source_type="upload",
+                )
               except Exception as e:
                 st.error(f"文件上传或分析过程出错: {e}\n\n请检查上传的文件格式是否正确，或联系管理员。")
         else:
