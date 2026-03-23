@@ -7,10 +7,12 @@ Bioinformatics core: GB/AB1 parsing, alignment, mutation detection, AA translati
 Merged and simplified from scripts/gb_ab1_mutations.py and scripts/gb_ab1_agent_pro.py.
 """
 
+import os
 import re
 import logging
 from pathlib import Path
 from datetime import datetime
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import pandas as pd
 from Bio import SeqIO
@@ -509,7 +511,17 @@ def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
 
 # -- Dataset analysis ---------------------------------------------------------
 
-def analyze_dataset(gb_dir: Path, ab1_dir: Path) -> list[dict]:
+def _analyze_one(gb_path: Path, ab1_path: Path, do_trim=True, qmin=20, min_len=80) -> dict | None:
+    """Analyze a single sample in a worker process. Creates its own aligner."""
+    try:
+        aligner = build_aligner()
+        return analyze_sample(gb_path, ab1_path, aligner, do_trim, qmin, min_len)
+    except Exception:
+        logger.warning("Failed to analyze %s", ab1_path.name, exc_info=True)
+        return None
+
+
+def analyze_dataset(gb_dir: Path, ab1_dir: Path, progress_callback=None) -> list[dict]:
     """Analyze all samples in a dataset. Returns list of structured dicts."""
     if not gb_dir.exists():
         raise FileNotFoundError(f"GB directory not found: {gb_dir}")
@@ -520,27 +532,57 @@ def analyze_dataset(gb_dir: Path, ab1_dir: Path) -> list[dict]:
     if not gb_files:
         raise FileNotFoundError(f"No .gb/.gbk files found in {gb_dir}")
 
-    aligner = build_aligner()
-    all_results = []
-
+    # Phase 1: Collect all (gb_path, ab1_path) task pairs
+    tasks: list[tuple[Path, Path]] = []
     for gb_path in gb_files:
         clone = parse_clone_from_gb(gb_path)
         ab1_list = find_ab1_for_clone(ab1_dir, clone)
         if not ab1_list:
             continue
-
         for ab1_path in ab1_list:
-            logger.info(f"Analyzing {ab1_path.name}")
-            result = analyze_sample(
-                gb_path=gb_path,
-                ab1_path=ab1_path,
-                aligner=aligner,
-            )
-            if result is None:
-                logger.warning(f"SKIP {ab1_path.name} (too short)")
-                continue
-            logger.info(f"  id={result['identity']:.4f}  cds_cov={result['cds_coverage']:.3f}")
+            tasks.append((gb_path, ab1_path))
+
+    total = len(tasks)
+    all_results = []
+    completed = 0
+
+    # Phase 2: Parallel dispatch
+    if total == 0:
+        pass
+    elif total == 1:
+        gb_path, ab1_path = tasks[0]
+        name = ab1_path.name
+        result = _analyze_one(gb_path, ab1_path)
+        completed = 1
+        if result is not None:
+            logger.info(f"Done {name} ({completed}/{total})")
             all_results.append(result)
+        else:
+            logger.warning(f"SKIP {name}")
+        if progress_callback:
+            progress_callback(completed, total)
+    else:
+        max_workers = min(os.cpu_count() or 4, len(tasks), 8)
+        future_to_name: dict = {}
+        with ProcessPoolExecutor(max_workers=max_workers) as executor:
+            for gb_path, ab1_path in tasks:
+                future = executor.submit(_analyze_one, gb_path, ab1_path)
+                future_to_name[future] = ab1_path.name
+            for future in as_completed(future_to_name):
+                name = future_to_name[future]
+                completed += 1
+                try:
+                    result = future.result()
+                except Exception:
+                    logger.warning("Worker failed for %s", name, exc_info=True)
+                    result = None
+                if result is not None:
+                    logger.info(f"Done {name} ({completed}/{total})")
+                    all_results.append(result)
+                else:
+                    logger.warning(f"SKIP {name}")
+                if progress_callback:
+                    progress_callback(completed, total)
 
     # Group by SID: if multiple AB1 files exist for the same SID,
     # keep the one with the highest identity as primary, but note duplicates
