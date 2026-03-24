@@ -5,16 +5,16 @@ import json
 import logging
 from pathlib import Path
 
-# Ensure backend/ is importable
-sys.path.insert(0, str(Path(__file__).parent))
+# Ensure project root is importable so "from backend.xxx" works
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from mcp.server.fastmcp import FastMCP
 
-from core.alignment import analyze_dataset
-from core.evidence import format_evidence_for_llm, format_evidence_table
-from core.rules import judge_batch, load_thresholds
-from db.database import init_db, db_session
-from db.models import Analysis, Sample, new_id, save_analysis_with_samples
+from backend.core.alignment import analyze_dataset
+from backend.core.evidence import format_evidence_for_llm, format_evidence_table
+from backend.core.rules import judge_batch, load_thresholds
+from backend.db.database import init_db, db_session
+from backend.db.models import Analysis, Sample, new_id, save_analysis_with_samples
 
 logging.basicConfig(level=logging.INFO)
 server = FastMCP("bioagent")
@@ -67,7 +67,7 @@ async def scan_directory(directory: str) -> str:
 @server.tool()
 async def analyze_files(ab1_paths: str, gb_path: str) -> str:
     """分析指定的 AB1 文件和 GenBank 参考序列。ab1_paths 为逗号分隔的路径列表。"""
-    from core.alignment import analyze_sample, build_aligner, load_genbank
+    from backend.core.alignment import analyze_sample, build_aligner, load_genbank
     paths = [Path(p.strip()) for p in ab1_paths.split(",")]
     gb = Path(gb_path)
     if not gb.exists():
@@ -124,17 +124,51 @@ async def get_analysis_summary(analysis_id: str) -> str:
 
 
 @server.tool()
-async def export_report(analysis_id: str, format: str = "csv") -> str:
-    """导出分析报告为 CSV 文本。"""
+async def export_report(analysis_id: str, format: str = "csv", modules: str = "") -> str:
+    """导出分析报告。format: csv/pdf/excel。modules: 逗号分隔的模块列表（留空=全部）。
+    PDF/Excel 报告保存到 data/exports/ 目录并返回文件路径。"""
     init_db()
+
+    module_list = [m.strip() for m in modules.split(",") if m.strip()] or None
+
+    if format == "pdf":
+        from backend.core.report import generate_pdf
+        try:
+            pdf_bytes = generate_pdf(analysis_id, modules=module_list)
+        except ImportError as e:
+            return f"错误: {e}"
+        import time
+        export_dir = Path(__file__).parent.parent / "data" / "exports"
+        export_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{analysis_id[:8]}_{time.strftime('%Y%m%d_%H%M%S')}.pdf"
+        path = export_dir / filename
+        path.write_bytes(pdf_bytes)
+        return f"PDF 报告已生成: {path}"
+
+    if format == "excel":
+        from backend.core.report import generate_excel
+        excel_bytes = generate_excel(analysis_id, modules=module_list)
+        import time
+        export_dir = Path(__file__).parent.parent / "data" / "exports"
+        export_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{analysis_id[:8]}_{time.strftime('%Y%m%d_%H%M%S')}.xlsx"
+        path = export_dir / filename
+        path.write_bytes(excel_bytes)
+        return f"Excel 报告已生成: {path}"
+
+    # Default: CSV text
     with db_session() as session:
+        import csv as csv_mod
+        from io import StringIO
         samples = session.query(Sample).filter(Sample.analysis_id == analysis_id).all()
         if not samples:
             return f"未找到样本数据: {analysis_id}"
-        lines = ["SID,Status,Reason,Identity,CDS_Coverage,AA_Changes_N"]
+        output = StringIO()
+        writer = csv_mod.writer(output)
+        writer.writerow(["SID", "Status", "Reason", "Identity", "CDS_Coverage", "AA_Changes_N"])
         for s in samples:
-            lines.append(f"{s.sid},{s.status},{s.reason},{s.identity},{s.cds_coverage},{s.aa_changes_n}")
-        return "\n".join(lines)
+            writer.writerow([s.sid, s.status, s.reason, s.identity, s.cds_coverage, s.aa_changes_n])
+        return output.getvalue()
 
 
 @server.tool()
