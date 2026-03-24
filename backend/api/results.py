@@ -21,6 +21,16 @@ def get_analysis_detail(analysis_id: str):
         samples = session.query(Sample).filter(Sample.analysis_id == analysis_id).all()
         return {"analysis": {"id": analysis.id, "name": analysis.name, "status": analysis.status, "total": analysis.total, "ok_count": analysis.ok_count, "wrong_count": analysis.wrong_count, "config_snapshot": json.loads(analysis.config_snapshot) if analysis.config_snapshot else None}, "samples": [{"sid": s.sid, "status": s.status, "reason": s.reason, "rule_id": s.rule_id, "identity": s.identity, "cds_coverage": s.cds_coverage, "frameshift": s.frameshift, "aa_changes_n": s.aa_changes_n, "orientation": s.orientation, "seq_length": s.seq_length, "avg_quality": s.avg_quality} for s in samples]}
 
+@router.delete("/results/{analysis_id}")
+def delete_analysis(analysis_id: str):
+    with db_session() as session:
+        analysis = session.get(Analysis, analysis_id)
+        if not analysis:
+            raise HTTPException(404, "Analysis not found")
+        session.query(Sample).filter(Sample.analysis_id == analysis_id).delete()
+        session.delete(analysis)
+    return {"deleted": analysis_id}
+
 @router.get("/results/{analysis_id}/samples/{sid}")
 def get_sample_detail(analysis_id: str, sid: str):
     with db_session() as session:

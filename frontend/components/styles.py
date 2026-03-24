@@ -78,25 +78,25 @@ GLOBAL_CSS = """
     background: rgba(30, 58, 95, 0.15);
     border: 2px solid rgba(30, 58, 95, 0.3);
 }
-.metric-card.total .metric-value { color: #60a5fa; }
+.metric-card.total .metric-value { color: #3b82f6; }
 
 .metric-card.ok {
     background: rgba(22, 163, 74, 0.15);
     border: 2px solid rgba(22, 163, 74, 0.3);
 }
-.metric-card.ok .metric-value { color: #4ade80; }
+.metric-card.ok .metric-value { color: #16a34a; }
 
 .metric-card.wrong {
     background: rgba(220, 38, 38, 0.15);
     border: 2px solid rgba(220, 38, 38, 0.3);
 }
-.metric-card.wrong .metric-value { color: #f87171; }
+.metric-card.wrong .metric-value { color: #dc2626; }
 
 .metric-card.uncertain {
     background: rgba(217, 119, 6, 0.15);
     border: 2px solid rgba(217, 119, 6, 0.3);
 }
-.metric-card.uncertain .metric-value { color: #fbbf24; }
+.metric-card.uncertain .metric-value { color: #d97706; }
 
 /* ---- Section titles ---- */
 .section-title {

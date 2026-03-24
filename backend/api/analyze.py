@@ -68,9 +68,11 @@ def _run_analysis(analysis_id: str, gb_dir: str, ab1_dir: str):
 
 @router.post("/analyze")
 def trigger_analysis(req: AnalyzeRequest, background_tasks: BackgroundTasks):
-    if not Path(req.gb_dir).exists():
+    gb_path = Path(req.gb_dir).resolve()
+    ab1_path = Path(req.ab1_dir).resolve()
+    if not gb_path.exists() or not gb_path.is_dir():
         raise HTTPException(404, f"GB directory not found: {req.gb_dir}")
-    if not Path(req.ab1_dir).exists():
+    if not ab1_path.exists() or not ab1_path.is_dir():
         raise HTTPException(404, f"AB1 directory not found: {req.ab1_dir}")
     aid = new_id()
     with db_session() as session:

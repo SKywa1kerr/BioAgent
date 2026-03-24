@@ -17,9 +17,9 @@ _LAYOUT_COMMON = dict(
         y=1.02,
         xanchor="right",
         x=1,
-        bgcolor="rgba(255,255,255,0.8)",
-        bordercolor="#e5e7eb",
-        borderwidth=1,
+        bgcolor="rgba(0,0,0,0)",
+        bordercolor="rgba(0,0,0,0)",
+        borderwidth=0,
     ),
 )
 
@@ -27,8 +27,8 @@ _LAYOUT_COMMON = dict(
 def _apply_common(fig):
     """Apply common layout styling."""
     fig.update_layout(**_LAYOUT_COMMON)
-    fig.update_xaxes(gridcolor="#f3f4f6", gridwidth=1, zeroline=False)
-    fig.update_yaxes(gridcolor="#f3f4f6", gridwidth=1, zeroline=False)
+    fig.update_xaxes(gridcolor="rgba(150,150,150,0.2)", gridwidth=1, zeroline=False)
+    fig.update_yaxes(gridcolor="rgba(150,150,150,0.2)", gridwidth=1, zeroline=False)
     return fig
 
 
@@ -84,7 +84,7 @@ def quality_scatter(df: pd.DataFrame):
         xaxis_title="Identity",
         yaxis_title="CDS Coverage",
     )
-    fig.update_traces(marker=dict(opacity=0.7, line=dict(width=1, color="white")))
+    fig.update_traces(marker=dict(opacity=0.7, line=dict(width=1, color="rgba(128,128,128,0.5)")))
     return _apply_common(fig)
 
 

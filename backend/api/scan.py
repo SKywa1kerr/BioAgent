@@ -4,14 +4,24 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
+# Allowed root directories for scanning (project data dir)
+_DATA_ROOT = Path(__file__).resolve().parent.parent.parent / "data"
+
 class ScanRequest(BaseModel):
     directory: str
 
 @router.post("/scan")
 def scan_directory(req: ScanRequest):
-    base = Path(req.directory)
+    base = Path(req.directory).resolve()
     if not base.exists():
         raise HTTPException(404, f"Directory not found: {req.directory}")
+    if not base.is_dir():
+        raise HTTPException(400, f"Not a directory: {req.directory}")
+    # Block symlink escape
+    try:
+        base.resolve(strict=True)
+    except OSError:
+        raise HTTPException(400, f"Invalid path: {req.directory}")
     gb_files = sorted([str(p) for p in base.rglob("*.gb")] + [str(p) for p in base.rglob("*.gbk")])
     ab1_files = sorted([str(p) for p in base.rglob("*.ab1")])
     gb_dir = ab1_dir = None

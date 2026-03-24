@@ -86,7 +86,7 @@ with col_right:
 # Footer
 st.markdown("<hr class='styled-divider'>", unsafe_allow_html=True)
 st.markdown(
-    "<div style='text-align:center; color:#9ca3af; font-size:0.82rem;'>"
+    "<div style='text-align:center; opacity:0.5; font-size:0.82rem;'>"
     "BioAgent MAX v1.0 &mdash; Sanger Sequencing QC Platform"
     "</div>",
     unsafe_allow_html=True,
