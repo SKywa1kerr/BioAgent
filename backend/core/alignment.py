@@ -418,6 +418,29 @@ def find_ab1_for_clone(ab1_dir: Path, clone: str):
     return sorted(set(ab1s), key=lambda x: x.as_posix().lower())
 
 
+def build_ab1_index(ab1_dir: Path) -> dict[str, list[Path]]:
+    """Scan AB1 directory once and build clone -> [ab1_paths] index.
+
+    Matches the same logic as find_ab1_for_clone: a filename matches a clone
+    if it contains "{clone}-" preceded by '-', '_', '(' or at start of name.
+    """
+    all_ab1 = sorted(ab1_dir.rglob("*.ab1"), key=lambda x: x.as_posix().lower())
+    index: dict[str, list[Path]] = {}
+    for p in all_ab1:
+        name = p.name.lower()
+        # Find all clone-like patterns (C + digits) followed by '-'
+        for m in re.finditer(r"(c\d+)-", name, flags=re.IGNORECASE):
+            clone = m.group(1).upper()
+            start = m.start()
+            # Must be preceded by '-', '_', '(' or at start — mirrors find_ab1_for_clone
+            if start == 0 or name[start - 1] in ("-", "_", "("):
+                index.setdefault(clone, []).append(p)
+    # Deduplicate per clone
+    for clone in index:
+        index[clone] = sorted(set(index[clone]), key=lambda x: x.as_posix().lower())
+    return index
+
+
 def sample_id_from_ab1name(clone: str, ab1_name: str) -> str:
     # C123-4 (numeric suffix)
     m = re.search(r"(C\d+)-(\d+)", ab1_name, flags=re.IGNORECASE)
@@ -433,12 +456,19 @@ def sample_id_from_ab1name(clone: str, ab1_name: str) -> str:
 # -- Single sample analysis ---------------------------------------------------
 
 def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
-                   do_trim=True, qmin=20, min_len=80) -> dict | None:
+                   do_trim=True, qmin=20, min_len=80,
+                   gb_parsed: tuple | None = None) -> dict | None:
     """Analyze a single AB1 sample against a GB reference.
     Returns structured dict or None if sample is too short.
+
+    gb_parsed: optional (clone, ref_seq, ref_len, cds_start, cds_end) tuple
+               to avoid re-parsing the same GenBank file.
     """
-    clone = parse_clone_from_gb(gb_path)
-    rec, ref_seq, ref_len, cds_start, cds_end = load_genbank(gb_path)
+    if gb_parsed is not None:
+        clone, ref_seq, ref_len, cds_start, cds_end = gb_parsed
+    else:
+        clone = parse_clone_from_gb(gb_path)
+        _rec, ref_seq, ref_len, cds_start, cds_end = load_genbank(gb_path)
     ref2 = ref_seq + ref_seq
 
     ab1_name = ab1_path.name
@@ -511,11 +541,13 @@ def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
 
 # -- Dataset analysis ---------------------------------------------------------
 
-def _analyze_one(gb_path: Path, ab1_path: Path, do_trim=True, qmin=20, min_len=80) -> dict | None:
+def _analyze_one(gb_path: Path, ab1_path: Path, do_trim=True, qmin=20, min_len=80,
+                  gb_parsed: tuple | None = None) -> dict | None:
     """Analyze a single sample in a worker process. Creates its own aligner."""
     try:
         aligner = build_aligner()
-        return analyze_sample(gb_path, ab1_path, aligner, do_trim, qmin, min_len)
+        return analyze_sample(gb_path, ab1_path, aligner, do_trim, qmin, min_len,
+                              gb_parsed=gb_parsed)
     except Exception:
         logger.warning("Failed to analyze %s", ab1_path.name, exc_info=True)
         return None
@@ -532,15 +564,26 @@ def analyze_dataset(gb_dir: Path, ab1_dir: Path, progress_callback=None) -> list
     if not gb_files:
         raise FileNotFoundError(f"No .gb/.gbk files found in {gb_dir}")
 
-    # Phase 1: Collect all (gb_path, ab1_path) task pairs
-    tasks: list[tuple[Path, Path]] = []
+    # Phase 1a: Pre-parse all GenBank files (once per unique file)
+    gb_cache: dict[Path, tuple] = {}
     for gb_path in gb_files:
         clone = parse_clone_from_gb(gb_path)
-        ab1_list = find_ab1_for_clone(ab1_dir, clone)
+        _rec, ref_seq, ref_len, cds_start, cds_end = load_genbank(gb_path)
+        gb_cache[gb_path] = (clone, ref_seq, ref_len, cds_start, cds_end)
+
+    # Phase 1b: Scan AB1 directory once and build clone index
+    ab1_index = build_ab1_index(ab1_dir)
+
+    # Phase 1c: Collect all (gb_path, ab1_path, gb_parsed) task tuples
+    tasks: list[tuple[Path, Path, tuple]] = []
+    for gb_path in gb_files:
+        gb_parsed = gb_cache[gb_path]
+        clone = gb_parsed[0]
+        ab1_list = ab1_index.get(clone, [])
         if not ab1_list:
             continue
         for ab1_path in ab1_list:
-            tasks.append((gb_path, ab1_path))
+            tasks.append((gb_path, ab1_path, gb_parsed))
 
     total = len(tasks)
     all_results = []
@@ -550,9 +593,9 @@ def analyze_dataset(gb_dir: Path, ab1_dir: Path, progress_callback=None) -> list
     if total == 0:
         pass
     elif total == 1:
-        gb_path, ab1_path = tasks[0]
+        gb_path, ab1_path, gb_parsed = tasks[0]
         name = ab1_path.name
-        result = _analyze_one(gb_path, ab1_path)
+        result = _analyze_one(gb_path, ab1_path, gb_parsed=gb_parsed)
         completed = 1
         if result is not None:
             logger.info(f"Done {name} ({completed}/{total})")
@@ -565,8 +608,9 @@ def analyze_dataset(gb_dir: Path, ab1_dir: Path, progress_callback=None) -> list
         max_workers = min(os.cpu_count() or 4, len(tasks), 8)
         future_to_name: dict = {}
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            for gb_path, ab1_path in tasks:
-                future = executor.submit(_analyze_one, gb_path, ab1_path)
+            for gb_path, ab1_path, gb_parsed in tasks:
+                future = executor.submit(_analyze_one, gb_path, ab1_path,
+                                         gb_parsed=gb_parsed)
                 future_to_name[future] = ab1_path.name
             for future in as_completed(future_to_name):
                 name = future_to_name[future]
