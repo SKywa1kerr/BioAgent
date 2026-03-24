@@ -205,3 +205,27 @@ class TestGeneratePdf:
         pdf = generate_pdf(aid, modules=["summary"])
         assert isinstance(pdf, bytes)
         assert pdf[:5] == b'%PDF-'
+
+
+# ── Integration tests ──────────────────────────────────────────────
+
+class TestIntegration:
+
+    def test_full_pdf_export_all_modules(self):
+        """End-to-end: create analysis, generate PDF with all modules."""
+        from backend.core.report import generate_pdf, ALL_MODULES
+        aid = _create_test_analysis()
+        pdf = generate_pdf(aid, modules=ALL_MODULES)
+        assert pdf[:5] == b'%PDF-'
+        assert len(pdf) > 1000  # Non-trivial PDF
+
+    def test_full_excel_export_all_modules(self):
+        """End-to-end: create analysis, generate Excel with all modules."""
+        from backend.core.report import generate_excel
+        import openpyxl
+        aid = _create_test_analysis()
+        data = generate_excel(aid)
+        wb = openpyxl.load_workbook(BytesIO(data))
+        # Verify sample data is present
+        ws = wb["样本明细"]
+        assert ws.max_row >= 4  # header + 3 samples
