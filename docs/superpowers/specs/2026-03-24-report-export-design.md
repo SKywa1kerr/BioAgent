@@ -133,10 +133,11 @@ Charts needed:
 
 ## Constraints
 
-- WeasyPrint requires system-level dependencies (GTK/Cairo) on some platforms. Document installation in usage_guide.md.
+- WeasyPrint requires system-level dependencies (GTK/Cairo) on some platforms. Document installation in usage_guide.md. If WeasyPrint is not installed, `generate_pdf()` should raise a clear error message (e.g., "PDF export requires WeasyPrint. Install with: pip install weasyprint") rather than an opaque traceback. The frontend should catch this and show `st.error()`.
 - PDF generation is synchronous — acceptable for typical batch sizes (<100 samples).
-- Alignment views can be long — limit to Wrong/Uncertain samples only, and cap at configurable max (default 20 samples) to keep PDF size reasonable.
+- Alignment views can be long — limit to Wrong/Uncertain samples only, and cap at max 20 samples (hardcoded constant `MAX_ALIGNMENT_SAMPLES` in `report.py`). If more abnormal samples exist, show a note "showing first 20 of N abnormal samples".
 - Excel files do not include charts or alignment views to keep the format focused on data manipulation.
+- The MCP server's `export_report` tool already has a `format: str = "csv"` parameter — extend it with PDF/Excel code paths rather than adding a new parameter.
 
 ## Testing
 
