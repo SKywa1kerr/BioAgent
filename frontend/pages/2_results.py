@@ -26,7 +26,7 @@ Session = get_session_factory()
 session = Session()
 
 # Get latest analysis or user-selected
-analyses = session.query(Analysis).order_by(Analysis.created_at.desc()).limit(10).all()
+analyses = session.query(Analysis).order_by(Analysis.created_at.desc()).all()
 if not analyses:
     st.info("暂无分析记录。请先在「新建分析」页面运行分析。")
     session.close()
@@ -34,6 +34,60 @@ if not analyses:
 
 options = {a.id: f"{a.name}  ({a.total} 样本, {a.ok_count} OK / {a.wrong_count} Wrong / {a.uncertain_count} Uncertain)" for a in analyses}
 selected_id = st.selectbox("选择分析记录", options.keys(), format_func=lambda x: options[x])
+
+# -- Export panel --
+with st.expander("📥 导出报告"):
+    export_col1, export_col2 = st.columns(2)
+    with export_col1:
+        export_format = st.radio("导出格式", ["PDF", "Excel", "两者都导出"], horizontal=True)
+    with export_col2:
+        st.markdown("**包含模块：**")
+        mod_summary = st.checkbox("批次摘要", value=True, key="mod_summary")
+        mod_detail = st.checkbox("样本明细表", value=True, key="mod_detail")
+        mod_charts = st.checkbox("分布图表", value=True, key="mod_charts")
+        mod_abnormal = st.checkbox("异常样本详情", value=True, key="mod_abnormal")
+        mod_alignment = st.checkbox("序列比对视图", value=True, key="mod_alignment")
+        mod_thresholds = st.checkbox("阈值配置", value=True, key="mod_thresholds")
+
+    selected_modules = []
+    if mod_summary: selected_modules.append("summary")
+    if mod_detail: selected_modules.append("detail_table")
+    if mod_charts: selected_modules.append("charts")
+    if mod_abnormal: selected_modules.append("abnormal_details")
+    if mod_alignment: selected_modules.append("alignment")
+    if mod_thresholds: selected_modules.append("thresholds")
+
+    if st.button("🚀 生成报告", type="primary", use_container_width=True):
+        if not selected_modules:
+            st.warning("请至少选择一个模块")
+        else:
+            from backend.core.report import generate_pdf, generate_excel
+            analysis_name = options[selected_id].split("(")[0].strip()
+            safe_name = analysis_name.replace(" ", "_")
+
+            try:
+                if export_format in ("PDF", "两者都导出"):
+                    with st.spinner("正在生成 PDF..."):
+                        pdf_bytes = generate_pdf(selected_id, modules=selected_modules)
+                    st.download_button(
+                        "📄 下载 PDF", data=pdf_bytes,
+                        file_name=f"{safe_name}.pdf",
+                        mime="application/pdf",
+                    )
+            except ImportError as e:
+                st.error(str(e))
+
+            try:
+                if export_format in ("Excel", "两者都导出"):
+                    with st.spinner("正在生成 Excel..."):
+                        excel_bytes = generate_excel(selected_id, modules=selected_modules)
+                    st.download_button(
+                        "📊 下载 Excel", data=excel_bytes,
+                        file_name=f"{safe_name}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    )
+            except Exception as e:
+                st.error(f"Excel 生成失败: {e}")
 
 samples_orm = session.query(Sample).filter(Sample.analysis_id == selected_id).all()
 analysis_orm = session.get(Analysis, selected_id)
@@ -103,9 +157,9 @@ section_title("样本列表")
 # Color-coded status column
 def style_status(val):
     colors = {
-        "ok": "background-color: #dcfce7; color: #15803d; font-weight: 600;",
-        "wrong": "background-color: #fee2e2; color: #b91c1c; font-weight: 600;",
-        "uncertain": "background-color: #fef3c7; color: #92400e; font-weight: 600;",
+        "ok": "background-color: rgba(22, 163, 74, 0.2); color: #22c55e; font-weight: 600;",
+        "wrong": "background-color: rgba(220, 38, 38, 0.2); color: #ef4444; font-weight: 600;",
+        "uncertain": "background-color: rgba(217, 119, 6, 0.2); color: #f59e0b; font-weight: 600;",
     }
     return colors.get(val, "")
 
