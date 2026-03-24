@@ -85,7 +85,7 @@ with st.sidebar:
     st.markdown(f"**Model:** `{st.session_state['model']}`")
 
     st.markdown("")
-    if st.button("🔗 测试连接", use_container_width=True):
+    if st.button("🔗 测试连接", width="full"):
         if not st.session_state["api_key"]:
             st.error("请先在 .env 中配置 LLM_API_KEY")
         else:
@@ -110,7 +110,7 @@ with st.sidebar:
     )
 
     st.markdown("---")
-    if st.button("🗑️ 清空对话", use_container_width=True):
+    if st.button("🗑️ 清空对话", width="full"):
         st.session_state["messages"] = []
         st.rerun()
 

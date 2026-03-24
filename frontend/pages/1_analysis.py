@@ -89,7 +89,7 @@ with tab_scan:
         )
 
         st.markdown("")
-        if st.button("🚀 开始分析", type="primary", disabled=not (gb_dir and ab1_dir), use_container_width=True):
+        if st.button("🚀 开始分析", type="primary", disabled=not (gb_dir and ab1_dir), width="full"):
             gb_path = Path(gb_dir)
             ab1_path = Path(ab1_dir)
             if not gb_path.exists():
@@ -121,7 +121,7 @@ with tab_upload:
                 st.warning("请至少上传一个 .ab1 文件")
             elif not gb_files:
                 st.warning("请至少上传一个 .gb/.gbk 文件")
-            elif st.button("🚀 上传并分析", type="primary", use_container_width=True):
+            elif st.button("🚀 上传并分析", type="primary", width="full"):
               try:
                 import time
                 upload_id = time.strftime("%Y%m%d_%H%M%S")

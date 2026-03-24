@@ -94,7 +94,7 @@ with form_col:
         st.markdown("")
 
         col_save, col_reset = st.columns(2)
-        submitted = col_save.form_submit_button("💾 保存配置", type="primary", use_container_width=True)
+        submitted = col_save.form_submit_button("💾 保存配置", type="primary", width="full")
         if submitted:
             with open(DEFAULT_CONFIG, "w", encoding="utf-8") as f:
                 yaml.dump({"thresholds": t}, f, allow_unicode=True, default_flow_style=False)

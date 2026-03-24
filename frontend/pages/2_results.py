@@ -57,7 +57,7 @@ with st.expander("📥 导出报告"):
     if mod_alignment: selected_modules.append("alignment")
     if mod_thresholds: selected_modules.append("thresholds")
 
-    if st.button("🚀 生成报告", type="primary", use_container_width=True):
+    if st.button("🚀 生成报告", type="primary", width="full"):
         if not selected_modules:
             st.warning("请至少选择一个模块")
         else:
@@ -178,7 +178,7 @@ styled_df = _apply_fn(
 
 st.dataframe(
     styled_df,
-    use_container_width=True,
+    width="full",
     hide_index=True,
     height=min(400, 35 * len(filtered_df) + 40),
 )
@@ -193,16 +193,16 @@ chart_tab1, chart_tab2 = st.tabs(["📈 分布图", "🥧 概览"])
 with chart_tab1:
     chart1, chart2 = st.columns(2)
     with chart1:
-        st.plotly_chart(identity_distribution(df), use_container_width=True)
+        st.plotly_chart(identity_distribution(df), width="full")
     with chart2:
-        st.plotly_chart(coverage_distribution(df), use_container_width=True)
+        st.plotly_chart(coverage_distribution(df), width="full")
 
-    st.plotly_chart(quality_scatter(df), use_container_width=True)
+    st.plotly_chart(quality_scatter(df), width="full")
 
 with chart_tab2:
     pie_col, info_col = st.columns([1, 1])
     with pie_col:
-        st.plotly_chart(status_pie(df), use_container_width=True)
+        st.plotly_chart(status_pie(df), width="full")
     with info_col:
         st.markdown("")
         st.markdown("")
