@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    color: #1a1a1a;
+    margin: 20px;
+    line-height: 1.5;
+  }
+  h1 {
+    font-size: 22px;
+    color: #1e3a5f;
+    margin-bottom: 4px;
+  }
+  h2 {
+    font-size: 16px;
+    color: #1e3a5f;
+    border-bottom: 2px solid #1e3a5f;
+    padding-bottom: 4px;
+    margin-top: 24px;
+    margin-bottom: 10px;
+  }
+  .subtitle {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 16px;
+  }
+  table {
+    border-collapse: collapse;
+  }
+  .meta-table td {
+    padding: 3px 10px 3px 0;
+    font-size: 11px;
+    vertical-align: top;
+  }
+  .meta-table .label {
+    font-weight: bold;
+    color: #555;
+    width: 100px;
+  }
+  .card-table {
+    width: 100%;
+    margin: 10px 0;
+  }
+  .card-table td {
+    text-align: center;
+    padding: 10px;
+    border: 1px solid #ddd;
+    width: 25%;
+  }
+  .card-value {
+    font-size: 24px;
+    font-weight: bold;
+    display: block;
+    margin-bottom: 2px;
+  }
+  .card-label {
+    font-size: 11px;
+    color: #666;
+    display: block;
+  }
+  .stats-table {
+    width: 100%;
+    margin: 8px 0;
+  }
+  .stats-table td {
+    text-align: center;
+    padding: 6px;
+    border: 1px solid #eee;
+    background-color: #f9f9f9;
+  }
+  .detail-table {
+    width: 100%;
+    border: 1px solid #ccc;
+    margin: 10px 0;
+    font-size: 10px;
+  }
+  .detail-table th {
+    background-color: #4472c4;
+    color: white;
+    padding: 6px 4px;
+    text-align: center;
+    border: 1px solid #3a62a8;
+    font-size: 10px;
+  }
+  .detail-table td {
+    padding: 4px;
+    border: 1px solid #ddd;
+    text-align: center;
+  }
+  .badge {
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: bold;
+    color: white;
+    display: inline-block;
+  }
+  .badge-ok { background-color: #16a34a; }
+  .badge-wrong { background-color: #dc2626; }
+  .badge-uncertain { background-color: #d97706; }
+  .row-wrong { background-color: #fff0f0; }
+  .row-uncertain { background-color: #fffbe6; }
+  .abnormal-card {
+    border: 1px solid #ddd;
+    margin: 8px 0;
+    padding: 0;
+  }
+  .abnormal-card-inner {
+    padding: 8px 12px;
+  }
+  .abnormal-card-wrong {
+    border-left: 4px solid #dc2626;
+  }
+  .abnormal-card-uncertain {
+    border-left: 4px solid #d97706;
+  }
+  .threshold-table {
+    width: 60%;
+    border: 1px solid #ccc;
+    margin: 10px 0;
+  }
+  .threshold-table th {
+    background-color: #4472c4;
+    color: white;
+    padding: 6px 10px;
+    text-align: left;
+    border: 1px solid #3a62a8;
+  }
+  .threshold-table td {
+    padding: 5px 10px;
+    border: 1px solid #ddd;
+  }
+  .page-break {
+    page-break-before: always;
+  }
+</style>
+</head>
+<body>
+
+{% if "summary" in modules %}
+<h1>BioAgent MAX</h1>
+<div class="subtitle">分析报告 &mdash; 生成时间: {{ generated_at }}</div>
+
+<table class="meta-table">
+  <tr><td class="label">分析名称</td><td>{{ analysis.name }}</td></tr>
+  <tr><td class="label">来源路径</td><td>{{ analysis.source_path }}</td></tr>
+  <tr><td class="label">完成时间</td><td>{{ analysis.finished_at }}</td></tr>
+  <tr><td class="label">分析ID</td><td>{{ analysis.id }}</td></tr>
+</table>
+
+<table class="card-table">
+  <tr>
+    <td>
+      <span class="card-value">{{ analysis.total }}</span>
+      <span class="card-label">Total</span>
+    </td>
+    <td>
+      <span class="card-value" style="color:#16a34a">{{ analysis.ok_count }}</span>
+      <span class="card-label">OK</span>
+    </td>
+    <td>
+      <span class="card-value" style="color:#dc2626">{{ analysis.wrong_count }}</span>
+      <span class="card-label">Wrong</span>
+    </td>
+    <td>
+      <span class="card-value" style="color:#d97706">{{ analysis.uncertain_count }}</span>
+      <span class="card-label">Uncertain</span>
+    </td>
+  </tr>
+</table>
+
+<table class="stats-table">
+  <tr>
+    <td><b>{{ stats.pass_rate }}%</b><br/><span style="font-size:10px;color:#666">合格率</span></td>
+    <td><b>{{ stats.avg_identity }}</b><br/><span style="font-size:10px;color:#666">平均 Identity</span></td>
+    <td><b>{{ stats.avg_coverage }}</b><br/><span style="font-size:10px;color:#666">平均 Coverage</span></td>
+  </tr>
+</table>
+{% endif %}
+
+{% if "detail_table" in modules %}
+<h2>样本明细</h2>
+<table class="detail-table">
+  <tr>
+    <th>样本ID</th>
+    <th>克隆</th>
+    <th>状态</th>
+    <th>原因</th>
+    <th>Identity</th>
+    <th>CDS Cov</th>
+    <th>移码</th>
+    <th>AA变化</th>
+    <th>方向</th>
+  </tr>
+  {% for s in samples %}
+  <tr class="{% if s.status == 'wrong' %}row-wrong{% elif s.status == 'uncertain' %}row-uncertain{% endif %}">
+    <td>{{ s.sid }}</td>
+    <td>{{ s.clone }}</td>
+    <td>
+      <span class="badge badge-{{ s.status }}">{{ s.status }}</span>
+    </td>
+    <td style="text-align:left;font-size:9px">{{ s.reason or '' }}</td>
+    <td>{% if s.identity is not none %}{{ "%.4f"|format(s.identity) }}{% endif %}</td>
+    <td>{% if s.cds_coverage is not none %}{{ "%.4f"|format(s.cds_coverage) }}{% endif %}</td>
+    <td>{% if s.frameshift %}是{% else %}否{% endif %}</td>
+    <td>{{ s.aa_changes_n or 0 }}</td>
+    <td>{{ s.orientation or '' }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+{% if "charts" in modules %}
+<div class="page-break"></div>
+<h2>数据分布</h2>
+{% if charts.get("identity_hist") %}
+<p><b>Identity 分布</b></p>
+<img src="data:image/png;base64,{{ charts.identity_hist }}" width="480"/>
+{% endif %}
+{% if charts.get("coverage_hist") %}
+<p><b>CDS Coverage 分布</b></p>
+<img src="data:image/png;base64,{{ charts.coverage_hist }}" width="480"/>
+{% endif %}
+{% if charts.get("status_pie") %}
+<p><b>状态分布</b></p>
+<img src="data:image/png;base64,{{ charts.status_pie }}" width="480"/>
+{% endif %}
+{% endif %}
+
+{% if "abnormal_details" in modules %}
+<div class="page-break"></div>
+<h2>异常样本详情</h2>
+{% if abnormal_samples %}
+{% for s in abnormal_samples %}
+<div class="abnormal-card abnormal-card-{{ s.status }}">
+  <div class="abnormal-card-inner">
+    <b>{{ s.sid }}</b>
+    <span class="badge badge-{{ s.status }}" style="margin-left:8px">{{ s.status }}</span>
+    <br/>
+    <span style="font-size:11px;color:#555">{{ s.reason or '' }}</span>
+    <table style="margin-top:6px;font-size:11px;width:100%">
+      <tr>
+        <td style="width:25%"><b>Identity:</b> {% if s.identity is not none %}{{ "%.4f"|format(s.identity) }}{% endif %}</td>
+        <td style="width:25%"><b>CDS Coverage:</b> {% if s.cds_coverage is not none %}{{ "%.4f"|format(s.cds_coverage) }}{% endif %}</td>
+        <td style="width:25%"><b>Frameshift:</b> {% if s.frameshift %}是{% else %}否{% endif %}</td>
+        <td style="width:25%"><b>AA Changes:</b> {{ s.aa_changes_n or 0 }}</td>
+      </tr>
+    </table>
+    {% if s.aa_changes_parsed %}
+    <div style="margin-top:4px;font-size:10px;color:#666">
+      <b>AA 变化:</b> {{ s.aa_changes_parsed | join(', ') }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<p>无异常样本。</p>
+{% endif %}
+{% endif %}
+
+{% if "alignment" in modules %}
+<div class="page-break"></div>
+<h2>序列比对视图</h2>
+{% if alignment_truncated %}
+<p style="font-size:11px;color:#d97706">
+  共 {{ total_abnormal }} 个异常样本，仅显示前 {{ max_alignment }} 个的比对结果。
+</p>
+{% endif %}
+{% for a in alignment_samples %}
+<div style="margin-bottom:12px">
+  <b>{{ a.sid }}</b>
+  <span class="badge badge-{{ a.status }}" style="margin-left:8px">{{ a.status }}</span>
+  {{ a.alignment_html }}
+</div>
+{% endfor %}
+{% if not alignment_samples %}
+<p>无需展示比对视图。</p>
+{% endif %}
+{% endif %}
+
+{% if "thresholds" in modules %}
+<h2>阈值配置</h2>
+{% if thresholds %}
+<table class="threshold-table">
+  <tr>
+    <th>参数名称</th>
+    <th>参数值</th>
+  </tr>
+  {% for key, value in thresholds.items() %}
+  <tr>
+    <td>{{ key }}</td>
+    <td>{{ value }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>未配置阈值参数。</p>
+{% endif %}
+{% endif %}
+
+</body>
+</html>

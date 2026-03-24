@@ -171,3 +171,37 @@ class TestGenerateExcel:
         ws = wb["样本明细"]
         # Header row + 3 data rows
         assert ws.max_row == 4
+
+
+# ── _render_charts tests ────────────────────────────────────────────
+
+class TestRenderCharts:
+
+    def test_returns_png_bytes(self):
+        from backend.core.report import _render_charts, _build_report_data
+        aid = _create_test_analysis()
+        data = _build_report_data(aid)
+        charts = _render_charts(data["samples"])
+        assert "identity_hist" in charts
+        assert "status_pie" in charts
+        for key, img_bytes in charts.items():
+            assert img_bytes[:8] == b'\x89PNG\r\n\x1a\n', f"{key} is not valid PNG"
+
+
+# ── generate_pdf tests ──────────────────────────────────────────────
+
+class TestGeneratePdf:
+
+    def test_returns_valid_pdf(self):
+        from backend.core.report import generate_pdf
+        aid = _create_test_analysis()
+        pdf = generate_pdf(aid)
+        assert isinstance(pdf, bytes)
+        assert pdf[:5] == b'%PDF-'
+
+    def test_module_filtering(self):
+        from backend.core.report import generate_pdf
+        aid = _create_test_analysis()
+        pdf = generate_pdf(aid, modules=["summary"])
+        assert isinstance(pdf, bytes)
+        assert pdf[:5] == b'%PDF-'
