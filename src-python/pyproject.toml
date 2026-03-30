@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bioagent"
+version = "0.1.0"
+description = "BioAgent bioinformatics sidecar"
+requires-python = ">=3.10"
+dependencies = [
+    "biopython>=1.81",
+    "numpy>=1.24",
+    "openai>=1.0",
+]
+
+[project.scripts]
+bioagent = "bioagent.main:main"

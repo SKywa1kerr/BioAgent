@@ -1,0 +1,284 @@
+.sequence-viewer {
+  --base-width: 10.4px;
+  --gutter-width: 60px;
+  font-family: "Monaco", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  background: #ffffff;
+  color: #222;
+  overflow-y: auto;
+  padding: 0;
+  user-select: text;
+}
+
+/* ─── Minimap ─── */
+.minimap {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: #f0f0f0;
+  border-bottom: 1px solid #ccc;
+  padding: 6px 12px;
+}
+
+.minimap-track {
+  position: relative;
+  height: 20px;
+  background: #e8e8e8;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.minimap-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: #ccc;
+}
+
+.minimap-label {
+  position: absolute;
+  top: -1px;
+  left: 2px;
+  font-size: 8px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.minimap-feature {
+  position: absolute;
+  top: 4px;
+  height: 12px;
+  background: #c9a832;
+  opacity: 0.7;
+  border-radius: 2px;
+}
+
+.minimap-mutation {
+  position: absolute;
+  top: 2px;
+  width: 3px;
+  height: 16px;
+  background: #e33;
+  border-radius: 1px;
+}
+
+/* ─── Sequence blocks ─── */
+.sequence-blocks {
+  padding: 8px 0;
+}
+
+.sequence-block {
+  position: relative;
+  margin-bottom: 6px;
+  padding: 2px 12px 6px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+/* ─── Common row layout ─── */
+.strand-row,
+.aa-row,
+.position-row,
+.feature-row,
+.trace-row {
+  display: flex;
+  align-items: center;
+  line-height: 1.5;
+  white-space: pre;
+}
+
+.row-gutter {
+  width: var(--gutter-width);
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 8px;
+  color: #999;
+  font-size: 10px;
+}
+
+.row-bp-count {
+  margin-left: 12px;
+  color: #999;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+/* ─── Bases ─── */
+.strand-bases,
+.aa-bases,
+.position-bases {
+  display: flex;
+}
+
+.base-char {
+  width: var(--base-width);
+  text-align: center;
+  font-weight: 400;
+}
+
+.base-char.mutation {
+  background: #e33;
+  color: #fff !important;
+  border-radius: 1px;
+  font-weight: 700;
+}
+
+.base-char.mismatch {
+  background: #f88;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+/* ─── Tick marks ─── */
+.tick-row {
+  line-height: 1.0;
+  opacity: 0.5;
+}
+
+.tick-major,
+.tick-minor {
+  width: var(--base-width);
+  text-align: center;
+  color: #aaa;
+  font-size: 9px;
+}
+
+.tick-major {
+  color: #888;
+  font-weight: bold;
+}
+
+/* ─── Enzyme labels ─── */
+.enzyme-row {
+  position: relative;
+  height: 16px;
+  margin-bottom: 2px;
+}
+
+.enzyme-label {
+  position: absolute;
+  top: 0;
+  font-size: 9px;
+  color: #0066cc;
+  white-space: pre-line;
+  line-height: 1.1;
+  font-weight: 600;
+  transform: translateX(-50%);
+}
+
+/* ─── Feature bar ─── */
+.feature-row {
+  margin: 3px 0;
+}
+
+.feature-track {
+  position: relative;
+  height: 22px;
+  flex: 1;
+}
+
+.feature-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(to bottom, #d4a017, #c49510);
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.feature-name {
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.5px;
+}
+
+.feature-arrow {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+/* ─── Amino acids ─── */
+.aa-char {
+  width: var(--base-width);
+  text-align: center;
+  font-size: 10px;
+  color: #555;
+  font-weight: 600;
+}
+
+.aa-char.aa-spacer {
+  visibility: hidden;
+}
+
+.aa-char.aa-mutation {
+  color: #e33;
+  font-weight: 800;
+}
+
+/* ─── Position numbers ─── */
+.position-row {
+  line-height: 1.2;
+}
+
+.pos-mark {
+  width: var(--base-width);
+  text-align: center;
+  font-size: 9px;
+  color: #999;
+  overflow: visible;
+  position: relative;
+}
+
+.pos-spacer {
+  width: var(--base-width);
+}
+
+/* ─── Chromatogram trace ─── */
+.trace-row {
+  margin: 4px 0;
+}
+
+.trace-canvas {
+  display: block;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+}
+
+/* ─── Query row ─── */
+.query-row {
+  margin-top: 2px;
+  background: #f8f8f8;
+  border-radius: 3px;
+  padding: 2px 0;
+}
+
+.query-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: #666;
+}
+
+/* ─── Scrollbar styling ─── */
+.sequence-viewer::-webkit-scrollbar {
+  width: 10px;
+}
+
+.sequence-viewer::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+
+.sequence-viewer::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 5px;
+}
+
+.sequence-viewer::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}
