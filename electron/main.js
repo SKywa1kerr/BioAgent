@@ -76,11 +76,17 @@ ipcMain.handle("run-analysis", async (_event, ab1Dir, genesDir, options = {}) =>
 
     const env = { ...process.env, PYTHONPATH: pythonDir };
 
-    execFile(pythonPath, args, { cwd: pythonDir, env }, (error, stdout, stderr) => {
+    // Increase maxBuffer to 100MB to handle large chromatogram data
+    execFile(pythonPath, args, { cwd: pythonDir, env, maxBuffer: 100 * 1024 * 1024 }, (error, stdout, stderr) => {
       if (error) {
+        // Only reject if there's an actual error code, not just stderr output
         console.error("Python Error:", stderr);
         reject(`Analysis failed: ${stderr || error.message}`);
       } else {
+        // Some Python libraries might print to stderr even on success
+        if (stderr) {
+          console.log("Python Warning/Info:", stderr);
+        }
         resolve(stdout);
       }
     });

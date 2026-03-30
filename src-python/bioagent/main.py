@@ -104,6 +104,10 @@ def analyze_folder(
     all_results = []
 
     for ab1_file in ab1_files:
+        # Skip non-ab1 files that might be picked up by rglob
+        if ab1_file.suffix.lower() != ".ab1":
+            continue
+
         # Extract clone ID using multiple strategies from sanger.py
         clone_id = None
         
@@ -161,7 +165,7 @@ def analyze_folder(
                 cds_end = cds_start + len(raw_insert_seq) - 1
 
             # Trim sequence
-            trimmed_seq, trimmed_qual = trim_sequence(query_seq, chrom_data.quality)
+            trimmed_seq, trimmed_qual, trim_start = trim_sequence(query_seq, chrom_data.quality)
 
             # Analyze
             result = analyze_sample(
@@ -177,15 +181,30 @@ def analyze_folder(
             result.ab1 = ab1_file.name
             result.gb = ref_file.name
             
-            # Add chromatogram data
-            result.traces_a = chrom_data.traces_a
-            result.traces_t = chrom_data.traces_t
-            result.traces_g = chrom_data.traces_g
-            result.traces_c = chrom_data.traces_c
-            result.quality = chrom_data.quality
+            # Add chromatogram data (trimmed to match query_seq)
+            trim_end = trim_start + len(trimmed_seq)
+            
+            # Calculate trace range to trim (with 20 points padding)
+            if chrom_data.base_locations:
+                locs = chrom_data.base_locations[trim_start:trim_end]
+                trace_start = max(0, min(locs) - 20) if locs else 0
+                trace_end = min(len(chrom_data.traces_a), max(locs) + 20) if locs else len(chrom_data.traces_a)
+            else:
+                trace_start = 0
+                trace_end = len(chrom_data.traces_a)
+
+            result.traces_a = chrom_data.traces_a[trace_start:trace_end]
+            result.traces_t = chrom_data.traces_t[trace_start:trace_end]
+            result.traces_g = chrom_data.traces_g[trace_start:trace_end]
+            result.traces_c = chrom_data.traces_c[trace_start:trace_end]
+            result.quality = chrom_data.quality[trim_start:trim_end]
+            
+            # Offset base locations and mixed peaks to match trimmed traces
+            result.base_locations = [loc - trace_start for loc in chrom_data.base_locations[trim_start:trim_end]]
+            result.mixed_peaks = [p - trim_start for p in chrom_data.mixed_peaks if trim_start <= p < trim_end]
 
             all_results.append(result)
-            print(f"Analyzed: {clone_id} ({ab1_file.name})", file=sys.stderr)
+            # print(f"Analyzed: {clone_id} ({ab1_file.name})", file=sys.stderr)
 
         except Exception as e:
             print(f"Error analyzing {ab1_file}: {e}", file=sys.stderr)
@@ -330,7 +349,8 @@ def main():
         model=args.model
     )
 
-    output = json.dumps(results, indent=2)
+    # Use compact JSON (no indent) to reduce payload size for large trace arrays
+    output = json.dumps(results, separators=(',', ':'))
 
     if args.output:
         Path(args.output).write_text(output)

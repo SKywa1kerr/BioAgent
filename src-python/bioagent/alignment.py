@@ -294,6 +294,8 @@ def analyze_sample(
         sample_id=sample_id,
         ref_sequence=ref_seq,
         query_sequence=query_seq,
+        aligned_ref_g=ref_g,
+        aligned_query_g=qry_g,
         aligned_query=qry_used,
         matches=[a == b for a, b in zip(ref_g, qry_g)],
         mutations=mutations,

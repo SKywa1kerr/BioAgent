@@ -23,7 +23,11 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
   onHover,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
+  const [tooltip, setTooltip] = useState<{
+    x: number;
+    y: number;
+    content: string;
+  } | null>(null);
 
   useEffect(() => {
     if (!data || !canvasRef.current) return;
@@ -43,24 +47,39 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
     const height = canvas.height;
     const padding = 20;
 
-    // Calculate visible range
-    const startIdx = Math.max(0, startPosition - 1);
-    const endIdx = Math.min(traces.A.length, endPosition);
-    const range = endIdx - startIdx;
+    if (!data.baseCalls || !data.base_locations) return;
 
-    if (range <= 0) return;
+    // Calculate visible range in terms of base calls
+    const startBaseIdx = Math.max(0, startPosition - 1);
+    const endBaseIdx = Math.min(data.baseCalls.length, endPosition);
 
-    // Find max value for scaling
+    // Map base indices to trace indices using base_locations
+    const startTraceIdx = data.base_locations[startBaseIdx] || 0;
+    const endTraceIdx =
+      data.base_locations[endBaseIdx - 1] || (traces.A?.length || 1) - 1;
+
+    // Add some padding to the trace range
+    const tracePadding = 20;
+    const visibleStartTrace = Math.max(0, startTraceIdx - tracePadding);
+    const visibleEndTrace = Math.min(
+      traces.A.length,
+      endTraceIdx + tracePadding
+    );
+    const traceRange = visibleEndTrace - visibleStartTrace;
+
+    if (traceRange <= 0) return;
+
+    // Find max value for scaling in the visible trace range
     let maxVal = 0;
     ["A", "T", "G", "C"].forEach((base) => {
       const trace = traces[base as keyof typeof traces];
-      for (let i = startIdx; i < endIdx; i++) {
+      for (let i = visibleStartTrace; i < visibleEndTrace; i++) {
         if (trace[i] > maxVal) maxVal = trace[i];
       }
     });
 
     // Draw traces
-    const xScale = (width - 2 * padding) / range;
+    const xScale = (width - 2 * padding) / traceRange;
     const yScale = (height - 2 * padding) / (maxVal * 1.1);
 
     ["A", "T", "G", "C"].forEach((base) => {
@@ -69,11 +88,11 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
       ctx.lineWidth = 1.5;
       ctx.beginPath();
 
-      for (let i = startIdx; i < endIdx; i++) {
-        const x = padding + (i - startIdx) * xScale;
+      for (let i = visibleStartTrace; i < visibleEndTrace; i++) {
+        const x = padding + (i - visibleStartTrace) * xScale;
         const y = height - padding - trace[i] * yScale;
 
-        if (i === startIdx) {
+        if (i === visibleStartTrace) {
           ctx.moveTo(x, y);
         } else {
           ctx.lineTo(x, y);
@@ -82,6 +101,30 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
 
       ctx.stroke();
     });
+
+    // Draw base calls and mixed peak indicators
+    ctx.font = "10px monospace";
+    ctx.textAlign = "center";
+    for (let i = startBaseIdx; i < endBaseIdx; i++) {
+      const traceIdx = data.base_locations[i];
+      if (traceIdx < visibleStartTrace || traceIdx > visibleEndTrace) continue;
+
+      const x = padding + (traceIdx - visibleStartTrace) * xScale;
+      const base = data.baseCalls[i];
+
+      // Draw base letter
+      ctx.fillStyle = TRACE_COLORS[base as keyof typeof TRACE_COLORS] || "#fff";
+      ctx.fillText(base, x, height - 5);
+
+      // Highlight mixed peaks
+      if (data.mixed_peaks.includes(i)) {
+        ctx.strokeStyle = "#ffff00";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(x, height - 15, 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
   }, [data, startPosition, endPosition]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -93,22 +136,50 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
     const padding = 20;
     const width = canvas.width - 2 * padding;
 
-    const startIdx = Math.max(0, startPosition - 1);
-    const endIdx = Math.min(data.traces.A.length, endPosition);
-    const range = endIdx - startIdx;
+    if (!data.baseCalls || !data.base_locations) return;
+
+    const startBaseIdx = Math.max(0, startPosition - 1);
+    const endBaseIdx = Math.min(data.baseCalls.length, endPosition);
+
+    const startTraceIdx = data.base_locations[startBaseIdx] || 0;
+    const endTraceIdx =
+      data.base_locations[endBaseIdx - 1] || (data.traces.A?.length || 1) - 1;
+
+    const tracePadding = 20;
+    const visibleStartTrace = Math.max(0, startTraceIdx - tracePadding);
+    const visibleEndTrace = Math.min(
+      data.traces.A.length,
+      endTraceIdx + tracePadding
+    );
+    const traceRange = visibleEndTrace - visibleStartTrace;
 
     const relativeX = x - padding;
-    const positionIdx = Math.floor((relativeX / width) * range) + startIdx;
+    const currentTraceIdx =
+      (relativeX / width) * traceRange + visibleStartTrace;
 
-    if (positionIdx >= startIdx && positionIdx < endIdx && data.quality) {
-      const quality = data.quality[positionIdx];
-      onHover(positionIdx + 1, quality);
+    // Find the closest base call to this trace index
+    let closestBaseIdx = startBaseIdx;
+    let minDistance = Math.abs(data.base_locations[startBaseIdx] - currentTraceIdx);
 
-      // Show tooltip after delay
+    for (let i = startBaseIdx + 1; i < endBaseIdx; i++) {
+      const distance = Math.abs(data.base_locations[i] - currentTraceIdx);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestBaseIdx = i;
+      }
+    }
+
+    if (closestBaseIdx >= startBaseIdx && closestBaseIdx < endBaseIdx && data.quality) {
+      const quality = data.quality[closestBaseIdx];
+      onHover(closestBaseIdx + 1, quality);
+
+      const isMixed = data.mixed_peaks.includes(closestBaseIdx);
+
+      // Show tooltip
       setTooltip({
         x: e.clientX + 10,
         y: e.clientY - 30,
-        content: `Q${quality}`,
+        content: `Q${quality}${isMixed ? " (Mixed Peak)" : ""}`,
       });
     }
   };

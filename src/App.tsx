@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Sample, ChromatogramData } from "./types";
 import { SampleList } from "./components/SampleList";
 import { SequenceViewer } from "./components/SequenceViewer";
+import { ChromatogramCanvas } from "./components/ChromatogramCanvas";
 import "./App.css";
 
 const { invoke } = window.electronAPI;
@@ -69,7 +70,8 @@ function App() {
     selectedSample.traces_t &&
     selectedSample.traces_g &&
     selectedSample.traces_c &&
-    selectedSample.quality
+    selectedSample.quality &&
+    selectedSample.query_sequence
       ? {
           traces: {
             A: selectedSample.traces_a,
@@ -78,11 +80,9 @@ function App() {
             C: selectedSample.traces_c,
           },
           quality: selectedSample.quality,
-          baseCalls: Array.from(selectedSample.query_sequence),
-          positions: Array.from(
-            { length: selectedSample.quality.length },
-            (_, i) => i
-          ),
+          baseCalls: selectedSample.query_sequence,
+          base_locations: selectedSample.base_locations || [],
+          mixed_peaks: selectedSample.mixed_peaks || [],
         }
       : null;
 
@@ -129,10 +129,10 @@ function App() {
                 {selectedSample.status.toUpperCase()}
               </span>
               <span>
-                Identity: {(selectedSample.identity * 100).toFixed(1)}%
+                Identity: {((selectedSample.identity || 0) * 100).toFixed(1)}%
               </span>
               <span>
-                Coverage: {(selectedSample.coverage * 100).toFixed(1)}%
+                Coverage: {((selectedSample.coverage || 0) * 100).toFixed(1)}%
               </span>
               {selectedSample.frameshift && (
                 <span className="status-badge wrong">FRAMESHIFT</span>
@@ -153,57 +153,77 @@ function App() {
 
         <main className="main-content">
           {selectedSample ? (
-            <div className="viewer">
-              <div className="sequence-section">
+            selectedSample.status === "error" ? (
+              <div className="error-state">
+                <h3>Analysis Error</h3>
+                <p>{selectedSample.error}</p>
+              </div>
+            ) : (
+              <div className="viewer">
+                <div className="sequence-section">
                 <SequenceViewer
-                  refSequence={selectedSample.ref_sequence}
-                  querySequence={selectedSample.query_sequence}
-                  alignedQuery={selectedSample.aligned_query}
-                  matches={selectedSample.matches}
-                  mutations={selectedSample.mutations}
+                  refSequence={selectedSample.ref_sequence || ""}
+                  querySequence={selectedSample.query_sequence || ""}
+                  alignedRefG={selectedSample.aligned_ref_g || ""}
+                  alignedQueryG={selectedSample.aligned_query_g || ""}
+                  alignedQuery={selectedSample.aligned_query || ""}
+                  matches={selectedSample.matches || []}
+                  mutations={selectedSample.mutations || []}
                   chromatogramData={chromatogramData}
-                  cdsStart={selectedSample.cds_start}
-                  cdsEnd={selectedSample.cds_end}
+                  cdsStart={selectedSample.cds_start || 0}
+                  cdsEnd={selectedSample.cds_end || 0}
                   featureName={selectedSample.clone || "CDS"}
                 />
-              </div>
+                </div>
 
-              <div className="details-section">
-                <h4>Mutations</h4>
-                {selectedSample.llm_verdict && (
-                  <div className="llm-verdict">
-                    <strong>LLM Verdict:</strong>
-                    <p>{selectedSample.llm_verdict}</p>
-                  </div>
-                )}
-                {selectedSample.mutations.length > 0 ? (
-                  <table className="mutation-table">
-                    <thead>
-                      <tr>
-                        <th>Pos</th>
-                        <th>Ref</th>
-                        <th>Query</th>
-                        <th>Type</th>
-                        <th>Effect</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedSample.mutations.map((m, i) => (
-                        <tr key={i}>
-                          <td>{m.position}</td>
-                          <td className="base-cell">{m.refBase}</td>
-                          <td className="base-cell">{m.queryBase}</td>
-                          <td>{m.type}</td>
-                          <td>{m.effect || "-"}</td>
+                <div className="details-section">
+                  {chromatogramData && (
+                    <div className="full-chromatogram">
+                      <h4>Chromatogram Spectrum</h4>
+                      <ChromatogramCanvas
+                        data={chromatogramData}
+                        startPosition={1}
+                        endPosition={chromatogramData.baseCalls.length}
+                        onHover={() => {}}
+                      />
+                    </div>
+                  )}
+                  <h4>Mutations</h4>
+                  {selectedSample.llm_verdict && (
+                    <div className="llm-verdict">
+                      <strong>LLM Verdict:</strong>
+                      <p>{selectedSample.llm_verdict}</p>
+                    </div>
+                  )}
+                  {selectedSample.mutations && selectedSample.mutations.length > 0 ? (
+                    <table className="mutation-table">
+                      <thead>
+                        <tr>
+                          <th>Pos</th>
+                          <th>Ref</th>
+                          <th>Query</th>
+                          <th>Type</th>
+                          <th>Effect</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <p className="no-mutations">No mutations detected</p>
-                )}
+                      </thead>
+                      <tbody>
+                        {selectedSample.mutations.map((m, i) => (
+                          <tr key={i}>
+                            <td>{m.position}</td>
+                            <td className="base-cell">{m.refBase}</td>
+                            <td className="base-cell">{m.queryBase}</td>
+                            <td>{m.type}</td>
+                            <td>{m.effect || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="no-mutations">No mutations detected</p>
+                  )}
+                </div>
               </div>
-            </div>
+            )
           ) : (
             <div className="empty-state">
               <p>Open a folder containing AB1 and GenBank files to begin</p>

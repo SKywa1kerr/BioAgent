@@ -13,6 +13,8 @@ import "./SequenceViewer.css";
 interface SequenceViewerProps {
   refSequence: string;
   querySequence: string;
+  alignedRefG?: string;
+  alignedQueryG?: string;
   alignedQuery: string;
   matches: boolean[];
   mutations: Mutation[];
@@ -39,7 +41,8 @@ const ChromatogramBlock: React.FC<{
   startBase: number;
   numBases: number;
   baseWidth: number;
-}> = ({ data, startBase, numBases, baseWidth }) => {
+  alignedQueryG: string;
+}> = ({ data, startBase, numBases, baseWidth, alignedQueryG }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const width = numBases * baseWidth;
 
@@ -58,19 +61,45 @@ const ChromatogramBlock: React.FC<{
     ctx.fillRect(0, 0, width, TRACE_HEIGHT);
 
     const traces = data.traces;
-    const totalTracePoints = traces.A.length;
-    const totalBases = data.baseCalls.length;
+    const totalTracePoints = traces.A?.length || 0;
+    const totalBases = data.baseCalls?.length || 0;
     if (totalBases === 0 || totalTracePoints === 0) return;
 
-    // Calculate trace points per base
-    const pointsPerBase = totalTracePoints / totalBases;
-    const traceStart = Math.floor(startBase * pointsPerBase);
-    const traceEnd = Math.min(
-      Math.floor((startBase + numBases) * pointsPerBase),
-      totalTracePoints
-    );
-    const traceRange = traceEnd - traceStart;
+    // Map gapped alignment positions to ungapped query indices
+    const getQueryIdx = (alnIdx: number) => {
+      let qIdx = 0;
+      for (let i = 0; i < alnIdx; i++) {
+        if (alignedQueryG[i] !== "-") qIdx++;
+      }
+      return qIdx;
+    };
 
+    // Use base_locations for precise mapping if available
+    let traceStart: number;
+    let traceEnd: number;
+
+    if (data.base_locations && data.base_locations.length > 0) {
+      const qStartIdx = getQueryIdx(startBase);
+      const qEndIdx = getQueryIdx(startBase + numBases - 1);
+
+      traceStart = data.base_locations[qStartIdx] || 0;
+      traceEnd = data.base_locations[qEndIdx] || totalTracePoints;
+
+      // Add some padding
+      const paddingPoints = 5;
+      traceStart = Math.max(0, traceStart - paddingPoints);
+      traceEnd = Math.min(totalTracePoints, traceEnd + paddingPoints);
+    } else {
+      // Fallback to linear mapping
+      const pointsPerBase = totalTracePoints / totalBases;
+      traceStart = Math.floor(startBase * pointsPerBase);
+      traceEnd = Math.min(
+        Math.floor((startBase + numBases) * pointsPerBase),
+        totalTracePoints
+      );
+    }
+
+    const traceRange = traceEnd - traceStart;
     if (traceRange <= 0) return;
 
     // Find max value for scaling
@@ -106,11 +135,32 @@ const ChromatogramBlock: React.FC<{
     ctx.font = "9px Monaco, Consolas, monospace";
     ctx.textAlign = "center";
     for (let i = 0; i < numBases; i++) {
-      const baseIdx = startBase + i;
-      if (baseIdx < data.baseCalls.length) {
-        const b = data.baseCalls[baseIdx];
+      const alnIdx = startBase + i;
+      const b = alignedQueryG[alnIdx];
+      if (b === "-" || !b) continue;
+
+      const qIdx = getQueryIdx(alnIdx);
+      if (data.baseCalls && qIdx < data.baseCalls.length) {
+        const traceIdx = data.base_locations ? data.base_locations[qIdx] : -1;
+        
+        let x: number;
+        if (traceIdx !== -1) {
+          x = ((traceIdx - traceStart) / traceRange) * width;
+        } else {
+          x = (i + 0.5) * baseWidth;
+        }
+
         ctx.fillStyle = colors[b as keyof typeof colors] || "#888";
-        ctx.fillText(b, (i + 0.5) * baseWidth, TRACE_HEIGHT - 2);
+        ctx.fillText(b, x, TRACE_HEIGHT - 2);
+
+        // Highlight mixed peaks
+        if (data.mixed_peaks && data.mixed_peaks.includes(qIdx)) {
+          ctx.strokeStyle = "#ffff00";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(x, TRACE_HEIGHT - 12, 3, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
     }
   }, [data, startBase, numBases, baseWidth, width]);
@@ -125,58 +175,90 @@ const ChromatogramBlock: React.FC<{
 };
 
 export const SequenceViewer: React.FC<SequenceViewerProps> = ({
-  refSequence,
-  alignedQuery,
-  matches,
-  mutations,
+  refSequence = "",
+  querySequence = "",
+  alignedRefG = "",
+  alignedQueryG = "",
+  matches = [],
+  mutations = [],
   chromatogramData,
   cdsStart,
   cdsEnd,
   featureName = "CDS",
 }) => {
-  const complement = useMemo(() => complementStrand(refSequence), [refSequence]);
+  const displayRef = alignedRefG || refSequence;
+  const displayQuery = alignedQueryG || querySequence;
+
+  const complement = useMemo(() => complementStrand(displayRef || ""), [displayRef]);
+
+  // Map ungapped reference position to gapped reference position
+  const refToGapped = useMemo(() => {
+    const map = new Array(refSequence.length).fill(0);
+    let refIdx = 0;
+    for (let i = 0; i < displayRef.length; i++) {
+      if (displayRef[i] !== "-") {
+        map[refIdx] = i;
+        refIdx++;
+      }
+    }
+    return map;
+  }, [refSequence, displayRef]);
 
   const aminoAcids = useMemo(() => {
-    if (cdsStart < 0 || cdsEnd < 0) return [];
-    const cdsSeq = refSequence.slice(cdsStart, cdsEnd);
+    if (cdsStart <= 0 || cdsEnd <= 0 || !refSequence) return [];
+    // cdsStart is 1-based from backend
+    const cdsSeq = refSequence.slice(cdsStart - 1, cdsEnd);
     return translateDNA(cdsSeq, 0).map((aa) => ({
       ...aa,
-      position: aa.position + cdsStart,
+      // Map ungapped position to gapped position
+      position: refToGapped[aa.position + cdsStart - 1] ?? (aa.position + cdsStart - 1),
     }));
-  }, [refSequence, cdsStart, cdsEnd]);
+  }, [refSequence, cdsStart, cdsEnd, refToGapped]);
 
-  const restrictionSites = useMemo(
-    () => findRestrictionSites(refSequence),
-    [refSequence]
-  );
+  const restrictionSites = useMemo(() => {
+    const sites = findRestrictionSites(refSequence);
+    return sites.map(s => ({
+      ...s,
+      // Map ungapped position to gapped position
+      position: refToGapped[s.position] ?? s.position
+    }));
+  }, [refSequence, refToGapped]);
 
   const siteGroups = useMemo(
     () => groupRestrictionSites(restrictionSites),
     [restrictionSites]
   );
 
+  const gappedCdsStart = useMemo(() => refToGapped[cdsStart - 1] ?? (cdsStart - 1), [cdsStart, refToGapped]);
+  const gappedCdsEnd = useMemo(() => {
+    const lastIdx = refToGapped[cdsEnd - 1] ?? (cdsEnd - 1);
+    return lastIdx + 1;
+  }, [cdsEnd, refToGapped]);
+
   // Create mutation position set for quick lookup
   const mutationPositions = useMemo(() => {
     const set = new Set<number>();
     for (const m of mutations) {
-      set.add(m.position);
+      // m.position is 1-based ungapped ref position
+      const gappedIdx = refToGapped[m.position - 1];
+      if (gappedIdx !== undefined) {
+        set.add(gappedIdx);
+      }
     }
     return set;
-  }, [mutations]);
+  }, [mutations, refToGapped]);
 
   // Split into blocks
-  const totalBases = refSequence.length;
+  const totalBases = displayRef?.length || 0;
   const numBlocks = Math.ceil(totalBases / BASES_PER_LINE);
 
   const renderBlock = (blockIdx: number) => {
     const blockStart = blockIdx * BASES_PER_LINE;
     const blockEnd = Math.min(blockStart + BASES_PER_LINE, totalBases);
     const blockLength = blockEnd - blockStart;
-    const refSlice = refSequence.slice(blockStart, blockEnd);
+    const refSlice = displayRef.slice(blockStart, blockEnd);
     const compSlice = complement.slice(blockStart, blockEnd);
-    const querySlice = alignedQuery
-      ? alignedQuery.slice(blockStart, blockEnd)
-      : "";
+    const querySlice = displayQuery.slice(blockStart, blockEnd);
     const matchSlice = matches ? matches.slice(blockStart, blockEnd) : [];
 
     // Restriction sites in this block
@@ -194,9 +276,9 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
 
     // Is CDS feature in this block?
     const featureInBlock =
-      cdsStart < blockEnd && cdsEnd > blockStart && cdsStart >= 0;
-    const featureStart = Math.max(0, cdsStart - blockStart);
-    const featureEnd = Math.min(blockLength, cdsEnd - blockStart);
+      gappedCdsStart < blockEnd && gappedCdsEnd > blockStart && gappedCdsStart >= 0;
+    const featureStart = Math.max(0, gappedCdsStart - blockStart);
+    const featureEnd = Math.min(blockLength, gappedCdsEnd - blockStart);
 
     // Right margin line number (like SnapGene shows bp count on right)
     const rightBp = blockEnd;
@@ -337,6 +419,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
               startBase={blockStart}
               numBases={blockLength}
               baseWidth={10.4}
+              alignedQueryG={displayQuery}
             />
           </div>
         )}

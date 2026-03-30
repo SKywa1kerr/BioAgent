@@ -1,12 +1,102 @@
 """Parse AB1 and GenBank files."""
 
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List, Dict
 from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from .models import ChromatogramData
+
+
+def is_concave(traces: Dict[str, List[int]], pos: int, base: str) -> bool:
+    """Determine whether the trace at given position is concave."""
+    if pos < 2 or pos >= len(traces[base]) - 2:
+        return False
+    x1 = pos - 2
+    x2 = pos
+    x3 = pos + 2
+    func = traces[base.upper()]
+    left = (func[x2] - func[x1]) / (x2 - x1)
+    right = (func[x3] - func[x1]) / (x3 - x1)
+    return left >= right
+
+
+def peak_borders(base_locations: List[int], traces_len: int, i: int) -> Tuple[int, int]:
+    """Determine positions in the trace that correspond to a single chromatogram peak."""
+    pos = base_locations[i]
+    if i == 0:
+        prev = -pos
+    else:
+        prev = base_locations[i - 1]
+    if i == len(base_locations) - 1:
+        end = traces_len
+        start = (pos - prev) // 2
+    else:
+        next_pos = base_locations[i + 1]
+        width = (next_pos - prev) // 4
+        start = max(0, pos - width + 2)
+        end = min(pos + width - 2, traces_len)
+    return start, end
+
+
+def area_under_peak(traces: Dict[str, List[int]], start: int, end: int, base: str) -> int:
+    """Return area under the curve in a given trace between indices start and end."""
+    area = sum(traces[base.upper()][start : end + 1])
+    return area
+
+
+def signal_to_noise(seq: str, base_locations: List[int], traces: Dict[str, List[int]], i: int) -> float:
+    """Calculate the signal to noise ratio of a position."""
+    base = seq[i]
+    if base.upper() == "N":
+        return 1
+    start, end = peak_borders(base_locations, len(traces["A"]), i)
+    areas = {b: area_under_peak(traces, start, end, b) for b in traces.keys()}
+    primary = areas[base.upper()]
+    secondary = sum([areas[letter.upper()] for letter in areas.keys() if letter != base])
+    if secondary == 0:
+        return 35
+    return primary / secondary
+
+
+def find_mixed_peaks(seq: str, base_locations: List[int], traces: Dict[str, List[int]], fraction: float = 0.15) -> List[int]:
+    """For each position of the sequence, determine if the peak in the chromatogram is 'mixed'."""
+    if not base_locations:
+        return []
+    stn = [signal_to_noise(seq, base_locations, traces, i) for i in range(len(base_locations))]
+    avg_stn = sum(stn) / len(stn)
+    mixed_peaks = []
+    threshold = max(25, avg_stn * 1.35)
+
+    for i, pos in enumerate(base_locations):
+        stn_local = stn[max(0, i - 10) : i] + stn[i + 1 : i + 10]
+        if not stn_local:
+            continue
+        signal_to_noise_val = sum(stn_local) / len(stn_local)
+
+        if signal_to_noise_val < threshold:
+            continue
+
+        base = seq[i]
+        start, end = peak_borders(base_locations, len(traces["A"]), i)
+        areas = {b: area_under_peak(traces, start, end, b) for b in traces.keys()}
+        peaks = {b: values[pos] for b, values in traces.items()}
+        if base != "N":
+            main_peak = peaks[base.upper()]
+        else:
+            main_peak = max(peaks.values())
+            base = max(peaks, key=peaks.get)
+
+        for letter, area in areas.items():
+            if (
+                base != letter
+                and area > (areas[base.upper()] * fraction)
+                and peaks[letter] > (main_peak * fraction)
+                and is_concave(traces, pos, letter)
+            ):
+                mixed_peaks.append(i)
+    return mixed_peaks
 
 
 def parse_ab1(filepath: str) -> Tuple[str, ChromatogramData]:
@@ -17,21 +107,48 @@ def parse_ab1(filepath: str) -> Tuple[str, ChromatogramData]:
     # Get quality scores
     quality = record.letter_annotations.get("phred_quality", [])
 
-    # Get trace data
-    traces = {
-        "A": record.annotations["abif_raw"].get("DATA1", []),
-        "T": record.annotations["abif_raw"].get("DATA2", []),
-        "G": record.annotations["abif_raw"].get("DATA3", []),
-        "C": record.annotations["abif_raw"].get("DATA4", []),
-    }
+    # Get trace data - TraceTrack uses DATA9-12 for GATC
+    # BioPython's abi parser usually maps DATA1-4 to the bases
+    # We'll try to find the correct DATA tags for GATC
+    raw = record.annotations.get("abif_raw", {})
+    
+    # Mapping from TraceTrack: G:9, A:10, T:11, C:12
+    # But BioPython often maps them to DATA1-4. We'll check both.
+    def get_data(tag_idx):
+        return list(raw.get(f"DATA{tag_idx}", []))
+
+    # Use FWO_1 tag for robust channel mapping (recommended by Biopython)
+    # FWO_1 contains the order of bases for DATA1-4 (e.g., "GATC")
+    fwo = raw.get("FWO_1", b"GATC")
+    if isinstance(fwo, bytes):
+        fwo = fwo.decode("utf-8")
+    
+    traces = {}
+    for i, base in enumerate(fwo):
+        traces[base.upper()] = get_data(i + 1)
+    
+    # Fallback for DATA9-12 if DATA1-4 are empty or FWO_1 is missing
+    if not traces.get("A") and raw.get("DATA9"):
+        traces = {
+            "G": get_data(9),
+            "A": get_data(10),
+            "T": get_data(11),
+            "C": get_data(12),
+        }
+
+    base_locations = list(record.annotations["abif_raw"].get("PLOC1", []))
+
+    mixed_peaks = find_mixed_peaks(seq, base_locations, traces)
 
     chrom_data = ChromatogramData(
-        traces_a=list(traces["A"]),
-        traces_t=list(traces["T"]),
-        traces_g=list(traces["G"]),
-        traces_c=list(traces["C"]),
+        traces_a=traces["A"],
+        traces_t=traces["T"],
+        traces_g=traces["G"],
+        traces_c=traces["C"],
         quality=list(quality),
         base_calls=seq,
+        base_locations=base_locations,
+        mixed_peaks=mixed_peaks,
     )
 
     return seq, chrom_data
@@ -60,10 +177,10 @@ def parse_fasta(filepath: str) -> Tuple[SeqRecord, str]:
     return record, seq
 
 
-def trim_sequence(seq: str, quality: list, min_quality: int = 20) -> Tuple[str, list]:
+def trim_sequence(seq: str, quality: list, min_quality: int = 20) -> Tuple[str, list, int]:
     """Trim low-quality ends from sequence using middle-out logic from sanger.py."""
     if not quality:
-        return seq, quality
+        return seq, quality, 0
 
     num = len(quality)
     mid = num // 2
@@ -82,4 +199,4 @@ def trim_sequence(seq: str, quality: list, min_quality: int = 20) -> Tuple[str, 
             end = i
             break
 
-    return seq[start:end], quality[start:end]
+    return seq[start:end], quality[start:end], start

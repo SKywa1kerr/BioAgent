@@ -30,6 +30,8 @@ class AlignmentResult:
     frameshift: bool
     identity: float
     coverage: float
+    aligned_ref_g: str = ""
+    aligned_query_g: str = ""
     # Added fields from core/alignment.py
     clone: str = ""
     ab1: str = ""
@@ -58,6 +60,8 @@ class AlignmentResult:
     traces_g: List[int] = field(default_factory=list)
     traces_c: List[int] = field(default_factory=list)
     quality: List[int] = field(default_factory=list)
+    base_locations: List[int] = field(default_factory=list)
+    mixed_peaks: List[int] = field(default_factory=list)
 
 
 @dataclass
@@ -68,3 +72,5 @@ class ChromatogramData:
     traces_c: List[int]
     quality: List[int]
     base_calls: str
+    base_locations: List[int] = field(default_factory=list)
+    mixed_peaks: List[int] = field(default_factory=list)

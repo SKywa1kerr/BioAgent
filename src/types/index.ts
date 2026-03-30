@@ -11,6 +11,8 @@ export interface Sample {
   // Added fields from new Python backend
   ref_sequence: string;
   query_sequence: string;
+  aligned_ref_g?: string;
+  aligned_query_g?: string;
   aligned_query: string;
   matches: boolean[];
   cds_start: number;
@@ -24,6 +26,8 @@ export interface Sample {
   traces_g?: number[];
   traces_c?: number[];
   quality?: number[];
+  base_locations?: number[];
+  mixed_peaks?: number[];
 }
 
 export interface Mutation {
@@ -58,8 +62,9 @@ export interface ChromatogramData {
     C: number[];
   };
   quality: number[];
-  baseCalls: string[];
-  positions: number[];
+  baseCalls: string;
+  base_locations: number[];
+  mixed_peaks: number[];
 }
 
 export interface AnalysisProgress {
