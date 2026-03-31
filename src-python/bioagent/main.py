@@ -329,6 +329,8 @@ def main():
     parser.add_argument("--model", default="google/gemma-3-27b-it:free", help="LLM model")
     parser.add_argument("--history", action="store_true", help="List past analyses as JSON")
     parser.add_argument("--history-detail", help="Get samples for an analysis ID")
+    parser.add_argument("--export-excel", help="Export to Excel at given path")
+    parser.add_argument("--export-data", help="Path to JSON file containing samples to export")
 
     args = parser.parse_args()
 
@@ -340,6 +342,18 @@ def main():
     if args.history_detail:
         from .db_models import get_analysis_samples
         print(json.dumps(get_analysis_samples(args.history_detail), ensure_ascii=False))
+        return
+
+    if args.export_excel:
+        from .report import generate_excel_from_samples
+        if not args.export_data:
+            print("Error: --export-data is required with --export-excel", file=sys.stderr)
+            sys.exit(1)
+        data = json.loads(Path(args.export_data).read_text(encoding="utf-8"))
+        Path(args.export_excel).write_bytes(
+            generate_excel_from_samples(data["samples"], source_path=data.get("source_path", ""))
+        )
+        print(json.dumps({"exported": args.export_excel}))
         return
 
     ab1_dir = args.ab1_dir
