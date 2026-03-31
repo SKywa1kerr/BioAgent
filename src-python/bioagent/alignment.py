@@ -102,7 +102,7 @@ def extract_mutations(ref_g: str, qry_g: str, ref2_start: int, ref_len: int) -> 
             muts.append(Mutation(position=refpos or 1, ref_base="-", query_base=b, type="insertion"))
         elif a != "-" and b == "-":
             muts.append(Mutation(position=refpos, ref_base=a, query_base="-", type="deletion"))
-        elif a != "-" and b != "-" and a != b:
+        elif a != "-" and b != "-" and a.upper() != b.upper():
             muts.append(Mutation(position=refpos, ref_base=a, query_base=b, type="substitution"))
     return muts
 
@@ -290,14 +290,23 @@ def analyze_sample(
 
     avg_qry_quality = round(sum(query_qual) / len(query_qual), 1) if query_qual else None
 
+    # Pad to full reference length if not wrapping
+    if ref2_s < ref_len and ref2_e <= ref_len:
+        full_ref_g = ref_seq[:ref2_s] + ref_g + ref_seq[ref2_e:]
+        full_qry_g = "-" * ref2_s + qry_g + "-" * (ref_len - ref2_e)
+    else:
+        # For wrapping or other cases, keep as is for now
+        full_ref_g = ref_g
+        full_qry_g = qry_g
+
     return AlignmentResult(
         sample_id=sample_id,
         ref_sequence=ref_seq,
         query_sequence=query_seq,
-        aligned_ref_g=ref_g,
-        aligned_query_g=qry_g,
+        aligned_ref_g=full_ref_g,
+        aligned_query_g=full_qry_g,
         aligned_query=qry_used,
-        matches=[a == b for a, b in zip(ref_g, qry_g)],
+        matches=[a.upper() == b.upper() if a != "-" and b != "-" else False for a, b in zip(full_ref_g, full_qry_g)],
         mutations=mutations,
         cds_start=cds_start,
         cds_end=cds_end,

@@ -41,100 +41,22 @@ export interface AminoAcid {
   position: number; // 0-based position in the sequence
 }
 
+export function translateCodon(codon: string): string {
+  const upper = codon.toUpperCase();
+  if (upper.length !== 3 || upper.includes("-") || upper.includes("N")) {
+    return "?";
+  }
+  return CODON_TABLE[upper] || "?";
+}
+
 export function translateDNA(seq: string, startPos: number = 0): AminoAcid[] {
   const result: AminoAcid[] = [];
   const upper = seq.toUpperCase();
   for (let i = startPos; i + 2 < upper.length; i += 3) {
     const codon = upper.slice(i, i + 3);
-    if (codon.includes("-") || codon.includes("N")) {
-      result.push({ aa: "?", codon, position: i });
-    } else {
-      result.push({ aa: CODON_TABLE[codon] || "?", codon, position: i });
-    }
+    result.push({ aa: translateCodon(codon), codon, position: i });
   }
   return result;
-}
-
-export interface RestrictionSite {
-  name: string;
-  position: number; // 0-based position in the sequence
-  sequence: string;
-}
-
-// Common 6+ cutter restriction enzymes (nonredundant set)
-const RESTRICTION_ENZYMES: { name: string; sequence: string }[] = [
-  { name: "EcoRI", sequence: "GAATTC" },
-  { name: "BamHI", sequence: "GGATCC" },
-  { name: "HindIII", sequence: "AAGCTT" },
-  { name: "XhoI", sequence: "CTCGAG" },
-  { name: "NcoI", sequence: "CCATGG" },
-  { name: "NdeI", sequence: "CATATG" },
-  { name: "SalI", sequence: "GTCGAC" },
-  { name: "XbaI", sequence: "TCTAGA" },
-  { name: "PstI", sequence: "CTGCAG" },
-  { name: "SphI", sequence: "GCATGC" },
-  { name: "KpnI", sequence: "GGTACC" },
-  { name: "SacI", sequence: "GAGCTC" },
-  { name: "AvaI", sequence: "CYCGRG" },
-  { name: "BsiWI", sequence: "CGTACG" },
-  { name: "NruI", sequence: "TCGCGA" },
-  { name: "BsrGI", sequence: "TGTACA" },
-  { name: "StyI", sequence: "CCWWGG" },
-  { name: "BlpI", sequence: "GCTNAGC" },
-  { name: "CsiI", sequence: "ACCWGGT" },
-  { name: "BsoBI", sequence: "CYCGRG" },
-  { name: "PaeR7I", sequence: "CTCGAG" },
-  { name: "SexAI", sequence: "ACCWGGT" },
-];
-
-// IUPAC ambiguity codes for regex matching
-const IUPAC_MAP: Record<string, string> = {
-  A: "A", T: "T", G: "G", C: "C",
-  R: "[AG]", Y: "[CT]", M: "[AC]", K: "[GT]",
-  S: "[GC]", W: "[AT]", H: "[ACT]", B: "[CGT]",
-  V: "[ACG]", D: "[AGT]", N: "[ACGT]",
-};
-
-function iupacToRegex(seq: string): RegExp {
-  const pattern = seq.split("").map((c) => IUPAC_MAP[c] || c).join("");
-  return new RegExp(pattern, "gi");
-}
-
-export function findRestrictionSites(seq: string): RestrictionSite[] {
-  const sites: RestrictionSite[] = [];
-  const upper = seq.toUpperCase();
-  const seen = new Set<string>(); // deduplicate overlapping enzymes at same position
-
-  for (const enzyme of RESTRICTION_ENZYMES) {
-    const regex = iupacToRegex(enzyme.sequence);
-    let match: RegExpExecArray | null;
-    while ((match = regex.exec(upper)) !== null) {
-      const key = `${enzyme.name}:${match.index}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        sites.push({
-          name: enzyme.name,
-          position: match.index,
-          sequence: enzyme.sequence,
-        });
-      }
-      // Move forward to find overlapping matches
-      regex.lastIndex = match.index + 1;
-    }
-  }
-
-  return sites.sort((a, b) => a.position - b.position);
-}
-
-// Group restriction sites that share the same position
-export function groupRestrictionSites(sites: RestrictionSite[]): Map<number, string[]> {
-  const groups = new Map<number, string[]>();
-  for (const site of sites) {
-    const existing = groups.get(site.position) || [];
-    existing.push(site.name);
-    groups.set(site.position, existing);
-  }
-  return groups;
 }
 
 export function baseColor(base: string): string {

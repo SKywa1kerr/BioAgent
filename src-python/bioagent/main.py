@@ -300,6 +300,7 @@ def analyze_folder(
                     "position": m.position,
                     "refBase": m.ref_base,
                     "queryBase": m.query_base,
+                    "type": m.type,
                     "effect": m.effect,
                 }
                 for m in s.mutations

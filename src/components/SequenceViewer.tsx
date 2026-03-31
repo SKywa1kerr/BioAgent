@@ -1,12 +1,8 @@
 import React, { useRef, useEffect, useMemo, useState, memo } from "react";
 import { Mutation, ChromatogramData } from "../types";
 import {
-  complementStrand,
-  translateDNA,
-  findRestrictionSites,
-  groupRestrictionSites,
+  translateCodon,
   baseColor,
-  AminoAcid,
 } from "../utils/sequence";
 import "./SequenceViewer.css";
 
@@ -21,7 +17,6 @@ interface SequenceViewerProps {
   chromatogramData: ChromatogramData | null;
   cdsStart: number;
   cdsEnd: number;
-  featureName?: string;
 }
 
 const BASE_WIDTH = 10.4;
@@ -176,7 +171,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
   chromatogramData,
   cdsStart,
   cdsEnd,
-  featureName = "CDS",
 }) => {
   const displayRef = alignedRefG || refSequence;
   const displayQuery = alignedQueryG || querySequence;
@@ -215,31 +209,48 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
     return map;
   }, [displayQuery]);
 
-  const aminoAcids = useMemo(() => {
-    if (cdsStart <= 0 || cdsEnd <= 0 || !refSequence) return [];
-    const cdsSeq = refSequence.slice(cdsStart - 1, cdsEnd);
-    return translateDNA(cdsSeq, 0).map((aa) => ({
-      ...aa,
-      position: refToGapped[aa.position + cdsStart - 1] ?? (aa.position + cdsStart - 1),
-    }));
-  }, [refSequence, cdsStart, cdsEnd, refToGapped]);
-
-  const restrictionSites = useMemo(() => {
-    const sites = findRestrictionSites(refSequence);
-    return sites.map(s => ({
-      ...s,
-      position: refToGapped[s.position] ?? s.position
-    }));
-  }, [refSequence, refToGapped]);
-
-  const siteGroups = useMemo(() => groupRestrictionSites(restrictionSites), [restrictionSites]);
-
   const gappedCdsStart = useMemo(() => refToGapped[cdsStart - 1] ?? (cdsStart - 1), [cdsStart, refToGapped]);
   const gappedCdsEnd = useMemo(() => {
     const lastIdx = refToGapped[cdsEnd - 1] ?? (cdsEnd - 1);
     return lastIdx + 1;
   }, [cdsEnd, refToGapped]);
 
+  const aminoAcids = useMemo(() => {
+    if (cdsStart <= 0 || cdsEnd <= 0 || !refSequence) return { refAAs: [], queryAAs: [] };
+    
+    const refAAs = [];
+    const queryAAs = [];
+
+    // We iterate through the CDS region in the reference sequence
+    // and find the corresponding codons in both aligned sequences.
+    for (let i = cdsStart - 1; i + 2 < cdsEnd; i += 3) {
+      // 1. Reference AA
+      const refCodon = refSequence.slice(i, i + 3);
+      const refGappedStart = refToGapped[i];
+      const refGappedEnd = refToGapped[i + 2];
+      
+      if (refGappedStart !== undefined && refGappedEnd !== undefined) {
+        refAAs.push({
+          aa: translateCodon(refCodon),
+          codon: refCodon,
+          gappedStart: refGappedStart,
+          gappedEnd: refGappedEnd
+        });
+
+        // 2. Query AA (Sanger)
+        // We take the 3 bases from the aligned query sequence at the SAME gapped positions
+        // This ensures we are comparing the same "slot" in the alignment.
+        const qCodon = displayQuery.slice(refGappedStart, refGappedEnd + 1);
+        queryAAs.push({
+          aa: translateCodon(qCodon),
+          codon: qCodon,
+          gappedStart: refGappedStart,
+          gappedEnd: refGappedEnd
+        });
+      }
+    }
+    return { refAAs, queryAAs };
+  }, [refSequence, displayQuery, cdsStart, cdsEnd, refToGapped]);
   const mutationPositions = useMemo(() => {
     const set = new Set<number>();
     for (const m of mutations) {
@@ -249,11 +260,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
     return set;
   }, [mutations, refToGapped]);
 
-  const blockSites: { position: number; names: string[] }[] = [];
-  siteGroups.forEach((names, pos) => {
-    blockSites.push({ position: pos, names });
-  });
-
   const featureInView = gappedCdsStart >= 0;
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -262,8 +268,17 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
     const container = e.currentTarget as HTMLElement;
     const rect = container.getBoundingClientRect();
     const x = e.clientX - rect.left - 100; // 100 is the gutter width
-    
-    if (x < 0) {
+    const y = e.clientY - rect.top;
+
+    // Find the trace row element to check its boundaries
+    const traceRow = container.querySelector(".trace-row");
+    if (!traceRow) return;
+    const traceRect = traceRow.getBoundingClientRect();
+    const relativeTraceTop = traceRect.top - rect.top;
+    const relativeTraceBottom = traceRect.bottom - rect.top;
+
+    // Only show tooltip if hovering within the trace row vertically
+    if (x < 0 || y < relativeTraceTop || y > relativeTraceBottom) {
       if (hoverInfo.idx !== null) setHoverInfo(prev => ({ ...prev, idx: null }));
       return;
     }
@@ -279,7 +294,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           idx,
           quality,
           x: idx * BASE_WIDTH + 100 + BASE_WIDTH / 2,
-          y: e.clientY - rect.top - 20 
+          y: y - 20 
         });
       }
     } else if (hoverInfo.idx !== null) {
@@ -299,56 +314,31 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        
-        {/* 1. Restriction enzyme labels */}
-        <div className="enzyme-row">
-          <span className="row-gutter sticky-gutter">Enzymes</span>
-          <div className="row-content">
-            {blockSites.map((site, i) => (
-              <span
-                key={i}
-                className="enzyme-label"
-                style={{ left: `${site.position * BASE_WIDTH + BASE_WIDTH/2}px` }}
-              >
-                {site.names.join("\n")}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* 2. Feature annotation bar */}
-        {featureInView && (
-          <div className="feature-row">
-            <span className="row-gutter sticky-gutter">Features</span>
-            <div className="row-content feature-track">
-              <div
-                className="feature-bar"
-                style={{
-                  left: `${gappedCdsStart * BASE_WIDTH}px`,
-                  width: `${(gappedCdsEnd - gappedCdsStart) * BASE_WIDTH}px`,
-                }}
-              >
-                <span className="feature-name">{featureName}</span>
-                <span className="feature-arrow">{">"}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 3. SnapGene style alignment block (Ref / Matches / Query) */}
+        {/* SnapGene style alignment block (Ref / Matches / Sanger) */}
         <div className="alignment-block">
           {/* Reference line */}
           <div className="strand-row ref-line">
             <span className="row-gutter sticky-gutter">Ref</span>
             <div className="row-content">
+              {/* CDS Highlight Background */}
+              {featureInView && (
+                <div 
+                  className="cds-highlight-bg"
+                  style={{
+                    left: `${gappedCdsStart * BASE_WIDTH}px`,
+                    width: `${(gappedCdsEnd - gappedCdsStart) * BASE_WIDTH}px`,
+                  }}
+                />
+              )}
               {displayRef.split("").map((base, i) => {
                 const isMatch = matches[i];
                 const isMutation = mutationPositions.has(i);
                 const highlight = !isMatch || isMutation;
+                const inCds = i >= gappedCdsStart && i < gappedCdsEnd;
                 return (
                   <span
                     key={i}
-                    className={`base-char ${!isMatch ? "mismatch-ref" : ""} ${isMutation ? "mutation-ref" : ""}`}
+                    className={`base-char ${!isMatch ? "mismatch-ref" : ""} ${isMutation ? "mutation-ref" : ""} ${inCds ? "in-cds" : ""}`}
                     style={{ color: highlight ? undefined : baseColor(base) }}
                     data-base={base}
                   >
@@ -375,14 +365,25 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           <div className="strand-row query-row">
             <span className="row-gutter sticky-gutter query-label">Sanger</span>
             <div className="row-content">
+              {/* CDS Highlight Background */}
+              {featureInView && (
+                <div 
+                  className="cds-highlight-bg"
+                  style={{
+                    left: `${gappedCdsStart * BASE_WIDTH}px`,
+                    width: `${(gappedCdsEnd - gappedCdsStart) * BASE_WIDTH}px`,
+                  }}
+                />
+              )}
               {displayQuery.split("").map((base, i) => {
                 const isMatch = matches[i];
                 const isMutation = mutationPositions.has(i);
                 const highlight = !isMatch || isMutation;
+                const inCds = i >= gappedCdsStart && i < gappedCdsEnd;
                 return (
                   <span
                     key={i}
-                    className={`base-char ${!isMatch ? "mismatch" : ""} ${isMutation ? "mutation" : ""}`}
+                    className={`base-char ${!isMatch ? "mismatch" : ""} ${isMutation ? "mutation" : ""} ${inCds ? "in-cds" : ""}`}
                     style={{ color: highlight ? undefined : baseColor(base) }}
                     data-base={base}
                   >
@@ -394,30 +395,86 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           </div>
         </div>
 
-        {/* 4. Amino acid translation */}
+        {/* Amino acid translation - Reference */}
         <div className="aa-row">
-          <span className="row-gutter sticky-gutter">AA</span>
+          <span className="row-gutter sticky-gutter">AA Ref</span>
           <div className="row-content aa-bases">
-            {Array.from({ length: totalBases }, (_, i) => {
-              const aa = aminoAcids.find((a) => a.position === i);
-              if (aa) {
-                const isMutation = mutationPositions.has(i) || mutationPositions.has(i + 1) || mutationPositions.has(i + 2);
-                return (
-                  <span
-                    key={i}
-                    className={`aa-char ${isMutation ? "aa-mutation" : ""}`}
-                    title={`${AA_THREE[aa.aa] || aa.aa} (${aa.codon})`}
-                  >
-                    {aa.aa}
-                  </span>
-                );
-              }
-              return <span key={i} className="aa-char aa-spacer" />;
+            {/* CDS Highlight Background */}
+            {featureInView && (
+              <div 
+                className="cds-highlight-bg"
+                style={{
+                  left: `${gappedCdsStart * BASE_WIDTH}px`,
+                  width: `${(gappedCdsEnd - gappedCdsStart) * BASE_WIDTH}px`,
+                }}
+              />
+            )}
+            {aminoAcids.refAAs?.map((aa, i) => {
+              const startX = aa.gappedStart * BASE_WIDTH;
+              const endX = (aa.gappedEnd + 1) * BASE_WIDTH;
+              const width = endX - startX;
+              
+              return (
+                <span
+                  key={i}
+                  className="aa-char"
+                  style={{ 
+                    position: "absolute", 
+                    left: `${startX}px`, 
+                    width: `${width}px`,
+                    textAlign: "center"
+                  }}
+                  title={`${AA_THREE[aa.aa] || aa.aa} (${aa.codon})`}
+                >
+                  {aa.aa}
+                </span>
+              );
             })}
           </div>
         </div>
 
-        {/* 5. Chromatogram trace */}
+        {/* Amino acid translation - Sanger */}
+        <div className="aa-row">
+          <span className="row-gutter sticky-gutter">AA Sanger</span>
+          <div className="row-content aa-bases">
+            {/* CDS Highlight Background */}
+            {featureInView && (
+              <div 
+                className="cds-highlight-bg"
+                style={{
+                  left: `${gappedCdsStart * BASE_WIDTH}px`,
+                  width: `${(gappedCdsEnd - gappedCdsStart) * BASE_WIDTH}px`,
+                }}
+              />
+            )}
+            {aminoAcids.queryAAs?.map((aa, i) => {
+              const startX = aa.gappedStart * BASE_WIDTH;
+              const endX = (aa.gappedEnd + 1) * BASE_WIDTH;
+              const width = endX - startX;
+              
+              const refAA = aminoAcids.refAAs[i];
+              const isMutation = refAA && refAA.aa !== aa.aa;
+
+              return (
+                <span
+                  key={i}
+                  className={`aa-char ${isMutation ? "aa-mutation" : ""}`}
+                  style={{ 
+                    position: "absolute", 
+                    left: `${startX}px`, 
+                    width: `${width}px`,
+                    textAlign: "center"
+                  }}
+                  title={`${AA_THREE[aa.aa] || aa.aa} (${aa.codon})`}
+                >
+                  {aa.aa}
+                </span>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Chromatogram trace */}
         {chromatogramData && (
           <div className="trace-row">
             <span className="row-gutter sticky-gutter">Trace</span>
@@ -432,7 +489,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           </div>
         )}
 
-        {/* 6. Position numbers & Ticks */}
+        {/* Position numbers & Ticks */}
         <div className="position-row">
           <span className="row-gutter sticky-gutter" />
           <div className="row-content position-bases">

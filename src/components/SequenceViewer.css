@@ -1,6 +1,6 @@
 .sequence-viewer.horizontal {
   --base-width: 10.4px;
-  --gutter-width: 70px;
+  --gutter-width: 80px;
   font-family: "Monaco", "Consolas", "Courier New", monospace;
   font-size: 12px;
   background: #ffffff;
@@ -24,9 +24,7 @@
 .strand-row,
 .aa-row,
 .position-row,
-.feature-row,
-.trace-row,
-.enzyme-row {
+.trace-row {
   display: flex;
   align-items: center;
   line-height: 1.5;
@@ -79,57 +77,6 @@
   font-size: 9px;
 }
 
-/* ─── Enzyme labels ─── */
-.enzyme-row {
-  min-height: 60px;
-  align-items: flex-end;
-}
-
-.enzyme-label {
-  position: absolute;
-  bottom: 2px;
-  font-size: 9px;
-  color: #0066cc;
-  white-space: pre;
-  line-height: 1.1;
-  font-weight: 600;
-  transform: rotate(-45deg);
-  transform-origin: left bottom;
-}
-
-/* ─── Feature bar ─── */
-.feature-row {
-  margin: 10px 0;
-  min-height: 24px;
-}
-
-.feature-track {
-  position: relative;
-  height: 24px;
-}
-
-.feature-bar {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  background: linear-gradient(to bottom, #d4a017, #c49510);
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
-  overflow: hidden;
-  z-index: 2;
-}
-
-.feature-name {
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
-}
-
 /* ─── Amino acids ─── */
 .aa-bases {
   min-height: 18px;
@@ -141,6 +88,8 @@
   font-size: 10px;
   color: #555;
   font-weight: 600;
+  position: relative;
+  z-index: 1;
 }
 
 .aa-char.aa-mutation {
@@ -195,6 +144,22 @@
 .query-row {
   background: #f0f9ff;
   padding: 6px 0;
+}
+
+.cds-highlight-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: rgba(254, 243, 199, 0.5); /* Light amber/yellow */
+  border-left: 1px solid #f59e0b;
+  border-right: 1px solid #f59e0b;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.base-char.in-cds {
+  position: relative;
+  z-index: 1;
 }
 
 .match-indicators {

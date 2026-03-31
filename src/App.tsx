@@ -184,7 +184,6 @@ function App() {
                   chromatogramData={showChromatogram ? chromatogramData : null}
                   cdsStart={selectedSample.cds_start || 0}
                   cdsEnd={selectedSample.cds_end || 0}
-                  featureName={selectedSample.clone || "CDS"}
                 />
                 </div>
 
