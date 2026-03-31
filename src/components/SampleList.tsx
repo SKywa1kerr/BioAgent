@@ -18,7 +18,7 @@ const StatusIcon: React.FC<{ status: Sample["status"] | "error" }> = ({
       return <span className="status-icon wrong">❌</span>;
     case "processing":
       return <span className="status-icon processing">⏳</span>;
-    case "warning":
+    case "uncertain":
       return <span className="status-icon warning">⚠️</span>;
     case "error":
       return <span className="status-icon error">🚫</span>;

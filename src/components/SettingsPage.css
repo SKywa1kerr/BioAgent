@@ -1,0 +1,23 @@
+.settings-page { padding: 24px; max-width: 600px; margin: 0 auto; }
+.settings-page h2 { margin-bottom: 20px; color: #333; }
+.settings-group {
+  background: white; border-radius: 8px; padding: 20px;
+  margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.settings-group h3 { margin-bottom: 12px; font-size: 14px; color: #555; }
+.settings-group label {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-bottom: 12px; font-size: 13px; color: #333;
+}
+.settings-group input, .settings-group select {
+  padding: 8px 12px; border: 1px solid #d0d0d0; border-radius: 4px;
+  font-size: 14px;
+}
+.settings-group input:focus, .settings-group select:focus {
+  outline: none; border-color: #4472C4;
+}
+.settings-page .btn-primary {
+  padding: 10px 24px; background: #4472C4; color: white;
+  border: none; border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+.settings-page .btn-primary:hover { background: #3a62b0; }

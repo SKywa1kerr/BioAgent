@@ -2,7 +2,7 @@ export interface Sample {
   id: string;
   name: string;
   clone: string;
-  status: "ok" | "wrong" | "processing" | "warning" | "error";
+  status: "ok" | "wrong" | "uncertain" | "processing" | "error";
   identity: number;
   coverage: number;
   mutations: Mutation[];
@@ -72,4 +72,22 @@ export interface AnalysisProgress {
   status: "pending" | "processing" | "complete" | "error";
   progress: number;
   error?: string;
+}
+
+export interface AnalysisRecord {
+  id: string;
+  name: string;
+  source_path: string;
+  total: number;
+  ok_count: number;
+  wrong_count: number;
+  uncertain_count: number;
+  created_at: string;
+}
+
+export interface AppSettings {
+  llmApiKey: string;
+  llmBaseUrl: string;
+  plasmid: string;
+  qualityThreshold: number;
 }

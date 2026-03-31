@@ -1,13 +1,23 @@
 import { useState, useCallback } from "react";
 import { Sample, ChromatogramData } from "./types";
+import { TabLayout } from "./components/TabLayout";
 import { SampleList } from "./components/SampleList";
 import { SequenceViewer } from "./components/SequenceViewer";
 import { ChromatogramCanvas } from "./components/ChromatogramCanvas";
+import { HistoryPage } from "./components/HistoryPage";
+import { SettingsPage } from "./components/SettingsPage";
 import "./App.css";
 
 const { invoke } = window.electronAPI;
 
+const tabs = [
+  { id: "analysis", label: "\u5206\u6790" },
+  { id: "history", label: "\u5386\u53f2" },
+  { id: "settings", label: "\u8bbe\u7f6e" },
+];
+
 function App() {
+  const [activeTab, setActiveTab] = useState("analysis");
   const [samples, setSamples] = useState<Sample[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -90,147 +100,169 @@ function App() {
     <div className="app">
       <header className="app-header">
         <div className="logo">BioAgent</div>
-        <div className="toolbar">
-          <div className="path-selectors">
-            <button onClick={handleSelectAb1Dir} title={ab1Dir || "Select AB1 Folder"}>
-              {ab1Dir ? `AB1: ...${ab1Dir.slice(-15)}` : "Import AB1 Files"}
-            </button>
-            <button onClick={handleSelectGenesDir} title={genesDir || "Select Genes Directory"}>
-              {genesDir ? `Genes: ...${genesDir.slice(-15)}` : "Import Reference Files"}
-            </button>
-            <select value={plasmid} onChange={(e) => setPlasmid(e.target.value)}>
-              <option value="pet22b">pET-22b</option>
-              <option value="pet15b">pET-15b</option>
-              <option value="none">None</option>
-            </select>
-          </div>
-          <div className="action-buttons">
-            <button
-              className="btn-primary"
-              onClick={() => runAnalysis()}
-              disabled={isAnalyzing || !ab1Dir}
-            >
-              Run Analysis
-            </button>
-            <button
-              className="btn-secondary"
-              onClick={() => runAnalysis({ autoImport: true })}
-              disabled={isAnalyzing}
-              title="Auto-import from Downloads"
-            >
-              Auto-Import
-            </button>
-          </div>
-        </div>
-        <div className="sample-info">
-          {selectedSample && (
-            <>
-              <span className={`status-badge ${selectedSample.status}`}>
-                {selectedSample.status.toUpperCase()}
-              </span>
-              <span>
-                Identity: {((selectedSample.identity || 0) * 100).toFixed(1)}%
-              </span>
-              <span>
-                Coverage: {((selectedSample.coverage || 0) * 100).toFixed(1)}%
-              </span>
-              {selectedSample.frameshift && (
-                <span className="status-badge wrong">FRAMESHIFT</span>
-              )}
-            </>
-          )}
-        </div>
       </header>
-
-      <div className="app-body">
-        <aside className="sidebar">
-          <SampleList
-            samples={samples}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
-          />
-        </aside>
-
-        <main className="main-content">
-          {selectedSample ? (
-            selectedSample.status === "error" ? (
-              <div className="error-state">
-                <h3>Analysis Error</h3>
-                <p>{selectedSample.error}</p>
+      <TabLayout tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab}>
+        {activeTab === "analysis" && (
+          <>
+            <div className="toolbar">
+              <div className="path-selectors">
+                <button onClick={handleSelectAb1Dir} title={ab1Dir || "Select AB1 Folder"}>
+                  {ab1Dir ? `AB1: ...${ab1Dir.slice(-15)}` : "Import AB1 Files"}
+                </button>
+                <button onClick={handleSelectGenesDir} title={genesDir || "Select Genes Directory"}>
+                  {genesDir ? `Genes: ...${genesDir.slice(-15)}` : "Import Reference Files"}
+                </button>
+                <select value={plasmid} onChange={(e) => setPlasmid(e.target.value)}>
+                  <option value="pet22b">pET-22b</option>
+                  <option value="pet15b">pET-15b</option>
+                  <option value="none">None</option>
+                </select>
               </div>
-            ) : (
-              <div className="viewer">
-                <div className="sequence-section">
-                <SequenceViewer
-                  refSequence={selectedSample.ref_sequence || ""}
-                  querySequence={selectedSample.query_sequence || ""}
-                  alignedRefG={selectedSample.aligned_ref_g || ""}
-                  alignedQueryG={selectedSample.aligned_query_g || ""}
-                  alignedQuery={selectedSample.aligned_query || ""}
-                  matches={selectedSample.matches || []}
-                  mutations={selectedSample.mutations || []}
-                  chromatogramData={chromatogramData}
-                  cdsStart={selectedSample.cds_start || 0}
-                  cdsEnd={selectedSample.cds_end || 0}
-                  featureName={selectedSample.clone || "CDS"}
-                />
-                </div>
-
-                <div className="details-section">
-                  {chromatogramData && (
-                    <div className="full-chromatogram">
-                      <h4>Chromatogram Spectrum</h4>
-                      <ChromatogramCanvas
-                        data={chromatogramData}
-                        startPosition={1}
-                        endPosition={chromatogramData.baseCalls.length}
-                        onHover={() => {}}
-                      />
-                    </div>
-                  )}
-                  <h4>Mutations</h4>
-                  {selectedSample.llm_verdict && (
-                    <div className="llm-verdict">
-                      <strong>LLM Verdict:</strong>
-                      <p>{selectedSample.llm_verdict}</p>
-                    </div>
-                  )}
-                  {selectedSample.mutations && selectedSample.mutations.length > 0 ? (
-                    <table className="mutation-table">
-                      <thead>
-                        <tr>
-                          <th>Pos</th>
-                          <th>Ref</th>
-                          <th>Query</th>
-                          <th>Type</th>
-                          <th>Effect</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {selectedSample.mutations.map((m, i) => (
-                          <tr key={i}>
-                            <td>{m.position}</td>
-                            <td className="base-cell">{m.refBase}</td>
-                            <td className="base-cell">{m.queryBase}</td>
-                            <td>{m.type}</td>
-                            <td>{m.effect || "-"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <p className="no-mutations">No mutations detected</p>
-                  )}
-                </div>
+              <div className="action-buttons">
+                <button
+                  className="btn-primary"
+                  onClick={() => runAnalysis()}
+                  disabled={isAnalyzing || !ab1Dir}
+                >
+                  Run Analysis
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => runAnalysis({ autoImport: true })}
+                  disabled={isAnalyzing}
+                  title="Auto-import from Downloads"
+                >
+                  Auto-Import
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={async () => {
+                    if (!samples.length) return;
+                    try {
+                      const result = await invoke("export-excel", samples, ab1Dir) as any;
+                      if (result) alert(`Export complete`);
+                    } catch (e) {
+                      alert(`Export failed: ${e}`);
+                    }
+                  }}
+                  disabled={samples.length === 0}
+                >
+                  Export Excel
+                </button>
               </div>
-            )
-          ) : (
-            <div className="empty-state">
-              <p>Open a folder containing AB1 and GenBank files to begin</p>
             </div>
-          )}
-        </main>
-      </div>
+            <div className="sample-info">
+              {selectedSample && (
+                <>
+                  <span className={`status-badge ${selectedSample.status}`}>
+                    {selectedSample.status.toUpperCase()}
+                  </span>
+                  <span>
+                    Identity: {((selectedSample.identity || 0) * 100).toFixed(1)}%
+                  </span>
+                  <span>
+                    Coverage: {((selectedSample.coverage || 0) * 100).toFixed(1)}%
+                  </span>
+                  {selectedSample.frameshift && (
+                    <span className="status-badge wrong">FRAMESHIFT</span>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="app-body">
+              <aside className="sidebar">
+                <SampleList
+                  samples={samples}
+                  selectedId={selectedId}
+                  onSelect={setSelectedId}
+                />
+              </aside>
+
+              <main className="main-content">
+                {selectedSample ? (
+                  selectedSample.status === "error" ? (
+                    <div className="error-state">
+                      <h3>Analysis Error</h3>
+                      <p>{selectedSample.error}</p>
+                    </div>
+                  ) : (
+                    <div className="viewer">
+                      <div className="sequence-section">
+                      <SequenceViewer
+                        refSequence={selectedSample.ref_sequence || ""}
+                        querySequence={selectedSample.query_sequence || ""}
+                        alignedRefG={selectedSample.aligned_ref_g || ""}
+                        alignedQueryG={selectedSample.aligned_query_g || ""}
+                        alignedQuery={selectedSample.aligned_query || ""}
+                        matches={selectedSample.matches || []}
+                        mutations={selectedSample.mutations || []}
+                        chromatogramData={chromatogramData}
+                        cdsStart={selectedSample.cds_start || 0}
+                        cdsEnd={selectedSample.cds_end || 0}
+                        featureName={selectedSample.clone || "CDS"}
+                      />
+                      </div>
+
+                      <div className="details-section">
+                        {chromatogramData && (
+                          <div className="full-chromatogram">
+                            <h4>Chromatogram Spectrum</h4>
+                            <ChromatogramCanvas
+                              data={chromatogramData}
+                              startPosition={1}
+                              endPosition={chromatogramData.baseCalls.length}
+                              onHover={() => {}}
+                            />
+                          </div>
+                        )}
+                        <h4>Mutations</h4>
+                        {selectedSample.llm_verdict && (
+                          <div className="llm-verdict">
+                            <strong>LLM Verdict:</strong>
+                            <p>{selectedSample.llm_verdict}</p>
+                          </div>
+                        )}
+                        {selectedSample.mutations && selectedSample.mutations.length > 0 ? (
+                          <table className="mutation-table">
+                            <thead>
+                              <tr>
+                                <th>Pos</th>
+                                <th>Ref</th>
+                                <th>Query</th>
+                                <th>Type</th>
+                                <th>Effect</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {selectedSample.mutations.map((m, i) => (
+                                <tr key={i}>
+                                  <td>{m.position}</td>
+                                  <td className="base-cell">{m.refBase}</td>
+                                  <td className="base-cell">{m.queryBase}</td>
+                                  <td>{m.type}</td>
+                                  <td>{m.effect || "-"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <p className="no-mutations">No mutations detected</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="empty-state">
+                    <p>Open a folder containing AB1 and GenBank files to begin</p>
+                  </div>
+                )}
+              </main>
+            </div>
+          </>
+        )}
+        {activeTab === "history" && <HistoryPage />}
+        {activeTab === "settings" && <SettingsPage />}
+      </TabLayout>
     </div>
   );
 }

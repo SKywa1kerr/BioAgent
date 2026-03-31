@@ -1,0 +1,13 @@
+.history-page { padding: 24px; max-width: 1000px; margin: 0 auto; }
+.history-page h2 { margin-bottom: 16px; color: #333; }
+.history-page .empty { color: #888; text-align: center; padding: 40px; }
+.history-table { width: 100%; border-collapse: collapse; }
+.history-table th {
+  background: #4472C4; color: white; padding: 10px 12px;
+  text-align: left; font-size: 13px;
+}
+.history-table td { padding: 8px 12px; border-bottom: 1px solid #e0e0e0; font-size: 13px; }
+.history-table tr:hover { background: #f0f4ff; }
+.history-table .ok { color: #16a34a; font-weight: 600; }
+.history-table .wrong { color: #dc2626; font-weight: 600; }
+.history-table .uncertain { color: #d97706; font-weight: 600; }

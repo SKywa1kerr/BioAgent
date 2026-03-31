@@ -93,6 +93,71 @@ ipcMain.handle("run-analysis", async (_event, ab1Dir, genesDir, options = {}) =>
   });
 });
 
+// History handler
+ipcMain.handle("get-history", async () => {
+  return new Promise((resolve, reject) => {
+    const pythonPath = process.platform === "win32" ? "python" : "python3";
+    const pythonDir = path.join(__dirname, "../src-python");
+    const env = { ...process.env, PYTHONPATH: pythonDir };
+    execFile(pythonPath, ["-m", "bioagent.main", "--history"], { cwd: pythonDir, env }, (err, stdout, stderr) => {
+      if (err) {
+        console.error("History error:", stderr);
+        reject(stderr || err.message);
+      } else {
+        if (stderr) console.log("History info:", stderr);
+        resolve(stdout);
+      }
+    });
+  });
+});
+
+// Settings handlers
+function getSettingsPath() {
+  return path.join(app.getPath("userData"), "settings.json");
+}
+
+ipcMain.handle("load-settings", async () => {
+  try {
+    return fs.readFileSync(getSettingsPath(), "utf-8");
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle("save-settings", async (_event, settingsJson) => {
+  fs.writeFileSync(getSettingsPath(), settingsJson, "utf-8");
+  return true;
+});
+
+// Export Excel handler
+ipcMain.handle("export-excel", async (_event, samples, sourcePath) => {
+  const { filePath } = await dialog.showSaveDialog({
+    defaultPath: "BioAgent-Report.xlsx",
+    filters: [{ name: "Excel", extensions: ["xlsx"] }],
+  });
+  if (!filePath) return null;
+
+  const tmpFile = path.join(app.getPath("temp"), "bioagent-export.json");
+  fs.writeFileSync(tmpFile, JSON.stringify({ samples, source_path: sourcePath || "" }));
+
+  const pythonPath = process.platform === "win32" ? "python" : "python3";
+  const pythonDir = path.join(__dirname, "../src-python");
+  const env = { ...process.env, PYTHONPATH: pythonDir };
+  const args = ["-m", "bioagent.main", "--export-excel", filePath, "--export-data", tmpFile];
+
+  return new Promise((resolve, reject) => {
+    execFile(pythonPath, args, { cwd: pythonDir, env }, (err, stdout, stderr) => {
+      if (err) {
+        console.error("Export error:", stderr);
+        reject(stderr || err.message);
+      } else {
+        if (stderr) console.log("Export info:", stderr);
+        resolve(JSON.parse(stdout));
+      }
+    });
+  });
+});
+
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
