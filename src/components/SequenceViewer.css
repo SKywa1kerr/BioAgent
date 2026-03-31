@@ -1,78 +1,23 @@
-.sequence-viewer {
+.sequence-viewer.horizontal {
   --base-width: 10.4px;
-  --gutter-width: 60px;
+  --gutter-width: 70px;
   font-family: "Monaco", "Consolas", "Courier New", monospace;
   font-size: 12px;
   background: #ffffff;
   color: #222;
-  overflow-y: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   padding: 0;
   user-select: text;
-}
-
-/* ─── Minimap ─── */
-.minimap {
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  background: #f0f0f0;
-  border-bottom: 1px solid #ccc;
-  padding: 6px 12px;
-}
-
-.minimap-track {
-  position: relative;
-  height: 20px;
-  background: #e8e8e8;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.minimap-tick {
-  position: absolute;
-  top: 0;
-  width: 1px;
   height: 100%;
-  background: #ccc;
+  display: flex;
+  flex-direction: column;
 }
 
-.minimap-label {
-  position: absolute;
-  top: -1px;
-  left: 2px;
-  font-size: 8px;
-  color: #888;
-  white-space: nowrap;
-}
-
-.minimap-feature {
-  position: absolute;
-  top: 4px;
-  height: 12px;
-  background: #c9a832;
-  opacity: 0.7;
-  border-radius: 2px;
-}
-
-.minimap-mutation {
-  position: absolute;
-  top: 2px;
-  width: 3px;
-  height: 16px;
-  background: #e33;
-  border-radius: 1px;
-}
-
-/* ─── Sequence blocks ─── */
-.sequence-blocks {
-  padding: 8px 0;
-}
-
-.sequence-block {
+.sequence-container {
   position: relative;
-  margin-bottom: 6px;
-  padding: 2px 12px 6px 12px;
-  border-bottom: 1px solid #eee;
+  padding: 20px 0;
+  min-height: 100%;
 }
 
 /* ─── Common row layout ─── */
@@ -80,40 +25,43 @@
 .aa-row,
 .position-row,
 .feature-row,
-.trace-row {
+.trace-row,
+.enzyme-row {
   display: flex;
   align-items: center;
   line-height: 1.5;
   white-space: pre;
+  min-height: 20px;
 }
 
-.row-gutter {
+.row-content {
+  position: relative;
+  display: flex;
+  flex: 1;
+}
+
+.sticky-gutter {
+  position: sticky;
+  left: 0;
   width: var(--gutter-width);
+  background: #f8f8f8;
+  z-index: 5;
   flex-shrink: 0;
   text-align: right;
-  padding-right: 8px;
-  color: #999;
+  padding-right: 10px;
+  color: #666;
   font-size: 10px;
-}
-
-.row-bp-count {
-  margin-left: 12px;
-  color: #999;
-  font-size: 10px;
-  flex-shrink: 0;
+  font-weight: bold;
+  border-right: 1px solid #ddd;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
 }
 
 /* ─── Bases ─── */
-.strand-bases,
-.aa-bases,
-.position-bases {
-  display: flex;
-}
-
 .base-char {
   width: var(--base-width);
   text-align: center;
   font-weight: 400;
+  display: inline-block;
 }
 
 .base-char.mutation {
@@ -133,6 +81,7 @@
 .tick-row {
   line-height: 1.0;
   opacity: 0.5;
+  min-height: 12px;
 }
 
 .tick-major,
@@ -143,38 +92,33 @@
   font-size: 9px;
 }
 
-.tick-major {
-  color: #888;
-  font-weight: bold;
-}
-
 /* ─── Enzyme labels ─── */
 .enzyme-row {
-  position: relative;
-  height: 16px;
-  margin-bottom: 2px;
+  min-height: 60px;
+  align-items: flex-end;
 }
 
 .enzyme-label {
   position: absolute;
-  top: 0;
+  bottom: 2px;
   font-size: 9px;
   color: #0066cc;
-  white-space: pre-line;
+  white-space: pre;
   line-height: 1.1;
   font-weight: 600;
-  transform: translateX(-50%);
+  transform: rotate(-45deg);
+  transform-origin: left bottom;
 }
 
 /* ─── Feature bar ─── */
 .feature-row {
-  margin: 3px 0;
+  margin: 10px 0;
+  min-height: 24px;
 }
 
 .feature-track {
   position: relative;
-  height: 22px;
-  flex: 1;
+  height: 24px;
 }
 
 .feature-bar {
@@ -189,6 +133,7 @@
   gap: 4px;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
   overflow: hidden;
+  z-index: 2;
 }
 
 .feature-name {
@@ -196,25 +141,19 @@
   font-size: 10px;
   font-weight: 700;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
-  letter-spacing: 0.5px;
-}
-
-.feature-arrow {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
 }
 
 /* ─── Amino acids ─── */
+.aa-bases {
+  min-height: 18px;
+}
+
 .aa-char {
   width: var(--base-width);
   text-align: center;
   font-size: 10px;
   color: #555;
   font-weight: 600;
-}
-
-.aa-char.aa-spacer {
-  visibility: hidden;
 }
 
 .aa-char.aa-mutation {
@@ -224,7 +163,7 @@
 
 /* ─── Position numbers ─── */
 .position-row {
-  line-height: 1.2;
+  min-height: 15px;
 }
 
 .pos-mark {
@@ -232,7 +171,6 @@
   text-align: center;
   font-size: 9px;
   color: #999;
-  overflow: visible;
   position: relative;
 }
 
@@ -242,32 +180,63 @@
 
 /* ─── Chromatogram trace ─── */
 .trace-row {
-  margin: 4px 0;
+  margin: 15px 0;
+  min-height: 120px;
 }
 
-.trace-canvas {
+.trace-canvas-full {
   display: block;
-  border: 1px solid #e0e0e0;
-  border-radius: 3px;
+  background: #fff;
 }
 
 /* ─── Query row ─── */
 .query-row {
-  margin-top: 2px;
-  background: #f8f8f8;
-  border-radius: 3px;
-  padding: 2px 0;
+  margin-top: 5px;
+  background: #f0f7ff;
+  padding: 4px 0;
 }
 
-.query-label {
-  font-size: 9px;
-  font-weight: 700;
-  color: #666;
+/* ─── Hover Tooltip ─── */
+.hover-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.hover-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.85) transparent transparent transparent;
+}
+
+.tooltip-quality {
+  font-weight: bold;
+  color: #4ade80;
+}
+
+.tooltip-base {
+  font-size: 14px;
+  margin-top: 2px;
 }
 
 /* ─── Scrollbar styling ─── */
 .sequence-viewer::-webkit-scrollbar {
-  width: 10px;
+  height: 12px;
 }
 
 .sequence-viewer::-webkit-scrollbar-track {
@@ -276,7 +245,8 @@
 
 .sequence-viewer::-webkit-scrollbar-thumb {
   background: #ccc;
-  border-radius: 5px;
+  border-radius: 6px;
+  border: 3px solid #f0f0f0;
 }
 
 .sequence-viewer::-webkit-scrollbar-thumb:hover {

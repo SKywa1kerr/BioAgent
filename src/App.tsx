@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import { Sample, ChromatogramData } from "./types";
 import { SampleList } from "./components/SampleList";
 import { SequenceViewer } from "./components/SequenceViewer";
-import { ChromatogramCanvas } from "./components/ChromatogramCanvas";
 import "./App.css";
 
 const { invoke } = window.electronAPI;
@@ -177,17 +176,6 @@ function App() {
                 </div>
 
                 <div className="details-section">
-                  {chromatogramData && (
-                    <div className="full-chromatogram">
-                      <h4>Chromatogram Spectrum</h4>
-                      <ChromatogramCanvas
-                        data={chromatogramData}
-                        startPosition={1}
-                        endPosition={chromatogramData.baseCalls.length}
-                        onHover={() => {}}
-                      />
-                    </div>
-                  )}
                   <h4>Mutations</h4>
                   {selectedSample.llm_verdict && (
                     <div className="llm-verdict">

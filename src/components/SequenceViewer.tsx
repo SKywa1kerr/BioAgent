@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { Mutation, ChromatogramData } from "../types";
 import {
   complementStrand,
@@ -24,8 +24,8 @@ interface SequenceViewerProps {
   featureName?: string;
 }
 
-const BASES_PER_LINE = 80;
-const TRACE_HEIGHT = 100;
+const BASE_WIDTH = 10.4;
+const TRACE_HEIGHT = 140;
 
 // Single-letter to 3-letter amino acid mapping
 const AA_THREE: Record<string, string> = {
@@ -36,15 +36,14 @@ const AA_THREE: Record<string, string> = {
   "*": "***", "?": "???",
 };
 
-const ChromatogramBlock: React.FC<{
+const ChromatogramView: React.FC<{
   data: ChromatogramData;
-  startBase: number;
-  numBases: number;
-  baseWidth: number;
+  totalBases: number;
   alignedQueryG: string;
-}> = ({ data, startBase, numBases, baseWidth, alignedQueryG }) => {
+  gappedToQueryIdx: (number | null)[];
+}> = ({ data, totalBases, alignedQueryG, gappedToQueryIdx }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const width = numBases * baseWidth;
+  const width = totalBases * BASE_WIDTH;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -62,114 +61,104 @@ const ChromatogramBlock: React.FC<{
 
     const traces = data.traces;
     const totalTracePoints = traces.A?.length || 0;
-    const totalBases = data.baseCalls?.length || 0;
-    if (totalBases === 0 || totalTracePoints === 0) return;
-
-    // Map gapped alignment positions to ungapped query indices
-    const getQueryIdx = (alnIdx: number) => {
-      let qIdx = 0;
-      for (let i = 0; i < alnIdx; i++) {
-        if (alignedQueryG[i] !== "-") qIdx++;
-      }
-      return qIdx;
-    };
-
-    // Use base_locations for precise mapping if available
-    let traceStart: number;
-    let traceEnd: number;
-
-    if (data.base_locations && data.base_locations.length > 0) {
-      const qStartIdx = getQueryIdx(startBase);
-      const qEndIdx = getQueryIdx(startBase + numBases - 1);
-
-      traceStart = data.base_locations[qStartIdx] || 0;
-      traceEnd = data.base_locations[qEndIdx] || totalTracePoints;
-
-      // Add some padding
-      const paddingPoints = 5;
-      traceStart = Math.max(0, traceStart - paddingPoints);
-      traceEnd = Math.min(totalTracePoints, traceEnd + paddingPoints);
-    } else {
-      // Fallback to linear mapping
-      const pointsPerBase = totalTracePoints / totalBases;
-      traceStart = Math.floor(startBase * pointsPerBase);
-      traceEnd = Math.min(
-        Math.floor((startBase + numBases) * pointsPerBase),
-        totalTracePoints
-      );
-    }
-
-    const traceRange = traceEnd - traceStart;
-    if (traceRange <= 0) return;
+    if (totalTracePoints === 0) return;
 
     // Find max value for scaling
     let maxVal = 0;
     const colors = { A: "#00aa00", T: "#aa0000", G: "#000000", C: "#0000aa" };
     for (const base of ["A", "T", "G", "C"] as const) {
       const trace = traces[base];
-      for (let i = traceStart; i < traceEnd; i++) {
+      for (let i = 0; i < totalTracePoints; i++) {
         if (trace[i] > maxVal) maxVal = trace[i];
       }
     }
-    if (maxVal === 0) return;
+    if (maxVal === 0) maxVal = 100;
 
-    const padding = 4;
-    const yScale = (TRACE_HEIGHT - 2 * padding) / (maxVal * 1.1);
+    const yScale = (TRACE_HEIGHT - 35) / (maxVal * 1.1);
 
-    for (const base of ["A", "T", "G", "C"] as const) {
-      const trace = traces[base];
-      ctx.strokeStyle = colors[base];
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-
-      for (let i = traceStart; i < traceEnd; i++) {
-        const x = ((i - traceStart) / traceRange) * width;
-        const y = TRACE_HEIGHT - padding - trace[i] * yScale;
-        if (i === traceStart) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+    // 1. Draw Quality Bars (SnapGene style)
+    if (data.quality) {
+      for (let i = 0; i < totalBases; i++) {
+        const qIdx = gappedToQueryIdx[i];
+        if (qIdx !== null && qIdx < data.quality.length) {
+          const q = data.quality[qIdx];
+          // Color based on quality
+          if (q >= 40) ctx.fillStyle = "#e2e8f0"; // Light blue-gray
+          else if (q >= 20) ctx.fillStyle = "#fef3c7"; // Light yellow
+          else ctx.fillStyle = "#fee2e2"; // Light red
+          
+          const barHeight = Math.min(1, q / 60) * (TRACE_HEIGHT - 45);
+          const x = i * BASE_WIDTH + 1;
+          ctx.fillRect(x, TRACE_HEIGHT - 25 - barHeight, BASE_WIDTH - 2, barHeight);
+        }
       }
-      ctx.stroke();
     }
 
-    // Draw base call letters at the bottom
-    ctx.font = "9px Monaco, Consolas, monospace";
+    // 2. Draw Traces
+    if (data.base_locations && data.base_locations.length > 0) {
+      const queryToGapped: number[] = [];
+      for (let i = 0; i < gappedToQueryIdx.length; i++) {
+        const qIdx = gappedToQueryIdx[i];
+        if (qIdx !== null) queryToGapped[qIdx] = i;
+      }
+
+      for (const base of ["A", "T", "G", "C"] as const) {
+        const trace = traces[base];
+        ctx.strokeStyle = colors[base];
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+
+        let b1 = 0;
+        for (let i = 0; i < totalTracePoints; i++) {
+          while (b1 < data.base_locations.length - 1 && data.base_locations[b1+1] < i) {
+            b1++;
+          }
+          
+          const t1 = data.base_locations[b1];
+          const t2 = data.base_locations[b1+1] || totalTracePoints;
+          const g1 = queryToGapped[b1] ?? 0;
+          const g2 = queryToGapped[b1+1] ?? (g1 + 1);
+
+          const ratio = (i - t1) / (t2 - t1);
+          const gappedX = g1 + (g2 - g1) * ratio;
+          const x = (gappedX + 0.5) * BASE_WIDTH;
+          const y = TRACE_HEIGHT - 25 - trace[i] * yScale;
+
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // 3. Draw Base Call Letters
+    ctx.font = "bold 10px Monaco, Consolas, monospace";
     ctx.textAlign = "center";
-    for (let i = 0; i < numBases; i++) {
-      const alnIdx = startBase + i;
-      const b = alignedQueryG[alnIdx];
+    for (let i = 0; i < totalBases; i++) {
+      const b = alignedQueryG[i];
       if (b === "-" || !b) continue;
 
-      const qIdx = getQueryIdx(alnIdx);
-      if (data.baseCalls && qIdx < data.baseCalls.length) {
-        const traceIdx = data.base_locations ? data.base_locations[qIdx] : -1;
-        
-        let x: number;
-        if (traceIdx !== -1) {
-          x = ((traceIdx - traceStart) / traceRange) * width;
-        } else {
-          x = (i + 0.5) * baseWidth;
-        }
+      const x = (i + 0.5) * BASE_WIDTH;
+      ctx.fillStyle = colors[b as keyof typeof colors] || "#888";
+      ctx.fillText(b, x, TRACE_HEIGHT - 8);
 
-        ctx.fillStyle = colors[b as keyof typeof colors] || "#888";
-        ctx.fillText(b, x, TRACE_HEIGHT - 2);
-
-        // Highlight mixed peaks
-        if (data.mixed_peaks && data.mixed_peaks.includes(qIdx)) {
-          ctx.strokeStyle = "#ffff00";
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.arc(x, TRACE_HEIGHT - 12, 3, 0, Math.PI * 2);
-          ctx.stroke();
-        }
+      // Mixed peaks
+      const qIdx = gappedToQueryIdx[i];
+      if (qIdx !== null && data.mixed_peaks && data.mixed_peaks.includes(qIdx)) {
+        ctx.strokeStyle = "#eab308";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, TRACE_HEIGHT - 18, 4, 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
-  }, [data, startBase, numBases, baseWidth, width]);
+  }, [data, totalBases, alignedQueryG, gappedToQueryIdx, width]);
 
   return (
     <canvas
       ref={canvasRef}
       style={{ width: `${width}px`, height: `${TRACE_HEIGHT}px` }}
-      className="trace-canvas"
+      className="trace-canvas-full"
     />
   );
 };
@@ -188,10 +177,17 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
 }) => {
   const displayRef = alignedRefG || refSequence;
   const displayQuery = alignedQueryG || querySequence;
+  const totalBases = displayRef?.length || 0;
+
+  const [hoverInfo, setHoverInfo] = useState<{ idx: number | null; quality: number | null; x: number; y: number }>({
+    idx: null,
+    quality: null,
+    x: 0,
+    y: 0
+  });
 
   const complement = useMemo(() => complementStrand(displayRef || ""), [displayRef]);
 
-  // Map ungapped reference position to gapped reference position
   const refToGapped = useMemo(() => {
     const map = new Array(refSequence.length).fill(0);
     let refIdx = 0;
@@ -204,13 +200,25 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     return map;
   }, [refSequence, displayRef]);
 
+  const gappedToQueryIdx = useMemo(() => {
+    const map: (number | null)[] = [];
+    let qIdx = 0;
+    for (let i = 0; i < displayQuery.length; i++) {
+      if (displayQuery[i] !== "-") {
+        map[i] = qIdx;
+        qIdx++;
+      } else {
+        map[i] = null;
+      }
+    }
+    return map;
+  }, [displayQuery]);
+
   const aminoAcids = useMemo(() => {
     if (cdsStart <= 0 || cdsEnd <= 0 || !refSequence) return [];
-    // cdsStart is 1-based from backend
     const cdsSeq = refSequence.slice(cdsStart - 1, cdsEnd);
     return translateDNA(cdsSeq, 0).map((aa) => ({
       ...aa,
-      // Map ungapped position to gapped position
       position: refToGapped[aa.position + cdsStart - 1] ?? (aa.position + cdsStart - 1),
     }));
   }, [refSequence, cdsStart, cdsEnd, refToGapped]);
@@ -219,15 +227,11 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     const sites = findRestrictionSites(refSequence);
     return sites.map(s => ({
       ...s,
-      // Map ungapped position to gapped position
       position: refToGapped[s.position] ?? s.position
     }));
   }, [refSequence, refToGapped]);
 
-  const siteGroups = useMemo(
-    () => groupRestrictionSites(restrictionSites),
-    [restrictionSites]
-  );
+  const siteGroups = useMemo(() => groupRestrictionSites(restrictionSites), [restrictionSites]);
 
   const gappedCdsStart = useMemo(() => refToGapped[cdsStart - 1] ?? (cdsStart - 1), [cdsStart, refToGapped]);
   const gappedCdsEnd = useMemo(() => {
@@ -235,126 +239,119 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     return lastIdx + 1;
   }, [cdsEnd, refToGapped]);
 
-  // Create mutation position set for quick lookup
   const mutationPositions = useMemo(() => {
     const set = new Set<number>();
     for (const m of mutations) {
-      // m.position is 1-based ungapped ref position
       const gappedIdx = refToGapped[m.position - 1];
-      if (gappedIdx !== undefined) {
-        set.add(gappedIdx);
-      }
+      if (gappedIdx !== undefined) set.add(gappedIdx);
     }
     return set;
   }, [mutations, refToGapped]);
 
-  // Split into blocks
-  const totalBases = displayRef?.length || 0;
-  const numBlocks = Math.ceil(totalBases / BASES_PER_LINE);
+  const blockSites: { position: number; names: string[] }[] = [];
+  siteGroups.forEach((names, pos) => {
+    blockSites.push({ position: pos, names });
+  });
 
-  const renderBlock = (blockIdx: number) => {
-    const blockStart = blockIdx * BASES_PER_LINE;
-    const blockEnd = Math.min(blockStart + BASES_PER_LINE, totalBases);
-    const blockLength = blockEnd - blockStart;
-    const refSlice = displayRef.slice(blockStart, blockEnd);
-    const compSlice = complement.slice(blockStart, blockEnd);
-    const querySlice = displayQuery.slice(blockStart, blockEnd);
-    const matchSlice = matches ? matches.slice(blockStart, blockEnd) : [];
+  const featureInView = gappedCdsStart >= 0;
 
-    // Restriction sites in this block
-    const blockSites: { position: number; names: string[] }[] = [];
-    siteGroups.forEach((names, pos) => {
-      if (pos >= blockStart && pos < blockEnd) {
-        blockSites.push({ position: pos - blockStart, names });
+  const handleBaseHover = (e: React.MouseEvent, idx: number) => {
+    if (!chromatogramData) return;
+    
+    const qIdx = gappedToQueryIdx[idx];
+    if (qIdx !== null) {
+      const quality = chromatogramData.quality ? chromatogramData.quality[qIdx] : null;
+      const rect = e.currentTarget.getBoundingClientRect();
+      const containerRect = e.currentTarget.closest('.sequence-container')?.getBoundingClientRect();
+      
+      if (containerRect) {
+        setHoverInfo({
+          idx,
+          quality,
+          x: rect.left - containerRect.left + BASE_WIDTH / 2,
+          y: rect.top - containerRect.top - 45
+        });
       }
-    });
+    } else {
+      setHoverInfo(prev => ({ ...prev, idx: null }));
+    }
+  };
 
-    // Amino acids in this block
-    const blockAAs: AminoAcid[] = aminoAcids.filter(
-      (aa) => aa.position >= blockStart && aa.position < blockEnd
-    );
-
-    // Is CDS feature in this block?
-    const featureInBlock =
-      gappedCdsStart < blockEnd && gappedCdsEnd > blockStart && gappedCdsStart >= 0;
-    const featureStart = Math.max(0, gappedCdsStart - blockStart);
-    const featureEnd = Math.min(blockLength, gappedCdsEnd - blockStart);
-
-    // Right margin line number (like SnapGene shows bp count on right)
-    const rightBp = blockEnd;
-
-    return (
-      <div key={blockIdx} className="sequence-block">
+  return (
+    <div className="sequence-viewer horizontal">
+      <div className="sequence-container" style={{ width: `${totalBases * BASE_WIDTH + 100}px` }}>
+        
         {/* Restriction enzyme labels */}
-        {blockSites.length > 0 && (
-          <div className="enzyme-row">
+        <div className="enzyme-row">
+          <span className="row-gutter sticky-gutter">Enzymes</span>
+          <div className="row-content">
             {blockSites.map((site, i) => (
               <span
                 key={i}
                 className="enzyme-label"
-                style={{ left: `calc(60px + ${site.position} * var(--base-width))` }}
+                style={{ left: `${site.position * BASE_WIDTH + BASE_WIDTH/2}px` }}
               >
                 {site.names.join("\n")}
               </span>
             ))}
           </div>
-        )}
+        </div>
 
         {/* Forward strand (reference) */}
         <div className="strand-row">
-          <span className="row-gutter" />
-          <span className="strand-bases">
-            {refSlice.split("").map((base, i) => {
-              const globalPos = blockStart + i;
-              const isMutation = mutationPositions.has(globalPos);
+          <span className="row-gutter sticky-gutter">Ref</span>
+          <div className="row-content">
+            {displayRef.split("").map((base, i) => {
+              const isMutation = mutationPositions.has(i);
               return (
                 <span
                   key={i}
                   className={`base-char ${isMutation ? "mutation" : ""}`}
                   style={{ color: isMutation ? "#fff" : baseColor(base) }}
+                  onMouseEnter={(e) => handleBaseHover(e, i)}
+                  onMouseLeave={() => setHoverInfo(prev => ({ ...prev, idx: null }))}
                 >
                   {base}
                 </span>
               );
             })}
-          </span>
-          <span className="row-bp-count">{rightBp}</span>
+          </div>
         </div>
 
-        {/* Tick marks between strands */}
+        {/* Tick marks */}
         <div className="strand-row tick-row">
-          <span className="row-gutter" />
-          <span className="strand-bases">
-            {refSlice.split("").map((_, i) => {
-              const pos = blockStart + i + 1;
+          <span className="row-gutter sticky-gutter" />
+          <div className="row-content">
+            {displayRef.split("").map((_, i) => {
+              const pos = i + 1;
               if (pos % 10 === 0) return <span key={i} className="tick-major">+</span>;
               return <span key={i} className="tick-minor">·</span>;
             })}
-          </span>
+          </div>
         </div>
 
         {/* Reverse strand (complement) */}
         <div className="strand-row">
-          <span className="row-gutter" />
-          <span className="strand-bases">
-            {compSlice.split("").map((base, i) => (
+          <span className="row-gutter sticky-gutter">Comp</span>
+          <div className="row-content">
+            {complement.split("").map((base, i) => (
               <span key={i} className="base-char" style={{ color: baseColor(base) }}>
                 {base}
               </span>
             ))}
-          </span>
+          </div>
         </div>
 
         {/* Feature annotation bar */}
-        {featureInBlock && (
+        {featureInView && (
           <div className="feature-row">
-            <span className="row-gutter" />
-            <div className="feature-track">
+            <span className="row-gutter sticky-gutter">Features</span>
+            <div className="row-content feature-track">
               <div
                 className="feature-bar"
                 style={{
-                  left: `calc(${featureStart} * var(--base-width))`,
-                  width: `calc(${featureEnd - featureStart} * var(--base-width))`,
+                  left: `${gappedCdsStart * BASE_WIDTH}px`,
+                  width: `${(gappedCdsEnd - gappedCdsStart) * BASE_WIDTH}px`,
                 }}
               >
                 <span className="feature-name">{featureName}</span>
@@ -365,135 +362,89 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
         )}
 
         {/* Amino acid translation */}
-        {blockAAs.length > 0 && (
-          <div className="aa-row">
-            <span className="row-gutter" />
-            <span className="aa-bases">
-              {Array.from({ length: blockLength }, (_, i) => {
-                const globalPos = blockStart + i;
-                const aa = blockAAs.find((a) => a.position === globalPos);
-                if (aa) {
-                  const isMutation = mutationPositions.has(globalPos) ||
-                    mutationPositions.has(globalPos + 1) ||
-                    mutationPositions.has(globalPos + 2);
-                  return (
-                    <span
-                      key={i}
-                      className={`aa-char ${isMutation ? "aa-mutation" : ""}`}
-                      title={`${AA_THREE[aa.aa] || aa.aa} (${aa.codon})`}
-                    >
-                      {aa.aa}
-                    </span>
-                  );
-                }
-                return <span key={i} className="aa-char aa-spacer" />;
-              })}
-            </span>
-          </div>
-        )}
-
-        {/* Position numbers */}
-        <div className="position-row">
-          <span className="row-gutter" />
-          <span className="position-bases">
-            {Array.from({ length: blockLength }, (_, i) => {
-              const pos = blockStart + i + 1;
-              if (pos % 5 === 0) {
-                return (
-                  <span key={i} className="pos-mark">
-                    {pos}
-                  </span>
-                );
-              }
-              return <span key={i} className="pos-spacer" />;
-            })}
-          </span>
-        </div>
-
-        {/* Chromatogram trace */}
-        {chromatogramData && chromatogramData.traces && (
-          <div className="trace-row">
-            <span className="row-gutter" />
-            <ChromatogramBlock
-              data={chromatogramData}
-              startBase={blockStart}
-              numBases={blockLength}
-              baseWidth={10.4}
-              alignedQueryG={displayQuery}
-            />
-          </div>
-        )}
-
-        {/* Query alignment with mismatch highlighting */}
-        {querySlice && (
-          <div className="strand-row query-row">
-            <span className="row-gutter query-label">Query</span>
-            <span className="strand-bases">
-              {querySlice.split("").map((base, i) => {
-                const isMatch = matchSlice[i];
-                const globalPos = blockStart + i;
-                const isMutation = mutationPositions.has(globalPos);
+        <div className="aa-row">
+          <span className="row-gutter sticky-gutter">AA</span>
+          <div className="row-content aa-bases">
+            {Array.from({ length: totalBases }, (_, i) => {
+              const aa = aminoAcids.find((a) => a.position === i);
+              if (aa) {
+                const isMutation = mutationPositions.has(i) || mutationPositions.has(i + 1) || mutationPositions.has(i + 2);
                 return (
                   <span
                     key={i}
-                    className={`base-char ${!isMatch ? "mismatch" : ""} ${isMutation ? "mutation" : ""}`}
-                    style={{
-                      color: !isMatch || isMutation ? "#fff" : baseColor(base),
-                    }}
+                    className={`aa-char ${isMutation ? "aa-mutation" : ""}`}
+                    title={`${AA_THREE[aa.aa] || aa.aa} (${aa.codon})`}
                   >
-                    {base}
+                    {aa.aa}
                   </span>
                 );
-              })}
-            </span>
+              }
+              return <span key={i} className="aa-char aa-spacer" />;
+            })}
+          </div>
+        </div>
+
+        {/* Position numbers */}
+        <div className="position-row">
+          <span className="row-gutter sticky-gutter" />
+          <div className="row-content position-bases">
+            {Array.from({ length: totalBases }, (_, i) => {
+              const pos = i + 1;
+              if (pos % 10 === 0) {
+                return <span key={i} className="pos-mark">{pos}</span>;
+              }
+              return <span key={i} className="pos-spacer" />;
+            })}
+          </div>
+        </div>
+
+        {/* Chromatogram trace */}
+        {chromatogramData && (
+          <div className="trace-row">
+            <span className="row-gutter sticky-gutter">Trace</span>
+            <div className="row-content">
+              <ChromatogramView
+                data={chromatogramData}
+                totalBases={totalBases}
+                alignedQueryG={displayQuery}
+                gappedToQueryIdx={gappedToQueryIdx}
+              />
+            </div>
           </div>
         )}
-      </div>
-    );
-  };
 
-  return (
-    <div className="sequence-viewer">
-      {/* Minimap ruler */}
-      <div className="minimap">
-        <div className="minimap-track">
-          {/* Scale markers */}
-          {Array.from({ length: Math.ceil(totalBases / 10) }, (_, i) => {
-            const pos = i * 10;
-            return (
-              <span
-                key={i}
-                className="minimap-tick"
-                style={{ left: `${(pos / totalBases) * 100}%` }}
-              >
-                {pos % 50 === 0 ? <span className="minimap-label">{pos}</span> : null}
-              </span>
-            );
-          })}
-          {/* Feature region on minimap */}
-          {cdsStart >= 0 && cdsEnd > cdsStart && (
-            <div
-              className="minimap-feature"
-              style={{
-                left: `${(cdsStart / totalBases) * 100}%`,
-                width: `${((cdsEnd - cdsStart) / totalBases) * 100}%`,
-              }}
-            />
-          )}
-          {/* Mutation markers on minimap */}
-          {mutations.map((m, i) => (
-            <div
-              key={i}
-              className="minimap-mutation"
-              style={{ left: `${(m.position / totalBases) * 100}%` }}
-            />
-          ))}
+        {/* Query alignment */}
+        <div className="strand-row query-row">
+          <span className="row-gutter sticky-gutter query-label">Query</span>
+          <div className="row-content">
+            {displayQuery.split("").map((base, i) => {
+              const isMatch = matches[i];
+              const isMutation = mutationPositions.has(i);
+              return (
+                <span
+                  key={i}
+                  className={`base-char ${!isMatch ? "mismatch" : ""} ${isMutation ? "mutation" : ""}`}
+                  style={{ color: !isMatch || isMutation ? "#fff" : baseColor(base) }}
+                  onMouseEnter={(e) => handleBaseHover(e, i)}
+                  onMouseLeave={() => setHoverInfo(prev => ({ ...prev, idx: null }))}
+                >
+                  {base}
+                </span>
+              );
+            })}
+          </div>
         </div>
-      </div>
 
-      {/* Sequence blocks */}
-      <div className="sequence-blocks">
-        {Array.from({ length: numBlocks }, (_, i) => renderBlock(i))}
+        {/* Hover Tooltip */}
+        {hoverInfo.idx !== null && (
+          <div 
+            className="hover-tooltip"
+            style={{ left: `${hoverInfo.x}px`, top: `${hoverInfo.y}px` }}
+          >
+            <div className="tooltip-quality">Q{hoverInfo.quality}</div>
+            <div className="tooltip-base">{displayQuery[hoverInfo.idx]}</div>
+          </div>
+        )}
       </div>
     </div>
   );
