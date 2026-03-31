@@ -277,13 +277,11 @@ def analyze_folder(
             d["id"] = s["sample_id"]
         else:
             d = asdict(s)
-            # Determine status for UI
-            status = "ok"
-            if s.aa_changes or s.frameshift:
-                status = "wrong"
-            elif s.coverage < 0.8:
-                status = "warning"
-            d["status"] = status
+            from .rules import judge_sample
+            judgment = judge_sample(asdict(s))
+            d["status"] = judgment["status"]
+            d["reason"] = judgment.get("reason", "")
+            d["rule_id"] = judgment.get("rule", -1)
             d["id"] = s.sample_id
             d["mutations"] = [
                 {
