@@ -88,6 +88,119 @@ def find_reference_file(clone_id: str, genes_dir: Optional[str]) -> Tuple[Option
     return None, None
 
 
+def analyze_single_sample(args_tuple) -> dict:
+    """Worker function for parallel analysis."""
+    ab1_file, gb_dir, genes_dir, plasmid = args_tuple
+    
+    # Extract clone ID using multiple strategies from sanger.py
+    clone_id = None
+    
+    # Strategy 1: Regex from sanger.py
+    match = re.search(r"([A-C][A-Z0-9]{3}-[A-Z0-9])", ab1_file.name, re.IGNORECASE)
+    if match:
+        clone_id = match.group().upper()
+    
+    # Strategy 2: General ID pattern
+    if not clone_id:
+        match = re.search(r"([A-Z][0-9]+-[0-9A-Z]+)", ab1_file.name, re.IGNORECASE)
+        if match:
+            clone_id = match.group().upper()
+    
+    # Strategy 3: Underscore split (sanger.py: abi_file.split('_')[2])
+    if not clone_id:
+        parts = ab1_file.stem.split("_")
+        if len(parts) >= 3:
+            clone_id = parts[2].replace("(", "").replace(")", "").upper()
+    
+    # Strategy 4: Simple hyphen split
+    if not clone_id:
+        clone_id = ab1_file.stem.split("-")[0].upper()
+
+    # Find reference
+    ref_file, ref_type = None, None
+    if gb_dir:
+        ref_file, ref_type = find_reference_file(clone_id, gb_dir)
+    
+    if not ref_file and genes_dir:
+        ref_file, ref_type = find_reference_file(clone_id, genes_dir)
+
+    if not ref_file:
+        return {
+            "sample_id": ab1_file.stem,
+            "clone": clone_id,
+            "ab1": ab1_file.name,
+            "status": "error",
+            "error": "Missing reference file"
+        }
+
+    try:
+        # Parse files
+        query_seq, chrom_data = parse_ab1(str(ab1_file))
+        
+        if ref_type == "genbank":
+            _, ref_seq, cds_start, cds_end = parse_genbank(str(ref_file))
+        else: # FASTA
+            _, raw_insert_seq = parse_fasta(str(ref_file))
+            ref_seq = get_plasmid_template(plasmid, raw_insert_seq)
+            # Try to find CDS in the raw insert first
+            from .parser import find_orf
+            cds_start, cds_end, _ = find_orf(ref_seq)
+            if cds_start is None:
+                # Fallback to the whole insert if no ORF found
+                cds_start = ref_seq.find(raw_insert_seq.upper()) + 1
+                cds_end = cds_start + len(raw_insert_seq) - 1
+
+        # Trim sequence
+        trimmed_seq, trimmed_qual, trim_start = trim_sequence(query_seq, chrom_data.quality)
+
+        # Analyze
+        result = analyze_sample(
+            sample_id=ab1_file.stem,
+            ref_seq=ref_seq,
+            query_seq=trimmed_seq,
+            cds_start=cds_start or 1,
+            cds_end=cds_end or len(ref_seq),
+            query_qual=trimmed_qual
+        )
+        
+        result.clone = clone_id
+        result.ab1 = ab1_file.name
+        result.gb = ref_file.name
+        
+        # Add chromatogram data (trimmed to match query_seq)
+        trim_end = trim_start + len(trimmed_seq)
+        
+        # Calculate trace range to trim (with 20 points padding)
+        if chrom_data.base_locations:
+            locs = chrom_data.base_locations[trim_start:trim_end]
+            trace_start = max(0, min(locs) - 20) if locs else 0
+            trace_end = min(len(chrom_data.traces_a), max(locs) + 20) if locs else len(chrom_data.traces_a)
+        else:
+            trace_start = 0
+            trace_end = len(chrom_data.traces_a)
+
+        result.traces_a = chrom_data.traces_a[trace_start:trace_end]
+        result.traces_t = chrom_data.traces_t[trace_start:trace_end]
+        result.traces_g = chrom_data.traces_g[trace_start:trace_end]
+        result.traces_c = chrom_data.traces_c[trace_start:trace_end]
+        result.quality = chrom_data.quality[trim_start:trim_end]
+        
+        # Offset base locations and mixed peaks to match trimmed traces
+        result.base_locations = [loc - trace_start for loc in chrom_data.base_locations[trim_start:trim_end]]
+        result.mixed_peaks = [p - trim_start for p in chrom_data.mixed_peaks if trim_start <= p < trim_end]
+
+        return result
+
+    except Exception as e:
+        return {
+            "sample_id": ab1_file.stem,
+            "clone": clone_id,
+            "ab1": ab1_file.name,
+            "status": "error",
+            "error": str(e)
+        }
+
+
 def analyze_folder(
     ab1_dir: str, 
     gb_dir: Optional[str] = None, 
@@ -101,120 +214,17 @@ def analyze_folder(
     
     # Collect all AB1 files recursively as in third_gen_seq
     ab1_files = list(ab1_path.rglob("*.ab1"))
+    
+    # Filter out non-ab1 files
+    ab1_files = [f for f in ab1_files if f.suffix.lower() == ".ab1"]
+    
+    # Parallel processing
+    from concurrent.futures import ProcessPoolExecutor
+    worker_args = [(f, gb_dir, genes_dir, plasmid) for f in ab1_files]
+    
     all_results = []
-
-    for ab1_file in ab1_files:
-        # Skip non-ab1 files that might be picked up by rglob
-        if ab1_file.suffix.lower() != ".ab1":
-            continue
-
-        # Extract clone ID using multiple strategies from sanger.py
-        clone_id = None
-        
-        # Strategy 1: Regex from sanger.py
-        match = re.search(r"([A-C][A-Z0-9]{3}-[A-Z0-9])", ab1_file.name, re.IGNORECASE)
-        if match:
-            clone_id = match.group().upper()
-        
-        # Strategy 2: General ID pattern
-        if not clone_id:
-            match = re.search(r"([A-Z][0-9]+-[0-9A-Z]+)", ab1_file.name, re.IGNORECASE)
-            if match:
-                clone_id = match.group().upper()
-        
-        # Strategy 3: Underscore split (sanger.py: abi_file.split('_')[2])
-        if not clone_id:
-            parts = ab1_file.stem.split("_")
-            if len(parts) >= 3:
-                clone_id = parts[2].replace("(", "").replace(")", "").upper()
-        
-        # Strategy 4: Simple hyphen split
-        if not clone_id:
-            clone_id = ab1_file.stem.split("-")[0].upper()
-
-        # Find reference
-        ref_file, ref_type = None, None
-        if gb_dir:
-            ref_file, ref_type = find_reference_file(clone_id, gb_dir)
-        
-        if not ref_file and genes_dir:
-            ref_file, ref_type = find_reference_file(clone_id, genes_dir)
-
-        if not ref_file:
-            print(f"Warning: No reference file found for {clone_id}", file=sys.stderr)
-            # Create a dummy result to indicate missing reference in UI
-            all_results.append({
-                "sample_id": ab1_file.stem,
-                "clone": clone_id,
-                "ab1": ab1_file.name,
-                "status": "error",
-                "error": "Missing reference file"
-            })
-            continue
-
-        try:
-            # Parse files
-            query_seq, chrom_data = parse_ab1(str(ab1_file))
-            
-            if ref_type == "genbank":
-                _, ref_seq, cds_start, cds_end = parse_genbank(str(ref_file))
-            else: # FASTA
-                _, raw_insert_seq = parse_fasta(str(ref_file))
-                ref_seq = get_plasmid_template(plasmid, raw_insert_seq)
-                cds_start = ref_seq.find(raw_insert_seq.upper()) + 1
-                cds_end = cds_start + len(raw_insert_seq) - 1
-
-            # Trim sequence
-            trimmed_seq, trimmed_qual, trim_start = trim_sequence(query_seq, chrom_data.quality)
-
-            # Analyze
-            result = analyze_sample(
-                sample_id=ab1_file.stem,
-                ref_seq=ref_seq,
-                query_seq=trimmed_seq,
-                cds_start=cds_start or 1,
-                cds_end=cds_end or len(ref_seq),
-                query_qual=trimmed_qual
-            )
-            
-            result.clone = clone_id
-            result.ab1 = ab1_file.name
-            result.gb = ref_file.name
-            
-            # Add chromatogram data (trimmed to match query_seq)
-            trim_end = trim_start + len(trimmed_seq)
-            
-            # Calculate trace range to trim (with 20 points padding)
-            if chrom_data.base_locations:
-                locs = chrom_data.base_locations[trim_start:trim_end]
-                trace_start = max(0, min(locs) - 20) if locs else 0
-                trace_end = min(len(chrom_data.traces_a), max(locs) + 20) if locs else len(chrom_data.traces_a)
-            else:
-                trace_start = 0
-                trace_end = len(chrom_data.traces_a)
-
-            result.traces_a = chrom_data.traces_a[trace_start:trace_end]
-            result.traces_t = chrom_data.traces_t[trace_start:trace_end]
-            result.traces_g = chrom_data.traces_g[trace_start:trace_end]
-            result.traces_c = chrom_data.traces_c[trace_start:trace_end]
-            result.quality = chrom_data.quality[trim_start:trim_end]
-            
-            # Offset base locations and mixed peaks to match trimmed traces
-            result.base_locations = [loc - trace_start for loc in chrom_data.base_locations[trim_start:trim_end]]
-            result.mixed_peaks = [p - trim_start for p in chrom_data.mixed_peaks if trim_start <= p < trim_end]
-
-            all_results.append(result)
-            # print(f"Analyzed: {clone_id} ({ab1_file.name})", file=sys.stderr)
-
-        except Exception as e:
-            print(f"Error analyzing {ab1_file}: {e}", file=sys.stderr)
-            all_results.append({
-                "sample_id": ab1_file.stem,
-                "clone": clone_id,
-                "ab1": ab1_file.name,
-                "status": "error",
-                "error": str(e)
-            })
+    with ProcessPoolExecutor() as executor:
+        all_results = list(executor.map(analyze_single_sample, worker_args))
 
     # Group by Clone ID and merge
     by_clone = {}

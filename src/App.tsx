@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Sample, ChromatogramData } from "./types";
 import { SampleList } from "./components/SampleList";
 import { SequenceViewer } from "./components/SequenceViewer";
@@ -10,6 +10,7 @@ function App() {
   const [samples, setSamples] = useState<Sample[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showChromatogram, setShowChromatogram] = useState(true);
 
   const [ab1Dir, setAb1Dir] = useState<string | null>(null);
   const [genesDir, setGenesDir] = useState<string | null>(null);
@@ -63,27 +64,32 @@ function App() {
 
   const selectedSample = samples.find((s) => s.id === selectedId);
 
-  const chromatogramData: ChromatogramData | null =
-    selectedSample &&
-    selectedSample.traces_a &&
-    selectedSample.traces_t &&
-    selectedSample.traces_g &&
-    selectedSample.traces_c &&
-    selectedSample.quality &&
-    selectedSample.query_sequence
-      ? {
-          traces: {
-            A: selectedSample.traces_a,
-            T: selectedSample.traces_t,
-            G: selectedSample.traces_g,
-            C: selectedSample.traces_c,
-          },
-          quality: selectedSample.quality,
-          baseCalls: selectedSample.query_sequence,
-          base_locations: selectedSample.base_locations || [],
-          mixed_peaks: selectedSample.mixed_peaks || [],
-        }
-      : null;
+  const chromatogramData = useMemo<ChromatogramData | null>(() => {
+    if (
+      !selectedSample ||
+      !selectedSample.traces_a ||
+      !selectedSample.traces_t ||
+      !selectedSample.traces_g ||
+      !selectedSample.traces_c ||
+      !selectedSample.quality ||
+      !selectedSample.query_sequence
+    ) {
+      return null;
+    }
+
+    return {
+      traces: {
+        A: selectedSample.traces_a,
+        T: selectedSample.traces_t,
+        G: selectedSample.traces_g,
+        C: selectedSample.traces_c,
+      },
+      quality: selectedSample.quality,
+      baseCalls: selectedSample.query_sequence,
+      base_locations: selectedSample.base_locations || [],
+      mixed_peaks: selectedSample.mixed_peaks || [],
+    };
+  }, [selectedSample]);
 
   return (
     <div className="app">
@@ -118,6 +124,13 @@ function App() {
               title="Auto-import from Downloads"
             >
               Auto-Import
+            </button>
+            <button
+              className={`btn-secondary ${showChromatogram ? 'active' : ''}`}
+              onClick={() => setShowChromatogram(!showChromatogram)}
+              title="Toggle Chromatogram"
+            >
+              {showChromatogram ? "Hide Trace" : "Show Trace"}
             </button>
           </div>
         </div>
@@ -168,7 +181,7 @@ function App() {
                   alignedQuery={selectedSample.aligned_query || ""}
                   matches={selectedSample.matches || []}
                   mutations={selectedSample.mutations || []}
-                  chromatogramData={chromatogramData}
+                  chromatogramData={showChromatogram ? chromatogramData : null}
                   cdsStart={selectedSample.cds_start || 0}
                   cdsEnd={selectedSample.cds_end || 0}
                   featureName={selectedSample.clone || "CDS"}

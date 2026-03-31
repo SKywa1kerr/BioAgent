@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useMemo, useState } from "react";
+import React, { useRef, useEffect, useMemo, useState, memo } from "react";
 import { Mutation, ChromatogramData } from "../types";
 import {
   complementStrand,
@@ -36,19 +36,24 @@ const AA_THREE: Record<string, string> = {
   "*": "***", "?": "???",
 };
 
-const ChromatogramView: React.FC<{
+const ChromatogramView = memo(({ 
+  data, 
+  totalBases, 
+  alignedQueryG, 
+  gappedToQueryIdx 
+}: {
   data: ChromatogramData;
   totalBases: number;
   alignedQueryG: string;
   gappedToQueryIdx: (number | null)[];
-}> = ({ data, totalBases, alignedQueryG, gappedToQueryIdx }) => {
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const width = totalBases * BASE_WIDTH;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !data.traces) return;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
@@ -82,10 +87,9 @@ const ChromatogramView: React.FC<{
         const qIdx = gappedToQueryIdx[i];
         if (qIdx !== null && qIdx < data.quality.length) {
           const q = data.quality[qIdx];
-          // Color based on quality
-          if (q >= 40) ctx.fillStyle = "#e2e8f0"; // Light blue-gray
-          else if (q >= 20) ctx.fillStyle = "#fef3c7"; // Light yellow
-          else ctx.fillStyle = "#fee2e2"; // Light red
+          if (q >= 40) ctx.fillStyle = "#e2e8f0";
+          else if (q >= 20) ctx.fillStyle = "#fef3c7";
+          else ctx.fillStyle = "#fee2e2";
           
           const barHeight = Math.min(1, q / 60) * (TRACE_HEIGHT - 45);
           const x = i * BASE_WIDTH + 1;
@@ -142,7 +146,6 @@ const ChromatogramView: React.FC<{
       ctx.fillStyle = colors[b as keyof typeof colors] || "#888";
       ctx.fillText(b, x, TRACE_HEIGHT - 8);
 
-      // Mixed peaks
       const qIdx = gappedToQueryIdx[i];
       if (qIdx !== null && data.mixed_peaks && data.mixed_peaks.includes(qIdx)) {
         ctx.strokeStyle = "#eab308";
@@ -161,9 +164,9 @@ const ChromatogramView: React.FC<{
       className="trace-canvas-full"
     />
   );
-};
+});
 
-export const SequenceViewer: React.FC<SequenceViewerProps> = ({
+export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
   refSequence = "",
   querySequence = "",
   alignedRefG = "",
@@ -185,8 +188,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     x: 0,
     y: 0
   });
-
-  const complement = useMemo(() => complementStrand(displayRef || ""), [displayRef]);
 
   const refToGapped = useMemo(() => {
     const map = new Array(refSequence.length).fill(0);
@@ -255,33 +256,51 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
 
   const featureInView = gappedCdsStart >= 0;
 
-  const handleBaseHover = (e: React.MouseEvent, idx: number) => {
+  const handleMouseMove = (e: React.MouseEvent) => {
     if (!chromatogramData) return;
     
-    const qIdx = gappedToQueryIdx[idx];
-    if (qIdx !== null) {
-      const quality = chromatogramData.quality ? chromatogramData.quality[qIdx] : null;
-      const rect = e.currentTarget.getBoundingClientRect();
-      const containerRect = e.currentTarget.closest('.sequence-container')?.getBoundingClientRect();
+    const container = e.currentTarget as HTMLElement;
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left - 100; // 100 is the gutter width
+    
+    if (x < 0) {
+      if (hoverInfo.idx !== null) setHoverInfo(prev => ({ ...prev, idx: null }));
+      return;
+    }
+
+    const idx = Math.floor(x / BASE_WIDTH);
+    if (idx >= 0 && idx < totalBases) {
+      const qIdx = gappedToQueryIdx[idx];
+      const quality = (qIdx !== null && chromatogramData.quality) ? chromatogramData.quality[qIdx] : null;
       
-      if (containerRect) {
+      // Only update if index changed to avoid excessive re-renders
+      if (idx !== hoverInfo.idx) {
         setHoverInfo({
           idx,
           quality,
-          x: rect.left - containerRect.left + BASE_WIDTH / 2,
-          y: rect.top - containerRect.top - 45
+          x: idx * BASE_WIDTH + 100 + BASE_WIDTH / 2,
+          y: e.clientY - rect.top - 20 
         });
       }
-    } else {
+    } else if (hoverInfo.idx !== null) {
       setHoverInfo(prev => ({ ...prev, idx: null }));
     }
   };
 
+  const handleMouseLeave = () => {
+    setHoverInfo(prev => ({ ...prev, idx: null }));
+  };
+
   return (
     <div className="sequence-viewer horizontal">
-      <div className="sequence-container" style={{ width: `${totalBases * BASE_WIDTH + 100}px` }}>
+      <div 
+        className="sequence-container" 
+        style={{ width: `${totalBases * BASE_WIDTH + 100}px` }}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
         
-        {/* Restriction enzyme labels */}
+        {/* 1. Restriction enzyme labels */}
         <div className="enzyme-row">
           <span className="row-gutter sticky-gutter">Enzymes</span>
           <div className="row-content">
@@ -297,52 +316,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
           </div>
         </div>
 
-        {/* Forward strand (reference) */}
-        <div className="strand-row">
-          <span className="row-gutter sticky-gutter">Ref</span>
-          <div className="row-content">
-            {displayRef.split("").map((base, i) => {
-              const isMutation = mutationPositions.has(i);
-              return (
-                <span
-                  key={i}
-                  className={`base-char ${isMutation ? "mutation" : ""}`}
-                  style={{ color: isMutation ? "#fff" : baseColor(base) }}
-                  onMouseEnter={(e) => handleBaseHover(e, i)}
-                  onMouseLeave={() => setHoverInfo(prev => ({ ...prev, idx: null }))}
-                >
-                  {base}
-                </span>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Tick marks */}
-        <div className="strand-row tick-row">
-          <span className="row-gutter sticky-gutter" />
-          <div className="row-content">
-            {displayRef.split("").map((_, i) => {
-              const pos = i + 1;
-              if (pos % 10 === 0) return <span key={i} className="tick-major">+</span>;
-              return <span key={i} className="tick-minor">·</span>;
-            })}
-          </div>
-        </div>
-
-        {/* Reverse strand (complement) */}
-        <div className="strand-row">
-          <span className="row-gutter sticky-gutter">Comp</span>
-          <div className="row-content">
-            {complement.split("").map((base, i) => (
-              <span key={i} className="base-char" style={{ color: baseColor(base) }}>
-                {base}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* Feature annotation bar */}
+        {/* 2. Feature annotation bar */}
         {featureInView && (
           <div className="feature-row">
             <span className="row-gutter sticky-gutter">Features</span>
@@ -361,7 +335,66 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
           </div>
         )}
 
-        {/* Amino acid translation */}
+        {/* 3. SnapGene style alignment block (Ref / Matches / Query) */}
+        <div className="alignment-block">
+          {/* Reference line */}
+          <div className="strand-row ref-line">
+            <span className="row-gutter sticky-gutter">Ref</span>
+            <div className="row-content">
+              {displayRef.split("").map((base, i) => {
+                const isMatch = matches[i];
+                const isMutation = mutationPositions.has(i);
+                const highlight = !isMatch || isMutation;
+                return (
+                  <span
+                    key={i}
+                    className={`base-char ${!isMatch ? "mismatch-ref" : ""} ${isMutation ? "mutation-ref" : ""}`}
+                    style={{ color: highlight ? undefined : baseColor(base) }}
+                    data-base={base}
+                  >
+                    {base}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Match indicators */}
+          <div className="strand-row match-indicators">
+            <span className="row-gutter sticky-gutter" />
+            <div className="row-content">
+              {matches.map((match, i) => (
+                <span key={i} className="match-char">
+                  {match ? "|" : " "}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Query alignment (Sanger result) */}
+          <div className="strand-row query-row">
+            <span className="row-gutter sticky-gutter query-label">Sanger</span>
+            <div className="row-content">
+              {displayQuery.split("").map((base, i) => {
+                const isMatch = matches[i];
+                const isMutation = mutationPositions.has(i);
+                const highlight = !isMatch || isMutation;
+                return (
+                  <span
+                    key={i}
+                    className={`base-char ${!isMatch ? "mismatch" : ""} ${isMutation ? "mutation" : ""}`}
+                    style={{ color: highlight ? undefined : baseColor(base) }}
+                    data-base={base}
+                  >
+                    {base}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Amino acid translation */}
         <div className="aa-row">
           <span className="row-gutter sticky-gutter">AA</span>
           <div className="row-content aa-bases">
@@ -384,21 +417,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
           </div>
         </div>
 
-        {/* Position numbers */}
-        <div className="position-row">
-          <span className="row-gutter sticky-gutter" />
-          <div className="row-content position-bases">
-            {Array.from({ length: totalBases }, (_, i) => {
-              const pos = i + 1;
-              if (pos % 10 === 0) {
-                return <span key={i} className="pos-mark">{pos}</span>;
-              }
-              return <span key={i} className="pos-spacer" />;
-            })}
-          </div>
-        </div>
-
-        {/* Chromatogram trace */}
+        {/* 5. Chromatogram trace */}
         {chromatogramData && (
           <div className="trace-row">
             <span className="row-gutter sticky-gutter">Trace</span>
@@ -413,24 +432,26 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
           </div>
         )}
 
-        {/* Query alignment */}
-        <div className="strand-row query-row">
-          <span className="row-gutter sticky-gutter query-label">Query</span>
+        {/* 6. Position numbers & Ticks */}
+        <div className="position-row">
+          <span className="row-gutter sticky-gutter" />
+          <div className="row-content position-bases">
+            {Array.from({ length: totalBases }, (_, i) => {
+              const pos = i + 1;
+              if (pos % 10 === 0) {
+                return <span key={i} className="pos-mark">{pos}</span>;
+              }
+              return <span key={i} className="pos-spacer" />;
+            })}
+          </div>
+        </div>
+        <div className="strand-row tick-row">
+          <span className="row-gutter sticky-gutter" />
           <div className="row-content">
-            {displayQuery.split("").map((base, i) => {
-              const isMatch = matches[i];
-              const isMutation = mutationPositions.has(i);
-              return (
-                <span
-                  key={i}
-                  className={`base-char ${!isMatch ? "mismatch" : ""} ${isMutation ? "mutation" : ""}`}
-                  style={{ color: !isMatch || isMutation ? "#fff" : baseColor(base) }}
-                  onMouseEnter={(e) => handleBaseHover(e, i)}
-                  onMouseLeave={() => setHoverInfo(prev => ({ ...prev, idx: null }))}
-                >
-                  {base}
-                </span>
-              );
+            {displayRef.split("").map((_, i) => {
+              const pos = i + 1;
+              if (pos % 10 === 0) return <span key={i} className="tick-major">+</span>;
+              return <span key={i} className="tick-minor">·</span>;
             })}
           </div>
         </div>
@@ -448,4 +469,4 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
       </div>
     </div>
   );
-};
+});

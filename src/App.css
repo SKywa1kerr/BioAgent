@@ -75,6 +75,11 @@
   color: white;
 }
 
+.toolbar button.btn-secondary.active {
+  background: #2a6cb6;
+  border-color: #1e5a9a;
+}
+
 .toolbar button:hover {
   opacity: 0.9;
 }

@@ -64,19 +64,6 @@
   display: inline-block;
 }
 
-.base-char.mutation {
-  background: #e33;
-  color: #fff !important;
-  border-radius: 1px;
-  font-weight: 700;
-}
-
-.base-char.mismatch {
-  background: #f88;
-  color: #fff !important;
-  font-weight: 600;
-}
-
 /* ─── Tick marks ─── */
 .tick-row {
   line-height: 1.0;
@@ -189,11 +176,79 @@
   background: #fff;
 }
 
-/* ─── Query row ─── */
-.query-row {
-  margin-top: 5px;
-  background: #f0f7ff;
+/* ─── Alignment block (SnapGene style) ─── */
+.alignment-block {
+  margin: 15px 0;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ref-line {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
   padding: 4px 0;
+}
+
+.query-row {
+  background: #f0f9ff;
+  padding: 6px 0;
+}
+
+.match-indicators {
+  height: 14px;
+  line-height: 14px;
+  background: #fff;
+}
+
+.match-char {
+  width: var(--base-width);
+  text-align: center;
+  display: inline-block;
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* Mismatch highlighting in Ref line */
+.base-char.mismatch-ref {
+  color: #dc2626 !important;
+  font-weight: 700;
+  background: #fee2e2;
+}
+
+.base-char.mutation-ref {
+  color: #991b1b !important;
+  font-weight: 800;
+  background: #fecaca;
+}
+
+/* Mismatch highlighting in Query line */
+.base-char.mismatch {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 2px;
+}
+
+.base-char.mutation {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  font-weight: 800;
+  border-radius: 2px;
+}
+
+/* Ensure gaps are visible and styled */
+.base-char[data-base="-"] {
+  color: #94a3b8 !important;
+  font-weight: bold;
+}
+
+.query-row .base-char[data-base="-"].mismatch {
+  background: #fca5a5 !important;
+  color: #7f1d1d !important;
 }
 
 /* ─── Hover Tooltip ─── */

@@ -154,6 +154,51 @@ def parse_ab1(filepath: str) -> Tuple[str, ChromatogramData]:
     return seq, chrom_data
 
 
+def find_orf(seq: str) -> Tuple[Optional[int], Optional[int], str]:
+    """Find the longest ORF starting with ATG and ending with TAA, TAG, or TGA.
+    Returns (start, end, orientation).
+    """
+    seq = seq.upper()
+    stops = ["TAA", "TAG", "TGA"]
+    
+    def _find_in_strand(s):
+        best = (None, None)
+        curr_max = 0
+        for frame in range(3):
+            for i in range(frame, len(s) - 2, 3):
+                if s[i : i + 3] == "ATG":
+                    for j in range(i + 3, len(s) - 2, 3):
+                        if s[j : j + 3] in stops:
+                            length = j + 3 - i
+                            if length > curr_max:
+                                curr_max = length
+                                best = (i + 1, j + 3)
+                            break
+        return best
+
+    # Forward strand
+    f_start, f_end = _find_in_strand(seq)
+    
+    # Reverse strand
+    from Bio.Seq import Seq
+    rev_seq = str(Seq(seq).reverse_complement())
+    r_start, r_end = _find_in_strand(rev_seq)
+    
+    f_len = (f_end - f_start) if f_start else 0
+    r_len = (r_end - r_start) if r_start else 0
+    
+    if f_len >= r_len and f_start:
+        return f_start, f_end, "FORWARD"
+    elif r_start:
+        # Convert reverse coordinates back to forward
+        # r_start is 1-based from the end
+        actual_start = len(seq) - r_end + 1
+        actual_end = len(seq) - r_start + 1
+        return actual_start, actual_end, "REVERSE"
+    
+    return None, None, "FORWARD"
+
+
 def parse_genbank(filepath: str) -> Tuple[SeqRecord, str, int, int]:
     """Parse GenBank file and return record with CDS info."""
     record = SeqIO.read(filepath, "genbank")
@@ -166,6 +211,10 @@ def parse_genbank(filepath: str) -> Tuple[SeqRecord, str, int, int]:
             cds_start = int(feature.location.start) + 1  # 1-based
             cds_end = int(feature.location.end)
             break
+    
+    # Fallback to ORF detection if no CDS found
+    if cds_start is None:
+        cds_start, cds_end, _ = find_orf(seq)
 
     return record, seq, cds_start, cds_end
 
