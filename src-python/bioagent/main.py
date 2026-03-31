@@ -327,8 +327,20 @@ def main():
     parser.add_argument("--output", "-o", help="Output JSON file (default: stdout)")
     parser.add_argument("--llm", action="store_true", help="Use LLM for judgment")
     parser.add_argument("--model", default="google/gemma-3-27b-it:free", help="LLM model")
+    parser.add_argument("--history", action="store_true", help="List past analyses as JSON")
+    parser.add_argument("--history-detail", help="Get samples for an analysis ID")
 
     args = parser.parse_args()
+
+    if args.history:
+        from .db_models import list_analyses
+        print(json.dumps(list_analyses(), ensure_ascii=False))
+        return
+
+    if args.history_detail:
+        from .db_models import get_analysis_samples
+        print(json.dumps(get_analysis_samples(args.history_detail), ensure_ascii=False))
+        return
 
     ab1_dir = args.ab1_dir
     if args.auto_import:
@@ -346,6 +358,14 @@ def main():
         use_llm=args.llm, 
         model=args.model
     )
+
+    # Save to database
+    from .rules import load_thresholds
+    from .db_models import save_analysis
+    valid = [s for s in results["samples"] if s.get("status") != "error"]
+    judgments = [{"sid": s["id"], "status": s["status"], "reason": s.get("reason", ""), "rule": s.get("rule_id", -1)} for s in valid]
+    if valid:
+        save_analysis(valid, judgments, load_thresholds(), source_path=ab1_dir or "")
 
     # Use compact JSON (no indent) to reduce payload size for large trace arrays
     output = json.dumps(results, separators=(',', ':'))
