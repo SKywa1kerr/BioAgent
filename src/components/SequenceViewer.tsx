@@ -18,6 +18,7 @@ interface SequenceViewerProps {
   chromatogramData: ChromatogramData | null;
   cdsStart: number;
   cdsEnd: number;
+  showChromatogram?: boolean;
 }
 
 const BASE_WIDTH = 10.4;
@@ -43,6 +44,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
   chromatogramData,
   cdsStart,
   cdsEnd,
+  showChromatogram = true,
 }) => {
   const displayRef = alignedRefG || refSequence;
   const displayQuery = alignedQueryG || querySequence;
@@ -384,9 +386,17 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           </div>
         </div>
 
-        {/* Chromatogram trace */}
+        {/* Chromatogram trace - always mounted, visibility controlled by CSS */}
         {chromatogramData && (
-          <div className="trace-row">
+          <div
+            className="trace-row"
+            style={{
+              opacity: showChromatogram ? 1 : 0,
+              height: showChromatogram ? "auto" : 0,
+              overflow: "hidden",
+              transition: "opacity 0.2s"
+            }}
+          >
             <span className="row-gutter sticky-gutter">Trace</span>
             <div className="row-content">
               <ChromatogramWorkerView
@@ -396,6 +406,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
                 gappedToQueryIdx={gappedToQueryIdx}
                 baseWidth={BASE_WIDTH}
                 traceHeight={TRACE_HEIGHT}
+                visible={showChromatogram}
               />
             </div>
           </div>

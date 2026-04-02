@@ -8,6 +8,7 @@ interface ChromatogramWorkerViewProps {
   gappedToQueryIdx: (number | null)[];
   baseWidth: number;
   traceHeight: number;
+  visible?: boolean;
 }
 
 // Cache for rendered chromatogram bitmaps
@@ -19,7 +20,8 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
   alignedQueryG,
   gappedToQueryIdx,
   baseWidth,
-  traceHeight
+  traceHeight,
+  visible = true
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isReady, setIsReady] = useState(false);
@@ -135,8 +137,9 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
       style={{
         width: `${width}px`,
         height: `${traceHeight}px`,
-        opacity: isReady ? 1 : 0.5,
-        transition: "opacity 0.2s"
+        opacity: visible ? (isReady ? 1 : 0.5) : 0,
+        transition: "opacity 0.2s",
+        pointerEvents: visible ? "auto" : "none"
       }}
       className="trace-canvas-worker"
     />

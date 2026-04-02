@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from "react";
 import { Sample, ChromatogramData } from "./types";
 import { SampleList } from "./components/SampleList";
 import { SequenceViewer } from "./components/SequenceViewer";
+import { PrimerDesigner } from "./components/PrimerDesigner";
 import "./App.css";
 
 const { invoke } = window.electronAPI;
@@ -67,27 +68,27 @@ function App() {
   const chromatogramData = useMemo<ChromatogramData | null>(() => {
     if (
       !selectedSample ||
-      !selectedSample.traces_a ||
-      !selectedSample.traces_t ||
-      !selectedSample.traces_g ||
-      !selectedSample.traces_c ||
+      !selectedSample.tracesA ||
+      !selectedSample.tracesT ||
+      !selectedSample.tracesG ||
+      !selectedSample.tracesC ||
       !selectedSample.quality ||
-      !selectedSample.query_sequence
+      !selectedSample.querySequence
     ) {
       return null;
     }
 
     return {
       traces: {
-        A: selectedSample.traces_a,
-        T: selectedSample.traces_t,
-        G: selectedSample.traces_g,
-        C: selectedSample.traces_c,
+        A: selectedSample.tracesA,
+        T: selectedSample.tracesT,
+        G: selectedSample.tracesG,
+        C: selectedSample.tracesC,
       },
       quality: selectedSample.quality,
-      baseCalls: selectedSample.query_sequence,
-      base_locations: selectedSample.base_locations || [],
-      mixed_peaks: selectedSample.mixed_peaks || [],
+      baseCalls: selectedSample.querySequence,
+      baseLocations: selectedSample.baseLocations || [],
+      mixedPeaks: selectedSample.mixedPeaks || [],
     };
   }, [selectedSample]);
 
@@ -174,25 +175,26 @@ function App() {
               <div className="viewer">
                 <div className="sequence-section">
                 <SequenceViewer
-                  refSequence={selectedSample.ref_sequence || ""}
-                  querySequence={selectedSample.query_sequence || ""}
-                  alignedRefG={selectedSample.aligned_ref_g || ""}
-                  alignedQueryG={selectedSample.aligned_query_g || ""}
-                  alignedQuery={selectedSample.aligned_query || ""}
+                  refSequence={selectedSample.refSequence || ""}
+                  querySequence={selectedSample.querySequence || ""}
+                  alignedRefG={selectedSample.alignedRefG || ""}
+                  alignedQueryG={selectedSample.alignedQueryG || ""}
+                  alignedQuery={selectedSample.alignedQuery || ""}
                   matches={selectedSample.matches || []}
                   mutations={selectedSample.mutations || []}
-                  chromatogramData={showChromatogram ? chromatogramData : null}
-                  cdsStart={selectedSample.cds_start || 0}
-                  cdsEnd={selectedSample.cds_end || 0}
+                  chromatogramData={chromatogramData}
+                  showChromatogram={showChromatogram}
+                  cdsStart={selectedSample.cdsStart || 0}
+                  cdsEnd={selectedSample.cdsEnd || 0}
                 />
                 </div>
 
                 <div className="details-section">
                   <h4>Mutations</h4>
-                  {selectedSample.llm_verdict && (
+                  {selectedSample.llmVerdict && (
                     <div className="llm-verdict">
                       <strong>LLM Verdict:</strong>
-                      <p>{selectedSample.llm_verdict}</p>
+                      <p>{selectedSample.llmVerdict}</p>
                     </div>
                   )}
                   {selectedSample.mutations && selectedSample.mutations.length > 0 ? (
@@ -221,6 +223,11 @@ function App() {
                   ) : (
                     <p className="no-mutations">No mutations detected</p>
                   )}
+
+                  <PrimerDesigner
+                    sample={selectedSample}
+                    mutations={selectedSample.mutations || []}
+                  />
                 </div>
               </div>
             )
