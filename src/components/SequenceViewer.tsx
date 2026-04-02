@@ -208,9 +208,17 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
   };
 
   return (
-    <div className="sequence-viewer horizontal">
+    <div className="sequence-viewer horizontal" ref={containerRef}>
+      {mismatchPositions.length > 0 && (
+        <button
+          className="navigate-errors-btn"
+          onClick={navigateToNextError}
+          title={`Next error (${currentErrorIndex + 1}/${mismatchPositions.length})`}
+        >
+          ▶ ({currentErrorIndex + 1}/{mismatchPositions.length})
+        </button>
+      )}
       <div
-        ref={containerRef}
         className="sequence-container"
         style={{ width: `${totalBases * BASE_WIDTH + 100}px` }}
         onMouseMove={handleMouseMove}
@@ -373,16 +381,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
                 </span>
               );
             })}
-            {mismatchPositions.length > 0 && (
-              <button
-                className="navigate-errors-btn"
-                onClick={navigateToNextError}
-                title={`Next error (${currentErrorIndex + 1}/${mismatchPositions.length})`}
-                style={{ left: `${totalBases * BASE_WIDTH + 10}px` }}
-              >
-                ▶ ({currentErrorIndex + 1}/{mismatchPositions.length})
-              </button>
-            )}
           </div>
         </div>
 
