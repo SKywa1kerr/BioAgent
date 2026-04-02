@@ -209,15 +209,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
 
   return (
     <div className="sequence-viewer horizontal">
-      {mismatchPositions.length > 0 && (
-        <button
-          className="navigate-errors-btn"
-          onClick={navigateToNextError}
-          title={`Next error (${currentErrorIndex + 1}/${mismatchPositions.length})`}
-        >
-          ▶ ({currentErrorIndex + 1}/{mismatchPositions.length})
-        </button>
-      )}
       <div
         ref={containerRef}
         className="sequence-container"
@@ -350,7 +341,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           <div className="row-content aa-bases">
             {/* CDS Highlight Background */}
             {featureInView && (
-              <div 
+              <div
                 className="cds-highlight-bg"
                 style={{
                   left: `${gappedCdsStart * BASE_WIDTH}px`,
@@ -362,7 +353,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
               const startX = aa.gappedStart * BASE_WIDTH;
               const endX = (aa.gappedEnd + 1) * BASE_WIDTH;
               const width = endX - startX;
-              
+
               const refAA = aminoAcids.refAAs[i];
               const isMutation = refAA && refAA.aa !== aa.aa;
 
@@ -370,9 +361,9 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
                 <span
                   key={i}
                   className={`aa-char ${isMutation ? "aa-mutation" : ""}`}
-                  style={{ 
-                    position: "absolute", 
-                    left: `${startX}px`, 
+                  style={{
+                    position: "absolute",
+                    left: `${startX}px`,
                     width: `${width}px`,
                     textAlign: "center"
                   }}
@@ -382,6 +373,16 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
                 </span>
               );
             })}
+            {mismatchPositions.length > 0 && (
+              <button
+                className="navigate-errors-btn"
+                onClick={navigateToNextError}
+                title={`Next error (${currentErrorIndex + 1}/${mismatchPositions.length})`}
+                style={{ left: `${totalBases * BASE_WIDTH + 10}px` }}
+              >
+                ▶ ({currentErrorIndex + 1}/{mismatchPositions.length})
+              </button>
+            )}
           </div>
         </div>
 
