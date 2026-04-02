@@ -1,9 +1,10 @@
-import React, { useRef, useEffect, useMemo, useState, memo } from "react";
+import React, { useMemo, useState, memo, useRef, useCallback } from "react";
 import { Mutation, ChromatogramData } from "../types";
 import {
   translateCodon,
   baseColor,
 } from "../utils/sequence";
+import { ChromatogramWorkerView } from "./Chromatogram/ChromatogramWorkerView";
 import "./SequenceViewer.css";
 
 interface SequenceViewerProps {
@@ -31,135 +32,6 @@ const AA_THREE: Record<string, string> = {
   "*": "***", "?": "???",
 };
 
-const ChromatogramView = memo(({ 
-  data, 
-  totalBases, 
-  alignedQueryG, 
-  gappedToQueryIdx 
-}: {
-  data: ChromatogramData;
-  totalBases: number;
-  alignedQueryG: string;
-  gappedToQueryIdx: (number | null)[];
-}) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const width = totalBases * BASE_WIDTH;
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !data.traces) return;
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = width * dpr;
-    canvas.height = TRACE_HEIGHT * dpr;
-    ctx.scale(dpr, dpr);
-
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, width, TRACE_HEIGHT);
-
-    const traces = data.traces;
-    const totalTracePoints = traces.A?.length || 0;
-    if (totalTracePoints === 0) return;
-
-    // Find max value for scaling
-    let maxVal = 0;
-    const colors = { A: "#00aa00", T: "#aa0000", G: "#000000", C: "#0000aa" };
-    for (const base of ["A", "T", "G", "C"] as const) {
-      const trace = traces[base];
-      for (let i = 0; i < totalTracePoints; i++) {
-        if (trace[i] > maxVal) maxVal = trace[i];
-      }
-    }
-    if (maxVal === 0) maxVal = 100;
-
-    const yScale = (TRACE_HEIGHT - 35) / (maxVal * 1.1);
-
-    // 1. Draw Quality Bars (SnapGene style)
-    if (data.quality) {
-      for (let i = 0; i < totalBases; i++) {
-        const qIdx = gappedToQueryIdx[i];
-        if (qIdx !== null && qIdx < data.quality.length) {
-          const q = data.quality[qIdx];
-          if (q >= 40) ctx.fillStyle = "#e2e8f0";
-          else if (q >= 20) ctx.fillStyle = "#fef3c7";
-          else ctx.fillStyle = "#fee2e2";
-          
-          const barHeight = Math.min(1, q / 60) * (TRACE_HEIGHT - 45);
-          const x = i * BASE_WIDTH + 1;
-          ctx.fillRect(x, TRACE_HEIGHT - 25 - barHeight, BASE_WIDTH - 2, barHeight);
-        }
-      }
-    }
-
-    // 2. Draw Traces
-    if (data.base_locations && data.base_locations.length > 0) {
-      const queryToGapped: number[] = [];
-      for (let i = 0; i < gappedToQueryIdx.length; i++) {
-        const qIdx = gappedToQueryIdx[i];
-        if (qIdx !== null) queryToGapped[qIdx] = i;
-      }
-
-      for (const base of ["A", "T", "G", "C"] as const) {
-        const trace = traces[base];
-        ctx.strokeStyle = colors[base];
-        ctx.lineWidth = 1.2;
-        ctx.beginPath();
-
-        let b1 = 0;
-        for (let i = 0; i < totalTracePoints; i++) {
-          while (b1 < data.base_locations.length - 1 && data.base_locations[b1+1] < i) {
-            b1++;
-          }
-          
-          const t1 = data.base_locations[b1];
-          const t2 = data.base_locations[b1+1] || totalTracePoints;
-          const g1 = queryToGapped[b1] ?? 0;
-          const g2 = queryToGapped[b1+1] ?? (g1 + 1);
-
-          const ratio = (i - t1) / (t2 - t1);
-          const gappedX = g1 + (g2 - g1) * ratio;
-          const x = (gappedX + 0.5) * BASE_WIDTH;
-          const y = TRACE_HEIGHT - 25 - trace[i] * yScale;
-
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-      }
-    }
-
-    // 3. Draw Base Call Letters
-    ctx.font = "bold 10px Monaco, Consolas, monospace";
-    ctx.textAlign = "center";
-    for (let i = 0; i < totalBases; i++) {
-      const b = alignedQueryG[i];
-      if (b === "-" || !b) continue;
-
-      const x = (i + 0.5) * BASE_WIDTH;
-      ctx.fillStyle = colors[b as keyof typeof colors] || "#888";
-      ctx.fillText(b, x, TRACE_HEIGHT - 8);
-
-      const qIdx = gappedToQueryIdx[i];
-      if (qIdx !== null && data.mixed_peaks && data.mixed_peaks.includes(qIdx)) {
-        ctx.strokeStyle = "#eab308";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.arc(x, TRACE_HEIGHT - 18, 4, 0, Math.PI * 2);
-        ctx.stroke();
-      }
-    }
-  }, [data, totalBases, alignedQueryG, gappedToQueryIdx, width]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: `${width}px`, height: `${TRACE_HEIGHT}px` }}
-      className="trace-canvas-full"
-    />
-  );
-});
 
 export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
   refSequence = "",
@@ -175,6 +47,8 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
   const displayRef = alignedRefG || refSequence;
   const displayQuery = alignedQueryG || querySequence;
   const totalBases = displayRef?.length || 0;
+
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const [hoverInfo, setHoverInfo] = useState<{ idx: number | null; quality: number | null; x: number; y: number }>({
     idx: null,
@@ -260,6 +134,33 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
     return set;
   }, [mutations, refToGapped]);
 
+  const mismatchPositions = useMemo(() => {
+    const positions: number[] = [];
+    for (let i = 0; i < matches.length; i++) {
+      if (!matches[i] || mutationPositions.has(i)) {
+        positions.push(i);
+      }
+    }
+    return positions;
+  }, [matches, mutationPositions]);
+
+  const [currentErrorIndex, setCurrentErrorIndex] = useState<number>(-1);
+
+  const navigateToNextError = useCallback(() => {
+    if (mismatchPositions.length === 0 || !containerRef.current) return;
+
+    const nextIndex = (currentErrorIndex + 1) % mismatchPositions.length;
+    setCurrentErrorIndex(nextIndex);
+
+    const targetPosition = mismatchPositions[nextIndex];
+    const targetScrollLeft = targetPosition * BASE_WIDTH - containerRef.current.clientWidth / 2 + BASE_WIDTH / 2;
+
+    containerRef.current.scrollTo({
+      left: Math.max(0, targetScrollLeft),
+      behavior: "smooth"
+    });
+  }, [mismatchPositions, currentErrorIndex]);
+
   const featureInView = gappedCdsStart >= 0;
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -308,8 +209,18 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
 
   return (
     <div className="sequence-viewer horizontal">
-      <div 
-        className="sequence-container" 
+      {mismatchPositions.length > 0 && (
+        <button
+          className="navigate-errors-btn"
+          onClick={navigateToNextError}
+          title={`Next error (${currentErrorIndex + 1}/${mismatchPositions.length})`}
+        >
+          ▶ ({currentErrorIndex + 1}/{mismatchPositions.length})
+        </button>
+      )}
+      <div
+        ref={containerRef}
+        className="sequence-container"
         style={{ width: `${totalBases * BASE_WIDTH + 100}px` }}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
@@ -479,11 +390,13 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           <div className="trace-row">
             <span className="row-gutter sticky-gutter">Trace</span>
             <div className="row-content">
-              <ChromatogramView
+              <ChromatogramWorkerView
                 data={chromatogramData}
                 totalBases={totalBases}
                 alignedQueryG={displayQuery}
                 gappedToQueryIdx={gappedToQueryIdx}
+                baseWidth={BASE_WIDTH}
+                traceHeight={TRACE_HEIGHT}
               />
             </div>
           </div>

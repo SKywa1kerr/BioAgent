@@ -1,6 +1,6 @@
 .sequence-viewer.horizontal {
   --base-width: 10.4px;
-  --gutter-width: 80px;
+  --gutter-width: 100px;
   font-family: "Monaco", "Consolas", "Courier New", monospace;
   font-size: 12px;
   background: #ffffff;
@@ -12,6 +12,33 @@
   height: 100%;
   display: flex;
   flex-direction: column;
+  position: relative;
+}
+
+/* Navigate errors button */
+.navigate-errors-btn {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  z-index: 1000;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.navigate-errors-btn:hover {
+  background: #b91c1c;
+}
+
+.navigate-errors-btn:active {
+  transform: scale(0.95);
 }
 
 .sequence-container {
@@ -120,7 +147,8 @@
   min-height: 120px;
 }
 
-.trace-canvas-full {
+.trace-canvas-full,
+.trace-canvas-worker {
   display: block;
   background: #fff;
 }
