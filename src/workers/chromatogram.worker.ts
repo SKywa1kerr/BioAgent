@@ -201,5 +201,8 @@ self.onmessage = (e: MessageEvent<RenderPayload>) => {
     }
   }
 
-  self.postMessage({ type: "rendered" });
+  // Create bitmap from canvas and transfer back to main thread
+  createImageBitmap(canvas).then(bitmap => {
+    self.postMessage({ type: "rendered", bitmap }, [bitmap]);
+  });
 };
