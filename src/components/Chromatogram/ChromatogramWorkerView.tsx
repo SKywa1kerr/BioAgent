@@ -3,7 +3,7 @@ import { ChromatogramData } from "../../types";
 
 interface ChromatogramWorkerViewProps {
   data: ChromatogramData;
-  sampleId: string;  // Unique identifier for caching across samples
+  sampleId: string;
   totalBases: number;
   alignedQueryG: string;
   gappedToQueryIdx: (number | null)[];
@@ -12,7 +12,8 @@ interface ChromatogramWorkerViewProps {
   visible?: boolean;
 }
 
-// Cache for rendered chromatogram bitmaps
+// Cache for rendered chromatogram ImageBitmaps
+// ImageBitmap can be drawn multiple times but not transferred after first use
 const renderCache = new Map<string, ImageBitmap>();
 
 export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = memo(({
@@ -26,13 +27,14 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
   visible = true
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderedRef = useRef<boolean>(false);
   const [isReady, setIsReady] = useState(false);
   const width = totalBases * baseWidth;
 
-  // Create a stable cache key that includes sampleId to avoid collisions between samples
+  // Stable cache key based on sample and dimensions
   const cacheKey = React.useMemo(() => {
-    return `chrom-${sampleId}-${totalBases}-${baseWidth}`;
-  }, [sampleId, totalBases, baseWidth]);
+    return `chrom-${sampleId}-${totalBases}-${baseWidth}-${traceHeight}`;
+  }, [sampleId, totalBases, baseWidth, traceHeight]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -42,23 +44,33 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
     const targetWidth = Math.floor(width * dpr);
     const targetHeight = Math.floor(traceHeight * dpr);
 
-    // Set canvas size
-    canvas.width = targetWidth;
-    canvas.height = targetHeight;
+    // Only set canvas size once to avoid clearing
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      renderedRef.current = false;
+    }
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Check cache first
+    // Check if we already rendered this cacheKey to this canvas
+    if (renderedRef.current) {
+      setIsReady(true);
+      return;
+    }
+
+    // Check global cache
     const cached = renderCache.get(cacheKey);
     if (cached) {
       ctx.drawImage(cached, 0, 0);
+      renderedRef.current = true;
       setIsReady(true);
-      console.log('[Chromatogram] Cache hit:', cacheKey.slice(0, 50) + '...');
+      console.log('[Chromatogram] Cache hit:', cacheKey.slice(0, 50));
       return;
     }
-    console.log('[Chromatogram] Cache miss - rendering:', cacheKey.slice(0, 50) + '...');
 
+    console.log('[Chromatogram] Rendering:', cacheKey.slice(0, 50));
     setIsReady(false);
 
     // Create offscreen canvas for worker rendering
@@ -69,24 +81,21 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
       { type: "module" }
     );
 
-    // Encode gappedToQueryIdx as Int32Array (-1 for null) for efficient transfer
+    // Encode gappedToQueryIdx
     const gqiBuffer = new Int32Array(gappedToQueryIdx.length);
     for (let i = 0; i < gappedToQueryIdx.length; i++) {
       gqiBuffer[i] = gappedToQueryIdx[i] ?? -1;
     }
 
-    // Downsample trace data for faster rendering
-    // We only need ~2-3 samples per pixel for visual quality
+    // Downsample trace data
     const pixelsWide = Math.ceil(width);
     const originalLength = data.traces.A.length;
-    // Aim for 3 samples per pixel, but don't exceed original resolution
     const downsampleStep = Math.max(1, Math.floor(originalLength / (pixelsWide * 3)));
 
     const downsampleArray = (arr: number[]): Float32Array => {
       if (downsampleStep === 1) return new Float32Array(arr);
       const result = new Float32Array(Math.ceil(arr.length / downsampleStep));
       for (let i = 0, j = 0; i < arr.length; i += downsampleStep, j++) {
-        // Take max value in each bin to preserve peaks
         let maxVal = arr[i];
         for (let k = i + 1; k < Math.min(i + downsampleStep, arr.length); k++) {
           if (arr[k] > maxVal) maxVal = arr[k];
@@ -101,13 +110,11 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
     const traceG = downsampleArray(data.traces.G);
     const traceC = downsampleArray(data.traces.C);
 
-    // Downsample base locations proportionally
     const baseLocBuf = new Int32Array(data.baseLocations.length);
     for (let i = 0; i < data.baseLocations.length; i++) {
       baseLocBuf[i] = Math.floor(data.baseLocations[i] / downsampleStep);
     }
 
-    // Mixed peaks also need downsampling
     const mixedBuf = new Int32Array(data.mixedPeaks.length);
     for (let i = 0; i < data.mixedPeaks.length; i++) {
       mixedBuf[i] = Math.floor(data.mixedPeaks[i] / downsampleStep);
@@ -127,7 +134,6 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
       baseWidth,
       traceHeight,
       dpr,
-      downsampleStep,
     };
 
     const transferables: Transferable[] = [
@@ -144,12 +150,19 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
 
     worker.onmessage = (e) => {
       if (e.data.type === "rendered") {
-        // Copy from offscreen to visible canvas
         const bitmap = e.data.bitmap as ImageBitmap;
         if (bitmap && ctx) {
           ctx.drawImage(bitmap, 0, 0);
-          // Cache the bitmap for future use
-          renderCache.set(cacheKey, bitmap);
+          renderedRef.current = true;
+          // Clone the bitmap for caching by drawing to a new canvas
+          const cacheCanvas = new OffscreenCanvas(targetWidth, targetHeight);
+          const cacheCtx = cacheCanvas.getContext("2d");
+          if (cacheCtx) {
+            cacheCtx.drawImage(bitmap, 0, 0);
+            createImageBitmap(cacheCanvas).then(cachedBitmap => {
+              renderCache.set(cacheKey, cachedBitmap);
+            });
+          }
           setIsReady(true);
         }
         worker.terminate();
@@ -161,7 +174,7 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
     return () => {
       worker.terminate();
     };
-  }, [cacheKey, width, traceHeight]); // Only re-render when data actually changes
+  }, [cacheKey, data, gappedToQueryIdx, alignedQueryG, width, traceHeight]);
 
   return (
     <canvas
