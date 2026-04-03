@@ -2,7 +2,6 @@ import React, { useMemo, useState, memo, useRef, useCallback } from "react";
 import { Mutation, ChromatogramData } from "../types";
 import {
   translateCodon,
-  baseColor,
 } from "../utils/sequence";
 import { ChromatogramWorkerView } from "./Chromatogram/ChromatogramWorkerView";
 import "./SequenceViewer.css";
@@ -230,13 +229,13 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
       >
         {/* SnapGene style alignment block (Ref / Matches / Sanger) */}
         <div className="alignment-block">
-          {/* Reference line */}
+          {/* Reference line - using pre-formatted text for performance */}
           <div className="strand-row ref-line">
             <span className="row-gutter sticky-gutter">Ref</span>
-            <div className="row-content">
+            <div className="row-content sequence-text" style={{ position: 'relative' }}>
               {/* CDS Highlight Background */}
               {featureInView && (
-                <div 
+                <div
                   className="cds-highlight-bg"
                   style={{
                     left: `${gappedCdsStart * BASE_WIDTH}px`,
@@ -244,44 +243,25 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
                   }}
                 />
               )}
-              {displayRef.split("").map((base, i) => {
-                const isMatch = matches[i];
-                const isMutation = mutationPositions.has(i);
-                const highlight = !isMatch || isMutation;
-                const inCds = i >= gappedCdsStart && i < gappedCdsEnd;
-                return (
-                  <span
-                    key={i}
-                    className={`base-char ${!isMatch ? "mismatch-ref" : ""} ${isMutation ? "mutation-ref" : ""} ${inCds ? "in-cds" : ""}`}
-                    style={{ color: highlight ? undefined : baseColor(base) }}
-                    data-base={base}
-                  >
-                    {base}
-                  </span>
-                );
-              })}
+              <pre className="sequence-pre">{displayRef}</pre>
             </div>
           </div>
 
-          {/* Match indicators */}
+          {/* Match indicators - using pre-formatted text for performance */}
           <div className="strand-row match-indicators">
             <span className="row-gutter sticky-gutter" />
             <div className="row-content">
-              {matches.map((match, i) => (
-                <span key={i} className="match-char">
-                  {match ? "|" : " "}
-                </span>
-              ))}
+              <pre className="match-pre">{matches.map(m => m ? "|" : " ").join("")}</pre>
             </div>
           </div>
 
-          {/* Query alignment (Sanger result) */}
+          {/* Query alignment (Sanger result) - using pre-formatted text for performance */}
           <div className="strand-row query-row">
             <span className="row-gutter sticky-gutter query-label">Sanger</span>
-            <div className="row-content">
+            <div className="row-content sequence-text" style={{ position: 'relative' }}>
               {/* CDS Highlight Background */}
               {featureInView && (
-                <div 
+                <div
                   className="cds-highlight-bg"
                   style={{
                     left: `${gappedCdsStart * BASE_WIDTH}px`,
@@ -289,22 +269,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
                   }}
                 />
               )}
-              {displayQuery.split("").map((base, i) => {
-                const isMatch = matches[i];
-                const isMutation = mutationPositions.has(i);
-                const highlight = !isMatch || isMutation;
-                const inCds = i >= gappedCdsStart && i < gappedCdsEnd;
-                return (
-                  <span
-                    key={i}
-                    className={`base-char ${!isMatch ? "mismatch" : ""} ${isMutation ? "mutation" : ""} ${inCds ? "in-cds" : ""}`}
-                    style={{ color: highlight ? undefined : baseColor(base) }}
-                    data-base={base}
-                  >
-                    {base}
-                  </span>
-                );
-              })}
+              <pre className="sequence-pre">{displayQuery}</pre>
             </div>
           </div>
         </div>
@@ -415,27 +380,29 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           </div>
         )}
 
-        {/* Position numbers & Ticks */}
+        {/* Position numbers & Ticks - using pre-formatted text for performance */}
         <div className="position-row">
           <span className="row-gutter sticky-gutter" />
-          <div className="row-content position-bases">
-            {Array.from({ length: totalBases }, (_, i) => {
-              const pos = i + 1;
-              if (pos % 10 === 0) {
-                return <span key={i} className="pos-mark">{pos}</span>;
-              }
-              return <span key={i} className="pos-spacer" />;
-            })}
+          <div className="row-content">
+            <pre className="position-pre">
+              {Array.from({ length: totalBases }, (_, i) => {
+                const pos = i + 1;
+                if (pos % 10 === 0) return String(pos).padEnd(10, ' ');
+                return ' ';
+              }).join('').slice(0, totalBases)}
+            </pre>
           </div>
         </div>
         <div className="strand-row tick-row">
           <span className="row-gutter sticky-gutter" />
           <div className="row-content">
-            {displayRef.split("").map((_, i) => {
-              const pos = i + 1;
-              if (pos % 10 === 0) return <span key={i} className="tick-major">+</span>;
-              return <span key={i} className="tick-minor">·</span>;
-            })}
+            <pre className="tick-pre">
+              {Array.from({ length: totalBases }, (_, i) => {
+                const pos = i + 1;
+                if (pos % 10 === 0) return '+';
+                return '·';
+              }).join('')}
+            </pre>
           </div>
         </div>
 

@@ -15,6 +15,48 @@
   position: relative;
 }
 
+/* Pre-formatted sequence text for performance */
+.sequence-text {
+  position: relative;
+}
+
+.sequence-pre,
+.match-pre,
+.position-pre,
+.tick-pre {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  letter-spacing: 0;
+}
+
+.sequence-pre {
+  color: #222;
+}
+
+.match-pre {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.position-pre {
+  color: #999;
+  font-size: 9px;
+}
+
+.tick-pre {
+  color: #aaa;
+  font-size: 9px;
+  opacity: 0.5;
+}
+
 /* Navigate errors button - fixed at right edge of visible window */
 .navigate-errors-btn {
   position: fixed;
