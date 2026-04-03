@@ -20,6 +20,7 @@ interface RenderPayload {
   baseWidth: number;
   traceHeight: number;
   dpr: number;
+  downsampleStep: number;
 }
 
 const colors = { A: "#00aa00", T: "#aa0000", G: "#000000", C: "#0000aa" };
@@ -38,6 +39,7 @@ self.onmessage = (e: MessageEvent<RenderPayload>) => {
     baseWidth,
     traceHeight,
     dpr,
+    // downsampleStep is received but data is already downsampled in main thread
   } = e.data;
 
   if (!canvas) return;
@@ -203,6 +205,6 @@ self.onmessage = (e: MessageEvent<RenderPayload>) => {
 
   // Create bitmap from canvas and transfer back to main thread
   createImageBitmap(canvas).then(bitmap => {
-    self.postMessage({ type: "rendered", bitmap }, [bitmap]);
+    (self as unknown as Worker).postMessage({ type: "rendered", bitmap }, [bitmap]);
   });
 };

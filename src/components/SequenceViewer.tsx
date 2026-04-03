@@ -8,6 +8,7 @@ import { ChromatogramWorkerView } from "./Chromatogram/ChromatogramWorkerView";
 import "./SequenceViewer.css";
 
 interface SequenceViewerProps {
+  sampleId: string;
   refSequence: string;
   querySequence: string;
   alignedRefG?: string;
@@ -35,6 +36,7 @@ const AA_THREE: Record<string, string> = {
 
 
 export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
+  sampleId,
   refSequence = "",
   querySequence = "",
   alignedRefG = "",
@@ -401,6 +403,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
             <div className="row-content">
               <ChromatogramWorkerView
                 data={chromatogramData}
+                sampleId={sampleId}
                 totalBases={totalBases}
                 alignedQueryG={displayQuery}
                 gappedToQueryIdx={gappedToQueryIdx}

@@ -3,6 +3,7 @@ import { ChromatogramData } from "../../types";
 
 interface ChromatogramWorkerViewProps {
   data: ChromatogramData;
+  sampleId: string;  // Unique identifier for caching across samples
   totalBases: number;
   alignedQueryG: string;
   gappedToQueryIdx: (number | null)[];
@@ -16,6 +17,7 @@ const renderCache = new Map<string, ImageBitmap>();
 
 export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = memo(({
   data,
+  sampleId,
   totalBases,
   alignedQueryG,
   gappedToQueryIdx,
@@ -27,27 +29,10 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
   const [isReady, setIsReady] = useState(false);
   const width = totalBases * baseWidth;
 
-  // Create a stable cache key based on actual data content (not object reference)
-  // Use the array references themselves as they are stable from the sample data
+  // Create a stable cache key that includes sampleId to avoid collisions between samples
   const cacheKey = React.useMemo(() => {
-    // Use array lengths and sample points for a stable fingerprint
-    const tracesLen = data.traces.A.length;
-    const locLen = data.baseLocations.length;
-    // Sample a few points from the middle of the trace for uniqueness
-    const midIdx = Math.floor(tracesLen / 2);
-    const sampleA = data.traces.A[midIdx] || 0;
-    const sampleT = data.traces.T[midIdx] || 0;
-    return `chrom-${tracesLen}-${locLen}-${sampleA}-${sampleT}-${totalBases}-${baseWidth}`;
-  }, [
-    // Only depend on the actual array references and primitive values
-    data.traces.A,
-    data.traces.T,
-    data.traces.G,
-    data.traces.C,
-    data.baseLocations,
-    totalBases,
-    baseWidth
-  ]);
+    return `chrom-${sampleId}-${totalBases}-${baseWidth}`;
+  }, [sampleId, totalBases, baseWidth]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -90,13 +75,45 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
       gqiBuffer[i] = gappedToQueryIdx[i] ?? -1;
     }
 
-    const traceA = new Float32Array(data.traces.A);
-    const traceT = new Float32Array(data.traces.T);
-    const traceG = new Float32Array(data.traces.G);
-    const traceC = new Float32Array(data.traces.C);
+    // Downsample trace data for faster rendering
+    // We only need ~2-3 samples per pixel for visual quality
+    const pixelsWide = Math.ceil(width);
+    const originalLength = data.traces.A.length;
+    // Aim for 3 samples per pixel, but don't exceed original resolution
+    const downsampleStep = Math.max(1, Math.floor(originalLength / (pixelsWide * 3)));
+
+    const downsampleArray = (arr: number[]): Float32Array => {
+      if (downsampleStep === 1) return new Float32Array(arr);
+      const result = new Float32Array(Math.ceil(arr.length / downsampleStep));
+      for (let i = 0, j = 0; i < arr.length; i += downsampleStep, j++) {
+        // Take max value in each bin to preserve peaks
+        let maxVal = arr[i];
+        for (let k = i + 1; k < Math.min(i + downsampleStep, arr.length); k++) {
+          if (arr[k] > maxVal) maxVal = arr[k];
+        }
+        result[j] = maxVal;
+      }
+      return result;
+    };
+
+    const traceA = downsampleArray(data.traces.A);
+    const traceT = downsampleArray(data.traces.T);
+    const traceG = downsampleArray(data.traces.G);
+    const traceC = downsampleArray(data.traces.C);
+
+    // Downsample base locations proportionally
+    const baseLocBuf = new Int32Array(data.baseLocations.length);
+    for (let i = 0; i < data.baseLocations.length; i++) {
+      baseLocBuf[i] = Math.floor(data.baseLocations[i] / downsampleStep);
+    }
+
+    // Mixed peaks also need downsampling
+    const mixedBuf = new Int32Array(data.mixedPeaks.length);
+    for (let i = 0; i < data.mixedPeaks.length; i++) {
+      mixedBuf[i] = Math.floor(data.mixedPeaks[i] / downsampleStep);
+    }
+
     const qualityBuf = new Uint8Array(data.quality);
-    const baseLocBuf = new Int32Array(data.baseLocations);
-    const mixedBuf = new Int32Array(data.mixedPeaks);
 
     const payload = {
       canvas: offscreen,
@@ -110,6 +127,7 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
       baseWidth,
       traceHeight,
       dpr,
+      downsampleStep,
     };
 
     const transferables: Transferable[] = [

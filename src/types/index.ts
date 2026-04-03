@@ -9,25 +9,25 @@ export interface Sample {
   ab1Path: string;
   gbPath: string;
   // Added fields from new Python backend
-  ref_sequence: string;
-  query_sequence: string;
-  aligned_ref_g?: string;
-  aligned_query_g?: string;
-  aligned_query: string;
+  refSequence: string;
+  querySequence: string;
+  alignedRefG?: string;
+  alignedQueryG?: string;
+  alignedQuery: string;
   matches: boolean[];
-  cds_start: number;
-  cds_end: number;
+  cdsStart: number;
+  cdsEnd: number;
   frameshift: boolean;
-  llm_verdict?: string;
+  llmVerdict?: string;
   error?: string;
   // Chromatogram data
-  traces_a?: number[];
-  traces_t?: number[];
-  traces_g?: number[];
-  traces_c?: number[];
+  tracesA?: number[];
+  tracesT?: number[];
+  tracesG?: number[];
+  tracesC?: number[];
   quality?: number[];
-  base_locations?: number[];
-  mixed_peaks?: number[];
+  baseLocations?: number[];
+  mixedPeaks?: number[];
 }
 
 export interface Mutation {
@@ -63,8 +63,8 @@ export interface ChromatogramData {
   };
   quality: number[];
   baseCalls: string;
-  base_locations: number[];
-  mixed_peaks: number[];
+  baseLocations: number[];
+  mixedPeaks: number[];
 }
 
 export interface AnalysisProgress {

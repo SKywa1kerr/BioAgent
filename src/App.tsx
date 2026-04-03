@@ -175,6 +175,7 @@ function App() {
               <div className="viewer">
                 <div className="sequence-section">
                 <SequenceViewer
+                  sampleId={selectedSample.id}
                   refSequence={selectedSample.refSequence || ""}
                   querySequence={selectedSample.querySequence || ""}
                   alignedRefG={selectedSample.alignedRefG || ""}
