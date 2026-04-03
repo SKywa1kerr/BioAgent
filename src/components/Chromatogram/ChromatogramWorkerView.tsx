@@ -27,15 +27,27 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
   const [isReady, setIsReady] = useState(false);
   const width = totalBases * baseWidth;
 
-  // Create a cache key based on data content
+  // Create a stable cache key based on actual data content (not object reference)
+  // Use the array references themselves as they are stable from the sample data
   const cacheKey = React.useMemo(() => {
-    // Use data length and first/last few values as a fingerprint
+    // Use array lengths and sample points for a stable fingerprint
     const tracesLen = data.traces.A.length;
-    const firstA = data.traces.A[0] || 0;
-    const lastA = data.traces.A[tracesLen - 1] || 0;
     const locLen = data.baseLocations.length;
-    return `chrom-${tracesLen}-${firstA}-${lastA}-${locLen}-${totalBases}-${baseWidth}`;
-  }, [data, totalBases, baseWidth]);
+    // Sample a few points from the middle of the trace for uniqueness
+    const midIdx = Math.floor(tracesLen / 2);
+    const sampleA = data.traces.A[midIdx] || 0;
+    const sampleT = data.traces.T[midIdx] || 0;
+    return `chrom-${tracesLen}-${locLen}-${sampleA}-${sampleT}-${totalBases}-${baseWidth}`;
+  }, [
+    // Only depend on the actual array references and primitive values
+    data.traces.A,
+    data.traces.T,
+    data.traces.G,
+    data.traces.C,
+    data.baseLocations,
+    totalBases,
+    baseWidth
+  ]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -57,8 +69,10 @@ export const ChromatogramWorkerView: React.FC<ChromatogramWorkerViewProps> = mem
     if (cached) {
       ctx.drawImage(cached, 0, 0);
       setIsReady(true);
+      console.log('[Chromatogram] Cache hit:', cacheKey.slice(0, 50) + '...');
       return;
     }
+    console.log('[Chromatogram] Cache miss - rendering:', cacheKey.slice(0, 50) + '...');
 
     setIsReady(false);
 
