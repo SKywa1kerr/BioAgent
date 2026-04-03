@@ -88,49 +88,96 @@ def find_reference_file(clone_id: str, genes_dir: Optional[str]) -> Tuple[Option
     return None, None
 
 
+def extract_candidate_ids(filename: str) -> list:
+    """Extract multiple candidate IDs from filename using various patterns.
+
+    Returns list of candidates ordered by likelihood (most specific first).
+    """
+    candidates = []
+    stem = Path(filename).stem
+
+    # Pattern 1: Look for patterns like C515, A713, B123 (Letter followed by digits)
+    # Common in the middle of filenames: S22604021219-C515_1 -> C515
+    letter_number_pattern = re.findall(r'[A-Z][0-9]{2,4}', stem, re.IGNORECASE)
+    for match in letter_number_pattern:
+        candidates.append(match.upper())
+
+    # Pattern 2: Look for hyphen-separated parts that contain letter-number combos
+    # e.g., C515-1 or A713-F
+    hyphen_parts = stem.split("-")
+    for part in hyphen_parts[1:]:  # Skip first part (usually date/seq ID)
+        # Extract letter-number from this part
+        match = re.search(r'([A-Z][0-9]{2,4})', part, re.IGNORECASE)
+        if match:
+            candidates.append(match.group(1).upper())
+
+    # Pattern 3: Look for underscore-separated parts
+    # e.g., S22604021219_C515_1 -> C515
+    underscore_parts = stem.split("_")
+    for part in underscore_parts:
+        match = re.search(r'([A-Z][0-9]{2,4})', part, re.IGNORECASE)
+        if match:
+            candidates.append(match.group(1).upper())
+
+    # Pattern 4: Original regex patterns for backward compatibility
+    match = re.search(r"([A-C][A-Z0-9]{3}-[A-Z0-9])", filename, re.IGNORECASE)
+    if match:
+        candidates.append(match.group().upper())
+
+    match = re.search(r"([A-Z][0-9]+-[0-9A-Z]+)", filename, re.IGNORECASE)
+    if match:
+        candidates.append(match.group().upper())
+
+    # Remove duplicates while preserving order
+    seen = set()
+    unique_candidates = []
+    for c in candidates:
+        if c not in seen:
+            seen.add(c)
+            unique_candidates.append(c)
+
+    return unique_candidates
+
+
 def analyze_single_sample(args_tuple) -> dict:
     """Worker function for parallel analysis."""
     ab1_file, gb_dir, genes_dir, plasmid = args_tuple
-    
-    # Extract clone ID using multiple strategies from sanger.py
-    clone_id = None
-    
-    # Strategy 1: Regex from sanger.py
-    match = re.search(r"([A-C][A-Z0-9]{3}-[A-Z0-9])", ab1_file.name, re.IGNORECASE)
-    if match:
-        clone_id = match.group().upper()
-    
-    # Strategy 2: General ID pattern
-    if not clone_id:
-        match = re.search(r"([A-Z][0-9]+-[0-9A-Z]+)", ab1_file.name, re.IGNORECASE)
-        if match:
-            clone_id = match.group().upper()
-    
-    # Strategy 3: Underscore split (sanger.py: abi_file.split('_')[2])
-    if not clone_id:
-        parts = ab1_file.stem.split("_")
-        if len(parts) >= 3:
-            clone_id = parts[2].replace("(", "").replace(")", "").upper()
-    
-    # Strategy 4: Simple hyphen split
-    if not clone_id:
-        clone_id = ab1_file.stem.split("-")[0].upper()
 
-    # Find reference
+    # Extract multiple candidate IDs from filename
+    candidate_ids = extract_candidate_ids(ab1_file.name)
+
+    # Try each candidate ID to find a reference match
+    clone_id = None
     ref_file, ref_type = None, None
-    if gb_dir:
-        ref_file, ref_type = find_reference_file(clone_id, gb_dir)
-    
-    if not ref_file and genes_dir:
-        ref_file, ref_type = find_reference_file(clone_id, genes_dir)
+
+    for candidate in candidate_ids:
+        clone_id = candidate
+
+        # Find reference
+        if gb_dir:
+            ref_file, ref_type = find_reference_file(clone_id, gb_dir)
+
+        if not ref_file and genes_dir:
+            ref_file, ref_type = find_reference_file(clone_id, genes_dir)
+
+        if ref_file:
+            break  # Found a match!
+
+    # If no candidates worked, try the full stem as last resort
+    if not ref_file:
+        clone_id = ab1_file.stem.upper()
+        if gb_dir:
+            ref_file, ref_type = find_reference_file(clone_id, gb_dir)
+        if not ref_file and genes_dir:
+            ref_file, ref_type = find_reference_file(clone_id, genes_dir)
 
     if not ref_file:
         return {
             "sample_id": ab1_file.stem,
-            "clone": clone_id,
+            "clone": clone_id or "UNKNOWN",
             "ab1": ab1_file.name,
             "status": "error",
-            "error": "Missing reference file"
+            "error": f"Missing reference file. Tried candidates: {', '.join(candidate_ids) if candidate_ids else 'none found'}"
         }
 
     try:
@@ -154,13 +201,15 @@ def analyze_single_sample(args_tuple) -> dict:
         trimmed_seq, trimmed_qual, trim_start = trim_sequence(query_seq, chrom_data.quality)
 
         # Analyze
+        is_circular = (plasmid.lower() != "none")
         result = analyze_sample(
             sample_id=ab1_file.stem,
             ref_seq=ref_seq,
             query_seq=trimmed_seq,
             cds_start=cds_start or 1,
             cds_end=cds_end or len(ref_seq),
-            query_qual=trimmed_qual
+            query_qual=trimmed_qual,
+            is_circular=is_circular
         )
         
         result.clone = clone_id
@@ -286,15 +335,44 @@ def analyze_folder(
             d = s
             d["id"] = s["sample_id"]
         else:
-            d = asdict(s)
+            # Map to camelCase for frontend
+            d = {
+                "id": s.sample_id,
+                "sampleId": s.sample_id,
+                "clone": s.clone,
+                "ab1": s.ab1,
+                "gb": s.gb,
+                "status": "ok",
+                "identity": s.identity,
+                "coverage": s.coverage,
+                "refSequence": s.ref_sequence,
+                "querySequence": s.query_sequence,
+                "alignedRefG": s.aligned_ref_g,
+                "alignedQueryG": s.aligned_query_g,
+                "alignedQuery": s.aligned_query,
+                "matches": s.matches,
+                "cdsStart": s.cds_start,
+                "cdsEnd": s.cds_end,
+                "frameshift": s.frameshift,
+                "orientation": s.orientation,
+                "aaChanges": s.aa_changes,
+                "aaChangesN": s.aa_changes_n,
+                "hasIndel": s.has_indel,
+                "tracesA": s.traces_a,
+                "tracesT": s.traces_t,
+                "tracesG": s.traces_g,
+                "tracesC": s.traces_c,
+                "quality": s.quality,
+                "baseLocations": s.base_locations,
+                "mixedPeaks": s.mixed_peaks,
+            }
+            
             # Determine status for UI
-            status = "ok"
             if s.aa_changes or s.frameshift:
-                status = "wrong"
+                d["status"] = "wrong"
             elif s.coverage < 0.8:
-                status = "warning"
-            d["status"] = status
-            d["id"] = s.sample_id
+                d["status"] = "warning"
+                
             d["mutations"] = [
                 {
                     "position": m.position,
@@ -325,7 +403,7 @@ def analyze_folder(
 
     for s in samples_dict:
         if s["id"] in llm_results:
-            s["llm_verdict"] = llm_results[s["id"]]
+            s["llmVerdict"] = llm_results[s["id"]]
 
     return {"samples": samples_dict}
 
