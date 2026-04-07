@@ -42,8 +42,12 @@ def peak_borders(base_locations: List[int], traces_len: int, i: int) -> Tuple[in
 
 def area_under_peak(traces: Dict[str, List[int]], start: int, end: int, base: str) -> int:
     """Return area under the curve in a given trace between indices start and end."""
-    area = sum(traces[base.upper()][start : end + 1])
-    return area
+    trace = traces[base.upper()]
+    start = max(0, start)
+    end = min(end, len(trace) - 1)
+    if start > end:
+        return 0
+    return sum(trace[start : end + 1])
 
 
 def signal_to_noise(seq: str, base_locations: List[int], traces: Dict[str, List[int]], i: int) -> float:
@@ -79,14 +83,17 @@ def find_mixed_peaks(seq: str, base_locations: List[int], traces: Dict[str, List
             continue
 
         base = seq[i]
-        start, end = peak_borders(base_locations, len(traces["A"]), i)
+        traces_len = len(next(iter(traces.values())))
+        if pos >= traces_len:
+            continue
+        start, end = peak_borders(base_locations, traces_len, i)
         areas = {b: area_under_peak(traces, start, end, b) for b in traces.keys()}
-        peaks = {b: values[pos] for b, values in traces.items()}
+        peaks = {b: values[pos] if pos < len(values) else 0 for b, values in traces.items()}
         if base != "N":
-            main_peak = peaks[base.upper()]
+            main_peak = peaks.get(base.upper(), 0)
         else:
-            main_peak = max(peaks.values())
-            base = max(peaks, key=peaks.get)
+            main_peak = max(peaks.values()) if peaks else 0
+            base = max(peaks, key=peaks.get) if peaks else "N"
 
         for letter, area in areas.items():
             if (

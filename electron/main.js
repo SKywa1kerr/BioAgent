@@ -93,6 +93,38 @@ ipcMain.handle("run-analysis", async (_event, ab1Dir, genesDir, options = {}) =>
   });
 });
 
+ipcMain.handle("list-primer-skills", async () => {
+  return new Promise((resolve, reject) => {
+    const pythonPath = process.platform === "win32" ? "python" : "python3";
+    const pythonDir = path.join(__dirname, "../src-python");
+    const args = ["-m", "bioagent.primer_cli", "--list-skills"];
+    const env = { ...process.env, PYTHONPATH: pythonDir };
+    execFile(pythonPath, args, { cwd: pythonDir, env, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(`Failed to list primer skills: ${stderr || error.message}`);
+      } else {
+        resolve(stdout);
+      }
+    });
+  });
+});
+
+ipcMain.handle("design-primers", async (_event, skillName, params) => {
+  return new Promise((resolve, reject) => {
+    const pythonPath = process.platform === "win32" ? "python" : "python3";
+    const pythonDir = path.join(__dirname, "../src-python");
+    const args = ["-m", "bioagent.primer_cli", "--skill", skillName, "--params", JSON.stringify(params)];
+    const env = { ...process.env, PYTHONPATH: pythonDir };
+    execFile(pythonPath, args, { cwd: pythonDir, env, maxBuffer: 100 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        reject(`Primer design failed: ${stderr || error.message}`);
+      } else {
+        resolve(stdout);
+      }
+    });
+  });
+});
+
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {

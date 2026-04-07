@@ -21,18 +21,10 @@ interface SequenceViewerProps {
   showChromatogram?: boolean;
 }
 
-const BASE_WIDTH = 10.4;
+// Monaco/Consolas at 12px has ~7.2px char width (0.6em)
+// This must match the actual rendered monospace font metrics
+const BASE_WIDTH = 7.2;
 const TRACE_HEIGHT = 140;
-
-// Single-letter to 3-letter amino acid mapping
-const AA_THREE: Record<string, string> = {
-  A: "Ala", R: "Arg", N: "Asn", D: "Asp", C: "Cys",
-  E: "Glu", Q: "Gln", G: "Gly", H: "His", I: "Ile",
-  L: "Leu", K: "Lys", M: "Met", F: "Phe", P: "Pro",
-  S: "Ser", T: "Thr", W: "Trp", Y: "Tyr", V: "Val",
-  "*": "***", "?": "???",
-};
-
 
 export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
   sampleId,
@@ -92,42 +84,44 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
     return lastIdx + 1;
   }, [cdsEnd, refToGapped]);
 
-  const aminoAcids = useMemo(() => {
-    if (cdsStart <= 0 || cdsEnd <= 0 || !refSequence) return { refAAs: [], queryAAs: [] };
-    
-    const refAAs = [];
-    const queryAAs = [];
+  // Generate amino acid strings aligned with DNA sequences
+  const { refAAString, queryAAString, aaMutationIndices } = useMemo(() => {
+    if (cdsStart <= 0 || cdsEnd <= 0 || !refSequence || !displayRef) {
+      return { refAAString: "", queryAAString: "", aaMutationIndices: new Set<number>() };
+    }
 
-    // We iterate through the CDS region in the reference sequence
-    // and find the corresponding codons in both aligned sequences.
+    // Initialize arrays with spaces
+    const refAAs: string[] = new Array(displayRef.length).fill(" ");
+    const queryAAs: string[] = new Array(displayRef.length).fill(" ");
+    const mutations = new Set<number>();
+
+    // Iterate through the CDS region in the reference sequence
     for (let i = cdsStart - 1; i + 2 < cdsEnd; i += 3) {
-      // 1. Reference AA
       const refCodon = refSequence.slice(i, i + 3);
       const refGappedStart = refToGapped[i];
       const refGappedEnd = refToGapped[i + 2];
-      
-      if (refGappedStart !== undefined && refGappedEnd !== undefined) {
-        refAAs.push({
-          aa: translateCodon(refCodon),
-          codon: refCodon,
-          gappedStart: refGappedStart,
-          gappedEnd: refGappedEnd
-        });
 
-        // 2. Query AA (Sanger)
-        // We take the 3 bases from the aligned query sequence at the SAME gapped positions
-        // This ensures we are comparing the same "slot" in the alignment.
+      if (refGappedStart !== undefined && refGappedEnd !== undefined) {
+        const refAA = translateCodon(refCodon);
         const qCodon = displayQuery.slice(refGappedStart, refGappedEnd + 1);
-        queryAAs.push({
-          aa: translateCodon(qCodon),
-          codon: qCodon,
-          gappedStart: refGappedStart,
-          gappedEnd: refGappedEnd
-        });
+        const queryAA = translateCodon(qCodon);
+
+        // Center the AA in the 3-base codon (position 1 of the 3)
+        refAAs[refGappedStart + 1] = refAA;
+        queryAAs[refGappedStart + 1] = queryAA;
+
+        if (refAA !== queryAA) {
+          mutations.add(refGappedStart + 1);
+        }
       }
     }
-    return { refAAs, queryAAs };
-  }, [refSequence, displayQuery, cdsStart, cdsEnd, refToGapped]);
+
+    return {
+      refAAString: refAAs.join(""),
+      queryAAString: queryAAs.join(""),
+      aaMutationIndices: mutations
+    };
+  }, [refSequence, displayRef, displayQuery, cdsStart, cdsEnd, refToGapped]);
   const mutationPositions = useMemo(() => {
     const set = new Set<number>();
     for (const m of mutations) {
@@ -280,7 +274,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
           <div className="row-content aa-bases">
             {/* CDS Highlight Background */}
             {featureInView && (
-              <div 
+              <div
                 className="cds-highlight-bg"
                 style={{
                   left: `${gappedCdsStart * BASE_WIDTH}px`,
@@ -288,27 +282,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
                 }}
               />
             )}
-            {aminoAcids.refAAs?.map((aa, i) => {
-              const startX = aa.gappedStart * BASE_WIDTH;
-              const endX = (aa.gappedEnd + 1) * BASE_WIDTH;
-              const width = endX - startX;
-              
-              return (
-                <span
-                  key={i}
-                  className="aa-char"
-                  style={{ 
-                    position: "absolute", 
-                    left: `${startX}px`, 
-                    width: `${width}px`,
-                    textAlign: "center"
-                  }}
-                  title={`${AA_THREE[aa.aa] || aa.aa} (${aa.codon})`}
-                >
-                  {aa.aa}
-                </span>
-              );
-            })}
+            <pre className="aa-pre">{refAAString}</pre>
           </div>
         </div>
 
@@ -326,30 +300,13 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = memo(({
                 }}
               />
             )}
-            {aminoAcids.queryAAs?.map((aa, i) => {
-              const startX = aa.gappedStart * BASE_WIDTH;
-              const endX = (aa.gappedEnd + 1) * BASE_WIDTH;
-              const width = endX - startX;
-
-              const refAA = aminoAcids.refAAs[i];
-              const isMutation = refAA && refAA.aa !== aa.aa;
-
-              return (
-                <span
-                  key={i}
-                  className={`aa-char ${isMutation ? "aa-mutation" : ""}`}
-                  style={{
-                    position: "absolute",
-                    left: `${startX}px`,
-                    width: `${width}px`,
-                    textAlign: "center"
-                  }}
-                  title={`${AA_THREE[aa.aa] || aa.aa} (${aa.codon})`}
-                >
-                  {aa.aa}
+            <pre className="aa-pre">
+              {queryAAString.split("").map((char, idx) => (
+                <span key={idx} className={aaMutationIndices.has(idx) ? "aa-mutation" : ""}>
+                  {char}
                 </span>
-              );
-            })}
+              ))}
+            </pre>
           </div>
         </div>
 

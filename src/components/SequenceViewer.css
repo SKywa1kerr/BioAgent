@@ -1,5 +1,5 @@
 .sequence-viewer.horizontal {
-  --base-width: 10.4px;
+  --base-width: 7.2px;
   --gutter-width: 100px;
   font-family: "Monaco", "Consolas", "Courier New", monospace;
   font-size: 12px;
@@ -18,6 +18,14 @@
 /* Pre-formatted sequence text for performance */
 .sequence-text {
   position: relative;
+}
+
+/* Force consistent character width across all sequence elements */
+.sequence-pre,
+.aa-bases {
+  font-family: "Monaco", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .sequence-pre,
@@ -152,19 +160,21 @@
 /* ─── Amino acids ─── */
 .aa-bases {
   min-height: 18px;
+  position: relative;
 }
 
-.aa-char {
-  width: var(--base-width);
-  text-align: center;
-  font-size: 10px;
+.aa-pre {
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre;
   color: #555;
   font-weight: 600;
-  position: relative;
-  z-index: 1;
 }
 
-.aa-char.aa-mutation {
+.aa-pre .aa-mutation {
   color: #e33;
   font-weight: 800;
 }

@@ -81,18 +81,21 @@ def compute_stats(ref_g: str, qry_g: str) -> Tuple[int, int, float, int, int, in
     return matches, aligned_both, identity, sub, ins, dele
 
 
-def ref2pos_to_refpos(ref2_pos_0based: int, ref_len: int) -> int:
-    """0-based ref2 position -> 1-based original ref position (circular)."""
-    return (ref2_pos_0based % ref_len) + 1
+def ref2pos_to_refpos(ref2_pos_0based: int, ref_len: int, is_circular: bool = True) -> int:
+    """0-based ref2 position -> 1-based original ref position."""
+    if is_circular:
+        return (ref2_pos_0based % ref_len) + 1
+    else:
+        return ref2_pos_0based + 1
 
 
-def extract_mutations(ref_g: str, qry_g: str, ref2_start: int, ref_len: int) -> List[Mutation]:
+def extract_mutations(ref_g: str, qry_g: str, ref2_start: int, ref_len: int, is_circular: bool = True) -> List[Mutation]:
     muts = []
     ref2_cursor = ref2_start
     last_refpos = None
     for a, b in zip(ref_g, qry_g):
         if a != "-":
-            refpos = ref2pos_to_refpos(ref2_cursor, ref_len)
+            refpos = ref2pos_to_refpos(ref2_cursor, ref_len, is_circular)
             last_refpos = refpos
             ref2_cursor += 1
         else:
@@ -124,7 +127,8 @@ def aa_changes_from_cds(ref_seq: str, ref_len: int,
                         ref_g: str, qry_g: str,
                         ref2_start: int,
                         qry_qual=None, qry_aln_start=0,
-                        qual_min=30) -> Tuple[bool, List[str], bool, int]:
+                        qual_min=30,
+                        is_circular: bool = True) -> Tuple[bool, List[str], bool, int]:
     if cds_start is None or cds_end is None:
         return True, [], False, 0
 
@@ -141,7 +145,7 @@ def aa_changes_from_cds(ref_seq: str, ref_len: int,
 
     for a, b in zip(ref_g, qry_g):
         if a != "-":
-            refpos = ref2pos_to_refpos(ref2_cursor, ref_len)
+            refpos = ref2pos_to_refpos(ref2_cursor, ref_len, is_circular)
             ref2_cursor += 1
             if cds_start <= refpos <= cds_end:
                 idx = refpos - cds_start
@@ -188,7 +192,8 @@ def aa_changes_from_cds(ref_seq: str, ref_len: int,
 
 
 def compute_cds_coverage(ref_g: str, qry_g: str, ref2_start: int,
-                         ref_len: int, cds_start: int, cds_end: int) -> float:
+                         ref_len: int, cds_start: int, cds_end: int,
+                         is_circular: bool = True) -> float:
     if cds_start is None or cds_end is None:
         return 0.0
     cds_len = cds_end - cds_start + 1
@@ -199,7 +204,7 @@ def compute_cds_coverage(ref_g: str, qry_g: str, ref2_start: int,
     ref2_cursor = ref2_start
     for a, b in zip(ref_g, qry_g):
         if a != "-":
-            refpos = ref2pos_to_refpos(ref2_cursor, ref_len)
+            refpos = ref2pos_to_refpos(ref2_cursor, ref_len, is_circular)
             ref2_cursor += 1
             if cds_start <= refpos <= cds_end and b != "-":
                 covered += 1
@@ -207,14 +212,15 @@ def compute_cds_coverage(ref_g: str, qry_g: str, ref2_start: int,
 
 
 def compute_cds_covered_positions(ref_g: str, qry_g: str, ref2_start: int,
-                                  ref_len: int, cds_start: int, cds_end: int) -> Dict[int, str]:
+                                  ref_len: int, cds_start: int, cds_end: int,
+                                  is_circular: bool = True) -> Dict[int, str]:
     if cds_start is None or cds_end is None:
         return {}
     positions = {}
     ref2_cursor = ref2_start
     for a, b in zip(ref_g, qry_g):
         if a != "-":
-            refpos = ref2pos_to_refpos(ref2_cursor, ref_len)
+            refpos = ref2pos_to_refpos(ref2_cursor, ref_len, is_circular)
             ref2_cursor += 1
             if cds_start <= refpos <= cds_end and b != "-":
                 positions[refpos] = b
@@ -222,7 +228,8 @@ def compute_cds_covered_positions(ref_g: str, qry_g: str, ref2_start: int,
 
 
 def detect_frameshift(ref_g: str, qry_g: str, ref2_start: int,
-                      ref_len: int, cds_start: int, cds_end: int) -> bool:
+                      ref_len: int, cds_start: int, cds_end: int,
+                      is_circular: bool = True) -> bool:
     if cds_start is None or cds_end is None:
         return False
 
@@ -233,7 +240,7 @@ def detect_frameshift(ref_g: str, qry_g: str, ref2_start: int,
 
     for a, b in zip(ref_g, qry_g):
         if a != "-":
-            refpos = ref2pos_to_refpos(ref2_cursor, ref_len)
+            refpos = ref2pos_to_refpos(ref2_cursor, ref_len, is_circular)
             last_refpos = refpos
             ref2_cursor += 1
             if cds_start <= refpos <= cds_end and b == "-":
@@ -257,13 +264,17 @@ def analyze_sample(
     cds_end: int,
     query_qual: Optional[List[int]] = None,
     aligner: Optional[Align.PairwiseAligner] = None,
+    is_circular: bool = True,
 ) -> AlignmentResult:
     """Analyze a single sample with advanced logic."""
     if aligner is None:
         aligner = create_aligner()
 
     ref_len = len(ref_seq)
-    ref2 = ref_seq + ref_seq
+    if is_circular:
+        ref2 = ref_seq + ref_seq
+    else:
+        ref2 = ref_seq
 
     orientation, best_aln, ref_g, qry_g, ref2_s, ref2_e, qry_used = \
         pick_best_orientation(ref2, query_seq, aligner)
@@ -274,8 +285,8 @@ def analyze_sample(
         qry_qual_used = query_qual
 
     matches_count, aligned_both, identity, sub, ins, dele = compute_stats(ref_g, qry_g)
-    cds_cov = compute_cds_coverage(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end)
-    frameshift = detect_frameshift(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end)
+    cds_cov = compute_cds_coverage(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end, is_circular=is_circular)
+    frameshift = detect_frameshift(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end, is_circular=is_circular)
     
     qry_aln_start = int(best_aln.coordinates[1][0])
     ok, changes, has_indel, raw_aa_changes_n = aa_changes_from_cds(
@@ -283,21 +294,38 @@ def analyze_sample(
         cds_start=cds_start, cds_end=cds_end,
         ref_g=ref_g, qry_g=qry_g, ref2_start=ref2_s,
         qry_qual=qry_qual_used, qry_aln_start=qry_aln_start,
+        is_circular=is_circular
     )
 
-    mutations = extract_mutations(ref_g, qry_g, ref2_s, ref_len)
-    cds_positions = compute_cds_covered_positions(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end)
+    mutations = extract_mutations(ref_g, qry_g, ref2_s, ref_len, is_circular=is_circular)
+    cds_positions = compute_cds_covered_positions(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end, is_circular=is_circular)
 
     avg_qry_quality = round(sum(query_qual) / len(query_qual), 1) if query_qual else None
 
     # Pad to full reference length if not wrapping
     if ref2_s < ref_len and ref2_e <= ref_len:
-        full_ref_g = ref_seq[:ref2_s] + ref_g + ref_seq[ref2_e:]
-        full_qry_g = "-" * ref2_s + qry_g + "-" * (ref_len - ref2_e)
+        padding_left = ref2_s
+        padding_right = ref_len - ref2_e
+        full_ref_g = ref_seq[:padding_left] + ref_g + ref_seq[ref2_e:]
+        full_qry_g = "-" * padding_left + qry_g + "-" * padding_right
+        
+        # matches: True for padding, True for match, False for mismatch/indel
+        matches = []
+        # Left padding
+        matches.extend([True] * padding_left)
+        # Aligned region
+        for a, b in zip(ref_g, qry_g):
+            if a != "-" and b != "-":
+                matches.append(a.upper() == b.upper())
+            else:
+                matches.append(False) # Real indel
+        # Right padding
+        matches.extend([True] * padding_right)
     else:
         # For wrapping or other cases, keep as is for now
         full_ref_g = ref_g
         full_qry_g = qry_g
+        matches = [a.upper() == b.upper() if a != "-" and b != "-" else False for a, b in zip(full_ref_g, full_qry_g)]
 
     return AlignmentResult(
         sample_id=sample_id,
@@ -306,7 +334,7 @@ def analyze_sample(
         aligned_ref_g=full_ref_g,
         aligned_query_g=full_qry_g,
         aligned_query=qry_used,
-        matches=[a.upper() == b.upper() if a != "-" and b != "-" else False for a, b in zip(full_ref_g, full_qry_g)],
+        matches=matches,
         mutations=mutations,
         cds_start=cds_start,
         cds_end=cds_end,
