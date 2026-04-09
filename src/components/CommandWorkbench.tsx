@@ -1,4 +1,4 @@
-import { FormEvent } from "react";
+import { FormEvent, KeyboardEvent } from "react";
 import type {
   AppLanguage,
   CommandWorkbenchPrompt,
@@ -50,6 +50,22 @@ export function CommandWorkbench({
     onSubmit(nextCommand);
   };
 
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.nativeEvent.isComposing) {
+      return;
+    }
+
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      const nextCommand = command.trim();
+      if (!nextCommand || disabled) {
+        return;
+      }
+
+      onSubmit(nextCommand);
+    }
+  };
+
   return (
     <section className="command-workbench" aria-label={t(language, "command.title")}>
       <header className="command-workbench-header">
@@ -71,6 +87,7 @@ export function CommandWorkbench({
             className="command-workbench-input"
             value={command}
             onChange={(event) => onCommandChange(event.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={t(language, "command.placeholder")}
             rows={8}
             disabled={disabled}

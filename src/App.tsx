@@ -6,6 +6,10 @@ import {
   AppLanguage,
   AppSettings,
   AppTheme,
+  CommandActionId,
+  CommandPlanAction,
+  CommandPlanSummary,
+  CommandTimelineEvent,
   Sample,
   type DatasetImportState,
 } from "./types";
@@ -14,10 +18,15 @@ import { TabLayout } from "./components/TabLayout";
 import { AssistantPage } from "./components/AssistantPage";
 import { HistoryPage } from "./components/HistoryPage";
 import { SettingsPage } from "./components/SettingsPage";
+import { CommandWorkbench } from "./components/CommandWorkbench";
+import { ActionPlanCard } from "./components/ActionPlanCard";
+import { ExecutionTimeline } from "./components/ExecutionTimeline";
 import { ResultsWorkbench } from "./components/ResultsWorkbench";
 import { resolveDatasetPaths } from "./utils/datasetImport";
 import { DEFAULT_ANALYSIS_DECISION_MODE, isAiReviewEnabled, validateAiReviewSettings } from "./utils/analysisPreferences";
+import { executeCommandPlanSequentially } from "./utils/commandExecution";
 import { getDefaultSelectedSampleId } from "./utils/resultSelection";
+import { getActionDefinition } from "./utils/actionRegistry";
 import "./App.css";
 const { invoke, onAnalysisProgress } = window.electronAPI;
 const PROGRESS_STAGES: AnalysisProgressStage[] = [
@@ -82,6 +91,129 @@ function getProgressStageOrder(stage: AnalysisProgressStage) {
   return index === -1 ? 0 : index;
 }
 
+type CommandIntentAction = {
+  id: CommandActionId;
+  args: Record<string, unknown>;
+};
+
+type CommandIntentPlan = {
+  summary: string;
+  actions: CommandIntentAction[];
+  needsConfirmation: boolean;
+};
+
+type ResultFilter = {
+  status?: string | null;
+  clone?: string | null;
+  sampleId?: string | null;
+  query?: string | null;
+};
+
+type CommandExecutionContext = {
+  ab1Dir: string | null;
+  genesDir: string | null;
+  plasmid: string;
+  samples: Sample[];
+  selectedId: string | null;
+  resultFilter: ResultFilter | null;
+  lastExportPath: string | null;
+};
+
+function asString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function formatActionDetail(actionId: CommandActionId, args: Record<string, unknown>) {
+  switch (actionId) {
+    case "set_plasmid":
+      return asString(args.plasmid);
+    case "filter_results":
+      return (
+        asString(args.status) ||
+        asString(args.clone) ||
+        asString(args.sampleId) ||
+        asString(args.query)
+      );
+    case "open_sample":
+      return (
+        asString(args.sampleId) ||
+        asString(args.id) ||
+        asString(args.name) ||
+        asString(args.clone)
+      );
+    case "set_ab1_dir":
+      return asString(args.ab1Dir) || asString(args.path);
+    case "set_genes_dir":
+      return asString(args.genesDir) || asString(args.path);
+    case "import_dataset":
+      return asString(args.datasetDir) || asString(args.path);
+    default:
+      return undefined;
+  }
+}
+
+function buildCommandPlanActions(
+  language: AppLanguage,
+  actions: CommandIntentAction[],
+  needsConfirmation: boolean
+) {
+  return actions.map<CommandPlanAction>((action) => {
+    const definition = getActionDefinition(action.id);
+
+    return {
+      id: action.id,
+      title: t(language, definition.labelKey),
+      detail: formatActionDetail(action.id, action.args),
+      status: needsConfirmation ? "pending" : "ready",
+      needsConfirmation: definition.needsConfirmation,
+    };
+  });
+}
+
+function buildCommandTimelineEvents(language: AppLanguage, actions: CommandIntentAction[]) {
+  return actions.map<CommandTimelineEvent>((action, index) => {
+    const definition = getActionDefinition(action.id);
+
+    return {
+      id: `${action.id}-${index}`,
+      title: t(language, definition.labelKey),
+      detail: formatActionDetail(action.id, action.args),
+      status: "queued",
+    };
+  });
+}
+
+function applyResultFilter(samples: Sample[], resultFilter: ResultFilter | null) {
+  if (!resultFilter) {
+    return samples;
+  }
+
+  const status = resultFilter.status?.trim().toLowerCase();
+  const clone = resultFilter.clone?.trim().toLowerCase();
+  const sampleId = resultFilter.sampleId?.trim().toLowerCase();
+  const query = resultFilter.query?.trim().toLowerCase();
+
+  return samples.filter((sample) => {
+    if (status && sample.status.toLowerCase() !== status) {
+      return false;
+    }
+
+    if (clone && !sample.clone.toLowerCase().includes(clone)) {
+      return false;
+    }
+
+    if (sampleId && !sample.id.toLowerCase().includes(sampleId)) {
+      return false;
+    }
+
+    if (query && !`${sample.id} ${sample.name} ${sample.clone}`.toLowerCase().includes(query)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState("analysis");
   const [language, setLanguage] = useState<AppLanguage>("zh");
@@ -102,6 +234,16 @@ function App() {
   const [plasmid, setPlasmid] = useState("pet22b");
   const [datasetImport, setDatasetImport] = useState<DatasetImportState | null>(null);
   const [showAdvancedImport, setShowAdvancedImport] = useState(false);
+  const [commandDraft, setCommandDraft] = useState("");
+  const [commandPlan, setCommandPlan] = useState<CommandIntentPlan | null>(null);
+  const [commandPlanSummary, setCommandPlanSummary] = useState<CommandPlanSummary | null>(null);
+  const [commandActions, setCommandActions] = useState<CommandPlanAction[]>([]);
+  const [executionEvents, setExecutionEvents] = useState<CommandTimelineEvent[]>([]);
+  const [resultFilter, setResultFilter] = useState<ResultFilter | null>(null);
+  const [awaitingCommandConfirmation, setAwaitingCommandConfirmation] = useState(false);
+  const [isInterpretingCommand, setIsInterpretingCommand] = useState(false);
+  const [isExecutingCommand, setIsExecutingCommand] = useState(false);
+  const [lastExportPath, setLastExportPath] = useState<string | null>(null);
   const progressHideTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -243,10 +385,17 @@ function App() {
   };
 
   const runAnalysis = useCallback(
-    async (options: { autoImport?: boolean } = {}) => {
-      if (!options.autoImport && !ab1Dir) {
+    async (
+      options: { autoImport?: boolean } = {},
+      overrides: { ab1Dir?: string | null; genesDir?: string | null; plasmid?: string } = {}
+    ) => {
+      const nextAb1Dir = overrides.ab1Dir ?? ab1Dir;
+      const nextGenesDir = overrides.genesDir ?? genesDir;
+      const nextPlasmid = overrides.plasmid ?? plasmid;
+
+      if (!options.autoImport && !nextAb1Dir) {
         alert(t(language, "analysis.selectAb1First"));
-        return;
+        return null;
       }
 
       try {
@@ -256,7 +405,7 @@ function App() {
           llmApiKey: settings?.llmApiKey || "",
           llmBaseUrl: settings?.llmBaseUrl || "",
           llmModel: settings?.llmModel || "deepseek-chat",
-          plasmid: settings?.plasmid || plasmid,
+          plasmid: nextPlasmid,
           qualityThreshold: settings?.qualityThreshold || 20,
           analysisDecisionMode: settings?.analysisDecisionMode || DEFAULT_ANALYSIS_DECISION_MODE,
           language: settings?.language,
@@ -286,12 +435,12 @@ function App() {
 
         const result = (await invoke(
           "run-analysis",
-          ab1Dir,
-          genesDir,
+          nextAb1Dir,
+          nextGenesDir,
           {
             ...options,
             useLLM: isAiReviewEnabled(effectiveSettings),
-            plasmid: effectiveSettings.plasmid,
+            plasmid: nextPlasmid,
             model: effectiveSettings.llmModel,
           }
         )) as string;
@@ -299,6 +448,7 @@ function App() {
         const data = JSON.parse(result);
         setSamples(data.samples);
         setSelectedId(getDefaultSelectedSampleId());
+        return data.samples as Sample[];
       } catch (error) {
         setAnalysisProgress({
           stage: "failed",
@@ -321,6 +471,7 @@ function App() {
         }, 2400);
         console.error("Analysis failed:", error);
         alert(`${t(language, "analysis.analysisFailed")}: ${error}`);
+        return null;
       } finally {
         setIsAnalyzing(false);
       }
@@ -388,6 +539,331 @@ function App() {
     }
   };
 
+  const executeCommandPlan = useCallback(
+    async (plan: CommandIntentPlan) => {
+      if (plan.actions.length === 0) {
+        return;
+      }
+
+      const executionContext: CommandExecutionContext = {
+        ab1Dir,
+        genesDir,
+        plasmid,
+        samples,
+        selectedId,
+        resultFilter,
+        lastExportPath,
+      };
+
+      setAwaitingCommandConfirmation(false);
+      setIsExecutingCommand(true);
+      setCommandActions((current) =>
+        current.map((action) => ({
+          ...action,
+          status: action.status === "done" ? "done" : "ready",
+        }))
+      );
+
+      try {
+        await executeCommandPlanSequentially<CommandExecutionContext, CommandActionId>(plan, {
+          context: executionContext,
+          executeAction: async (action, context) => {
+            switch (action.id) {
+              case "import_dataset": {
+                const folder =
+                  asString(action.args.datasetDir) ||
+                  asString(action.args.path) ||
+                  ((await invoke("open-folder-dialog")) as string | null);
+                if (!folder) {
+                  throw new Error("Dataset import was cancelled.");
+                }
+
+                const existingDirs = (await invoke("inspect-dataset-directory", folder)) as string[];
+                const nextDataset = resolveDatasetImportState(folder, new Set(existingDirs));
+                setDatasetImport(nextDataset);
+                setAb1Dir(nextDataset.ab1Dir);
+                setGenesDir(nextDataset.gbDir);
+                context.ab1Dir = nextDataset.ab1Dir;
+                context.genesDir = nextDataset.gbDir;
+
+                if (!nextDataset.valid || nextDataset.missing.length === 2) {
+                  throw new Error(t(language, "dataset.invalid"));
+                }
+                if (nextDataset.missing[0] === "ab1") {
+                  throw new Error(t(language, "dataset.missingAb1"));
+                }
+                if (nextDataset.missing[0] === "gb") {
+                  throw new Error(t(language, "dataset.missingGb"));
+                }
+                return nextDataset.datasetName;
+              }
+              case "set_ab1_dir": {
+                const folder =
+                  asString(action.args.ab1Dir) ||
+                  asString(action.args.path) ||
+                  ((await invoke("open-folder-dialog")) as string | null);
+                if (!folder) {
+                  throw new Error("AB1 directory selection was cancelled.");
+                }
+
+                setAb1Dir(folder);
+                setDatasetImport((current) =>
+                  current
+                    ? {
+                        ...current,
+                        ab1Dir: folder,
+                        missing: current.missing.filter((item) => item !== "ab1"),
+                        valid: Boolean(folder || current.gbDir),
+                      }
+                    : current
+                );
+                context.ab1Dir = folder;
+                return folder;
+              }
+              case "set_genes_dir": {
+                const folder =
+                  asString(action.args.genesDir) ||
+                  asString(action.args.path) ||
+                  ((await invoke("open-folder-dialog")) as string | null);
+                if (!folder) {
+                  throw new Error("Genes directory selection was cancelled.");
+                }
+
+                setGenesDir(folder);
+                setDatasetImport((current) =>
+                  current
+                    ? {
+                        ...current,
+                        gbDir: folder,
+                        missing: current.missing.filter((item) => item !== "gb"),
+                        valid: Boolean(current.ab1Dir || folder),
+                      }
+                    : current
+                );
+                context.genesDir = folder;
+                return folder;
+              }
+              case "set_plasmid": {
+                const nextPlasmid = asString(action.args.plasmid);
+                if (!nextPlasmid) {
+                  throw new Error("No plasmid value was provided.");
+                }
+
+                setPlasmid(nextPlasmid);
+                context.plasmid = nextPlasmid;
+                return nextPlasmid;
+              }
+              case "run_analysis": {
+                const nextSamples = await runAnalysis(
+                  {},
+                  {
+                    ab1Dir: context.ab1Dir,
+                    genesDir: context.genesDir,
+                    plasmid: context.plasmid,
+                  }
+                );
+
+                if (!nextSamples) {
+                  throw new Error("Analysis did not return samples.");
+                }
+
+                context.samples = nextSamples;
+                context.selectedId = getDefaultSelectedSampleId();
+                return `${nextSamples.length} ${t(language, "app.samples")}`;
+              }
+              case "filter_results": {
+                const nextFilter: ResultFilter = {
+                  status: asString(action.args.status),
+                  clone: asString(action.args.clone),
+                  sampleId: asString(action.args.sampleId),
+                  query: asString(action.args.query),
+                };
+                setResultFilter(nextFilter);
+                context.resultFilter = nextFilter;
+                return (
+                  nextFilter.status ||
+                  nextFilter.clone ||
+                  nextFilter.sampleId ||
+                  nextFilter.query ||
+                  t(language, "command.statusDone")
+                );
+              }
+              case "open_sample": {
+                const sampleToken =
+                  asString(action.args.sampleId) ||
+                  asString(action.args.id) ||
+                  asString(action.args.name) ||
+                  asString(action.args.clone);
+                if (!sampleToken) {
+                  throw new Error("No sample identifier was provided.");
+                }
+
+                const matchedSample = context.samples.find((sample) => {
+                  const token = sampleToken.toLowerCase();
+                  return (
+                    sample.id.toLowerCase() === token ||
+                    sample.name.toLowerCase() === token ||
+                    sample.clone.toLowerCase() === token
+                  );
+                });
+
+                if (!matchedSample) {
+                  throw new Error(`Sample not found: ${sampleToken}`);
+                }
+
+                setSelectedId(matchedSample.id);
+                context.selectedId = matchedSample.id;
+                return matchedSample.id;
+              }
+              case "export_report": {
+                const filteredSamples = applyResultFilter(context.samples, context.resultFilter);
+                if (filteredSamples.length === 0) {
+                  throw new Error("There are no samples available to export.");
+                }
+
+                const exportedPath = (await invoke(
+                  "export-excel",
+                  filteredSamples,
+                  context.ab1Dir
+                )) as string | null;
+                if (!exportedPath) {
+                  throw new Error("Export was cancelled.");
+                }
+
+                setLastExportPath(exportedPath);
+                context.lastExportPath = exportedPath;
+                return exportedPath;
+              }
+              case "open_export_folder": {
+                if (!context.lastExportPath) {
+                  throw new Error("No exported report is available yet.");
+                }
+
+                const opened = await window.electronAPI.openExportFolder(context.lastExportPath);
+                if (!opened) {
+                  throw new Error("Open export folder was cancelled.");
+                }
+                return context.lastExportPath;
+              }
+              default:
+                throw new Error(`Unsupported action: ${action.id}`);
+            }
+          },
+          onActionStart: (_action, index) => {
+            setCommandActions((current) =>
+              current.map((item, itemIndex) => {
+                if (itemIndex < index && item.status !== "failed") {
+                  return { ...item, status: "done" };
+                }
+                if (itemIndex === index) {
+                  return { ...item, status: "running" };
+                }
+                return {
+                  ...item,
+                  status: item.status === "failed" ? "failed" : "ready",
+                };
+              })
+            );
+            setExecutionEvents((current) =>
+              current.map((event, eventIndex) =>
+                eventIndex === index ? { ...event, status: "running" } : event
+              )
+            );
+          },
+          onActionSuccess: (_action, index, detail) => {
+            setCommandActions((current) =>
+              current.map((item, itemIndex) =>
+                itemIndex === index
+                  ? { ...item, status: "done", detail: detail || item.detail }
+                  : item
+              )
+            );
+            setExecutionEvents((current) =>
+              current.map((event, eventIndex) =>
+                eventIndex === index
+                  ? { ...event, status: "done", detail: detail || event.detail }
+                  : event
+              )
+            );
+          },
+          onActionFailure: (_action, index, error) => {
+            const detail = error instanceof Error ? error.message : String(error);
+            setCommandActions((current) =>
+              current.map((item, itemIndex) =>
+                itemIndex === index ? { ...item, status: "failed", detail } : item
+              )
+            );
+            setExecutionEvents((current) =>
+              current.map((event, eventIndex) =>
+                eventIndex === index ? { ...event, status: "failed", detail } : event
+              )
+            );
+          },
+        });
+      } finally {
+        setIsExecutingCommand(false);
+      }
+    },
+    [ab1Dir, genesDir, language, lastExportPath, plasmid, resultFilter, runAnalysis, samples, selectedId]
+  );
+
+  const handleCommandSubmit = useCallback(
+    async (nextCommand: string) => {
+      const normalizedCommand = nextCommand.trim();
+      if (!normalizedCommand || isInterpretingCommand || isExecutingCommand) {
+        return;
+      }
+
+      let hasStartedExecution = false;
+      setIsInterpretingCommand(true);
+      setCommandDraft(normalizedCommand);
+
+      try {
+        const plan = (await window.electronAPI.interpretCommand(normalizedCommand)) as CommandIntentPlan;
+        const nextSummary: CommandPlanSummary = {
+          title: normalizedCommand,
+          body: plan.summary,
+        };
+        const nextActions = buildCommandPlanActions(language, plan.actions, plan.needsConfirmation);
+        const nextTimeline = buildCommandTimelineEvents(language, plan.actions);
+
+        setCommandPlan(plan);
+        setCommandPlanSummary(nextSummary);
+        setCommandActions(nextActions);
+        setExecutionEvents(nextTimeline);
+        setAwaitingCommandConfirmation(plan.needsConfirmation && plan.actions.length > 0);
+
+        if (!plan.needsConfirmation && plan.actions.length > 0) {
+          hasStartedExecution = true;
+          await executeCommandPlan(plan);
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!hasStartedExecution) {
+          setCommandPlan(null);
+          setCommandPlanSummary({
+            title: normalizedCommand,
+            body: message,
+          });
+          setCommandActions([]);
+          setExecutionEvents([]);
+          setAwaitingCommandConfirmation(false);
+        }
+      } finally {
+        setIsInterpretingCommand(false);
+      }
+    },
+    [executeCommandPlan, isExecutingCommand, isInterpretingCommand, language]
+  );
+
+  const handleCancelCommandPlan = useCallback(() => {
+    setAwaitingCommandConfirmation(false);
+    setCommandPlan(null);
+    setCommandPlanSummary(null);
+    setCommandActions([]);
+    setExecutionEvents([]);
+  }, []);
+
   const handleAnalysisComplete = useCallback((nextAnalysis: AnalysisContextUpdate) => {
     setAb1Dir(nextAnalysis.sourcePath ?? null);
     setGenesDir(nextAnalysis.genesDir ?? null);
@@ -401,6 +877,10 @@ function App() {
   const pendingCount = samples.filter(
     (sample) => sample.status === "uncertain" || sample.status === "processing"
   ).length;
+  const filteredSamples = applyResultFilter(samples, resultFilter);
+  const selectedResultId = filteredSamples.some((sample) => sample.id === selectedId)
+    ? selectedId
+    : getDefaultSelectedSampleId();
   const progressPercent = Math.max(0, Math.min(100, analysisProgress.percent ?? 0));
   const progressMessage = analysisProgress.message?.trim() || t(language, getProgressCopyKey(analysisProgress.stage));
   const hasProcessedInfo =
@@ -409,6 +889,43 @@ function App() {
     analysisProgress.totalSamples > 0;
   const progressSampleId = analysisProgress.sampleId?.trim();
   const activeProgressOrder = getProgressStageOrder(analysisProgress.stage);
+  const quickPrompts = [
+    {
+      id: "analyze-wrong",
+      label: language === "zh" ? "运行分析并只看异常样本" : "Run analysis and show abnormal samples",
+      command: language === "zh" ? "运行分析，只看 wrong 样本" : "run analysis and filter wrong samples",
+    },
+    {
+      id: "import-run",
+      label: language === "zh" ? "导入数据集后开始分析" : "Import a dataset and run analysis",
+      command: language === "zh" ? "导入新的数据集并开始分析" : "import a dataset and run analysis",
+    },
+    {
+      id: "export-report",
+      label: language === "zh" ? "导出并打开报告目录" : "Export and open the report folder",
+      command: language === "zh" ? "导出当前报告并打开导出目录" : "export the current report and open the export folder",
+    },
+  ];
+  const batchSummary = {
+    label: language === "zh" ? "当前批次" : "Current batch",
+    value: datasetImport?.datasetName ?? (ab1Dir ? ab1Dir.split(/[/\\]/).pop() || ab1Dir : t(language, "dataset.notSelected")),
+    hint: datasetImport?.datasetDir ?? ab1Dir ?? t(language, "analysis.empty"),
+  };
+  const plasmidSummary = {
+    label: language === "zh" ? "质粒模板" : "Plasmid",
+    value: plasmid,
+    hint: genesDir ?? t(language, "analysis.importReference"),
+  };
+  const sampleSummary = {
+    label: language === "zh" ? "结果过滤" : "Result filter",
+    value: resultFilter ? `${filteredSamples.length}/${samples.length}` : `${samples.length}`,
+    hint:
+      resultFilter?.status ||
+      resultFilter?.clone ||
+      resultFilter?.sampleId ||
+      resultFilter?.query ||
+      (language === "zh" ? "显示全部样本" : "Showing all samples"),
+  };
 
   return (
     <div className="app">
@@ -621,11 +1138,47 @@ function App() {
             ) : null}
             <div className="analysis-workspace analysis-workspace--solo">
               <div className="analysis-main">
+                <div className="analysis-command-stack">
+                  <CommandWorkbench
+                    language={language}
+                    command={commandDraft}
+                    onCommandChange={setCommandDraft}
+                    onSubmit={(command) => {
+                      void handleCommandSubmit(command);
+                    }}
+                    quickPrompts={quickPrompts}
+                    batchSummary={batchSummary}
+                    plasmidSummary={plasmidSummary}
+                    sampleSummary={sampleSummary}
+                    disabled={isInterpretingCommand || isExecutingCommand}
+                  />
+                  {commandPlanSummary ? (
+                    <div className="analysis-command-output-grid">
+                      <ActionPlanCard
+                        language={language}
+                        planSummary={commandPlanSummary}
+                        actions={commandActions}
+                        needsConfirmation={awaitingCommandConfirmation}
+                        onConfirm={
+                          awaitingCommandConfirmation && commandPlan
+                            ? () => {
+                                void executeCommandPlan(commandPlan);
+                              }
+                            : undefined
+                        }
+                        onCancel={awaitingCommandConfirmation ? handleCancelCommandPlan : undefined}
+                      />
+                      {executionEvents.length > 0 ? (
+                        <ExecutionTimeline language={language} events={executionEvents} />
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
                 <main className="main-content">
                   <ResultsWorkbench
                     language={language}
-                    samples={samples}
-                    selectedId={selectedId}
+                    samples={filteredSamples}
+                    selectedId={selectedResultId}
                     onSelect={setSelectedId}
                   >
                     <div className="empty-state">

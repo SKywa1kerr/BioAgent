@@ -585,10 +585,23 @@
   min-width: 0;
   min-height: 0;
   display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .analysis-workspace--solo .analysis-main {
   flex: 1 1 auto;
+}
+
+.analysis-command-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.analysis-command-output-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.95fr);
+  gap: 14px;
 }
 
 .main-content {
@@ -694,6 +707,10 @@
   }
 
   .analysis-progress-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .analysis-command-output-grid {
     grid-template-columns: 1fr;
   }
 
