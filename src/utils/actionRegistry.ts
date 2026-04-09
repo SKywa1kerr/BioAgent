@@ -62,7 +62,7 @@ export const actionRegistry = [
     labelKey: "command.actions.openExportFolder",
     descriptionKey: "command.actions.openExportFolderDescription",
     category: "navigation",
-    needsConfirmation: false,
+    needsConfirmation: true,
   },
 ] as const satisfies ReadonlyArray<CommandActionDefinition>;
 

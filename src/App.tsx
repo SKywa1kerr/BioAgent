@@ -539,6 +539,28 @@ function App() {
     }
   };
 
+  const exportCurrentReport = useCallback(
+    async (sourceSamples: Sample[] = samples, sourcePath: string | null = ab1Dir) => {
+      if (sourceSamples.length === 0) {
+        return null;
+      }
+
+      const result = (await invoke("export-excel", sourceSamples, sourcePath)) as
+        | { exported?: string | null }
+        | null;
+      const exportedPath =
+        typeof result?.exported === "string" && result.exported.trim().length > 0
+          ? result.exported.trim()
+          : null;
+
+      if (exportedPath) {
+        setLastExportPath(exportedPath);
+      }
+      return exportedPath;
+    },
+    [ab1Dir, samples]
+  );
+
   const executeCommandPlan = useCallback(
     async (plan: CommandIntentPlan) => {
       if (plan.actions.length === 0) {
@@ -721,18 +743,13 @@ function App() {
                   throw new Error("There are no samples available to export.");
                 }
 
-                const exportedPath = (await invoke(
-                  "export-excel",
-                  filteredSamples,
-                  context.ab1Dir
-                )) as string | null;
+                const exportedPath = await exportCurrentReport(filteredSamples, context.ab1Dir);
                 if (!exportedPath) {
                   throw new Error("Export was cancelled.");
                 }
 
-                setLastExportPath(exportedPath);
                 context.lastExportPath = exportedPath;
-                return exportedPath;
+                return `${t(language, "command.exportedReady")} ${exportedPath}`;
               }
               case "open_export_folder": {
                 if (!context.lastExportPath) {
@@ -743,7 +760,7 @@ function App() {
                 if (!opened) {
                   throw new Error("Open export folder was cancelled.");
                 }
-                return context.lastExportPath;
+                return `${t(language, "command.openFolder")} ${context.lastExportPath}`;
               }
               default:
                 throw new Error(`Unsupported action: ${action.id}`);
@@ -804,7 +821,18 @@ function App() {
         setIsExecutingCommand(false);
       }
     },
-    [ab1Dir, genesDir, language, lastExportPath, plasmid, resultFilter, runAnalysis, samples, selectedId]
+    [
+      ab1Dir,
+      exportCurrentReport,
+      genesDir,
+      language,
+      lastExportPath,
+      plasmid,
+      resultFilter,
+      runAnalysis,
+      samples,
+      selectedId,
+    ]
   );
 
   const handleCommandSubmit = useCallback(
@@ -1062,8 +1090,10 @@ function App() {
                   onClick={async () => {
                     if (!samples.length) return;
                     try {
-                      const result = await invoke("export-excel", samples, ab1Dir) as any;
-                      if (result) alert(t(language, "analysis.exportComplete"));
+                      const exportedPath = await exportCurrentReport();
+                      if (exportedPath) {
+                        alert(t(language, "analysis.exportComplete"));
+                      }
                     } catch (e) {
                       alert(`${t(language, "analysis.exportFailed")}: ${e}`);
                     }

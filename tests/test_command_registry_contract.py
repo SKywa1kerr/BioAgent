@@ -60,3 +60,10 @@ def test_command_registry_and_workbench_contract():
     assert "statusRunning" in i18n
     assert "statusQueued" in i18n
     assert "actions: {" in i18n
+
+
+def test_open_export_folder_remains_a_confirmed_action():
+    registry = _read("src/utils/actionRegistry.ts")
+
+    assert 'id: "open_export_folder"' in registry
+    assert 'needsConfirmation: true' in registry
