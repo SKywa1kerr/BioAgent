@@ -65,3 +65,18 @@ npm run electron:dev
 - **Desktop**: Electron
 - **Backend**: Python (Biopython, OpenAI SDK)
 - **AI**: 支持 OpenRouter, DeepSeek, ChatAnywhere 等所有 OpenAI 兼容接口
+## Command Workbench
+
+分析主页面现在支持中文操作指令。常见用法包括：
+
+- `分析这个数据集`
+- `用 pet15b 重跑`
+- `只看 wrong 样本`
+- `导出当前报告并打开导出目录`
+
+系统会先把中文指令解析成可见的动作计划，再按风险分级执行。
+
+- 低风险动作会直接执行
+- `运行分析`、`导出报告`、`打开导出目录` 这类动作需要确认
+
+原先的对话式 Agent 能力已迁移到独立的 `Assistant` 页面，分析页本身改为以结果和命令输入为主的工作台。

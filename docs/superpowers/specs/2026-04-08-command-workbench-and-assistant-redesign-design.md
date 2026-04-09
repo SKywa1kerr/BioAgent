@@ -487,3 +487,7 @@ The redesign is successful when all of the following are true:
 6. The UI feels like a professional scientific desktop tool rather than an AI chat shell.
 7. The existing Python analysis engine remains intact.
 8. The former agent capability still exists through a dedicated `Assistant` page.
+
+## Implementation Note
+
+Phase 1 keeps command interpretation deterministic on the Python side for common Chinese workflow requests, while explanation-oriented agent interactions continue to live inside the dedicated `Assistant` page.
