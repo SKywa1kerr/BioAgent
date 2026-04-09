@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { execFile, spawn } = require("child_process");
@@ -267,6 +267,28 @@ ipcMain.handle("agent-chat", async (_event, payload) => {
   });
 });
 
+ipcMain.handle("interpret-command", async (_event, text) => {
+  return new Promise((resolve, reject) => {
+    const { cmd, baseArgs, cwd } = getPythonCommand();
+    const args = [...baseArgs, "--interpret-command", String(text)];
+    const env = getAnalysisEnv();
+
+    execFile(cmd, args, { cwd, env }, (err, stdout, stderr) => {
+      if (err) {
+        console.error("Interpret command error:", stderr);
+        reject(stderr || err.message);
+      } else {
+        if (stderr) console.log("Interpret command info:", stderr);
+        try {
+          resolve(JSON.parse(stdout));
+        } catch (parseError) {
+          reject(`Interpret command returned invalid JSON: ${parseError.message}`);
+        }
+      }
+    });
+  });
+});
+
 // Settings handlers
 function getSettingsPath() {
   return path.join(app.getPath("userData"), "settings.json");
@@ -311,6 +333,18 @@ ipcMain.handle("export-excel", async (_event, samples, sourcePath) => {
       }
     });
   });
+});
+
+ipcMain.handle("open-export-folder", async (_event, exportedPath) => {
+  if (typeof exportedPath !== "string") return false;
+  const normalizedPath = exportedPath.trim();
+  if (!normalizedPath) return false;
+
+  try {
+    return Boolean(shell.showItemInFolder(normalizedPath));
+  } catch {
+    return false;
+  }
 });
 
 // --------------- App lifecycle ---------------

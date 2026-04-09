@@ -15,6 +15,7 @@ from dataclasses import asdict
 from typing import Optional, List, Dict, Tuple, Callable, Any
 
 from .agent_chat import run_agent_turn
+from .command_intent import interpret_command
 from .parser import parse_ab1, parse_genbank, parse_fasta, trim_sequence
 from .alignment import analyze_sample
 from .evidence import format_evidence_for_llm
@@ -650,6 +651,7 @@ def main():
     parser.add_argument("--history-detail", help="Get samples for an analysis ID")
     parser.add_argument("--export-excel", help="Export to Excel at given path")
     parser.add_argument("--export-data", help="Path to JSON file containing samples to export")
+    parser.add_argument("--interpret-command", help="Interpret a natural-language command and return an action plan")
     parser.add_argument("--agent-chat", help="Run the agent chat sidecar with a JSON payload")
     parser.add_argument("--db-path", help="SQLite database path (overrides default)")
 
@@ -662,6 +664,10 @@ def main():
     if args.agent_chat:
         payload = json.loads(args.agent_chat)
         print(json.dumps(run_agent_turn(payload), ensure_ascii=False))
+        return
+
+    if args.interpret_command is not None:
+        print(json.dumps(interpret_command(args.interpret_command), ensure_ascii=False))
         return
 
     if args.history:
