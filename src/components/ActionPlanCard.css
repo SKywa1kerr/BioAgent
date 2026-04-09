@@ -1,21 +1,20 @@
 .action-plan-card {
   display: grid;
-  gap: 16px;
-  padding: 20px;
-  border: 1px solid rgba(99, 122, 112, 0.16);
-  border-radius: 24px;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid rgba(255, 251, 245, 0.82);
+  border-radius: 30px;
   background:
-    radial-gradient(circle at 100% 0%, rgba(93, 143, 130, 0.1), transparent 38%),
-    linear-gradient(180deg, rgba(250, 252, 251, 0.96), rgba(240, 246, 243, 0.98));
-  box-shadow: 0 18px 36px rgba(20, 49, 44, 0.08);
+    linear-gradient(180deg, rgba(255, 252, 246, 0.94), rgba(244, 237, 228, 0.96)),
+    radial-gradient(circle at top right, rgba(138, 107, 52, 0.12), transparent 24%);
+  box-shadow: var(--shadow-card);
 }
 
 :root[data-theme="dark"] .action-plan-card {
-  border-color: rgba(124, 145, 132, 0.18);
+  border-color: rgba(148, 163, 184, 0.16);
   background:
-    radial-gradient(circle at 100% 0%, rgba(94, 165, 151, 0.12), transparent 38%),
-    linear-gradient(180deg, rgba(18, 27, 24, 0.98), rgba(23, 34, 30, 0.99));
-  box-shadow: 0 20px 38px rgba(4, 10, 9, 0.34);
+    linear-gradient(180deg, rgba(17, 24, 39, 0.96), rgba(18, 24, 34, 0.98)),
+    radial-gradient(circle at top right, rgba(216, 180, 112, 0.1), transparent 24%);
 }
 
 .action-plan-card-header {
@@ -28,41 +27,30 @@
 .action-plan-kicker {
   display: inline-flex;
   align-items: center;
-  padding: 5px 10px;
+  padding: 6px 12px;
   border-radius: 999px;
-  background: rgba(82, 127, 116, 0.12);
-  color: #4e6f67;
+  background: var(--brand-accent-soft);
+  color: var(--brand-accent);
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-}
-
-:root[data-theme="dark"] .action-plan-kicker {
-  background: rgba(94, 165, 151, 0.16);
-  color: #bce2d8;
 }
 
 .action-plan-card-header h3 {
   margin: 8px 0 0;
-  color: #22342f;
-  font-size: 22px;
-}
-
-:root[data-theme="dark"] .action-plan-card-header h3 {
-  color: #edf5f0;
+  color: var(--text-strong);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 28px;
+  line-height: 1.06;
 }
 
 .action-plan-card-header p {
-  margin: 8px 0 0;
-  max-width: 58ch;
-  color: #5d7068;
+  margin: 10px 0 0;
+  max-width: 56ch;
+  color: var(--text-secondary);
   font-size: 13px;
-  line-height: 1.6;
-}
-
-:root[data-theme="dark"] .action-plan-card-header p {
-  color: #b1c2b8;
+  line-height: 1.65;
 }
 
 .action-plan-confirmation-badge {
@@ -70,17 +58,12 @@
   align-items: center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(191, 143, 52, 0.16);
-  color: #8a5b14;
+  background: rgba(155, 109, 36, 0.14);
+  color: var(--status-uncertain);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-:root[data-theme="dark"] .action-plan-confirmation-badge {
-  background: rgba(251, 191, 36, 0.16);
-  color: #f4c87a;
 }
 
 .action-plan-list {
@@ -97,14 +80,13 @@
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid rgba(99, 122, 112, 0.14);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.56);
+  border: 1px solid var(--border-soft);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.54);
 }
 
 :root[data-theme="dark"] .action-plan-action {
-  border-color: rgba(124, 145, 132, 0.16);
-  background: rgba(24, 34, 31, 0.8);
+  background: rgba(20, 27, 39, 0.78);
 }
 
 .action-plan-action-copy {
@@ -113,23 +95,15 @@
 
 .action-plan-action-copy strong {
   display: block;
-  color: #22342f;
+  color: var(--text-strong);
   font-size: 14px;
-}
-
-:root[data-theme="dark"] .action-plan-action-copy strong {
-  color: #f0f7f2;
 }
 
 .action-plan-action-copy p {
   margin: 6px 0 0;
-  color: #6a7d74;
+  color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.55;
-}
-
-:root[data-theme="dark"] .action-plan-action-copy p {
-  color: #a7beb3;
 }
 
 .action-plan-action-meta {
@@ -143,38 +117,38 @@
 .action-plan-action-confirmation {
   display: inline-flex;
   align-items: center;
-  padding: 4px 8px;
+  padding: 5px 9px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
 .action-plan-action-status {
-  background: rgba(82, 127, 116, 0.1);
-  color: #4e6f67;
+  background: rgba(62, 107, 120, 0.12);
+  color: var(--brand-support);
 }
 
 .action-plan-action-confirmation {
-  background: rgba(191, 143, 52, 0.12);
-  color: #8a5b14;
+  background: rgba(155, 109, 36, 0.12);
+  color: var(--status-uncertain);
 }
 
 .action-plan-action.status-running {
-  border-color: rgba(93, 143, 130, 0.32);
+  border-color: rgba(62, 107, 120, 0.28);
 }
 
 .action-plan-action.status-done {
-  border-color: rgba(22, 163, 74, 0.24);
+  border-color: rgba(47, 125, 91, 0.28);
 }
 
 .action-plan-action.status-failed {
-  border-color: rgba(220, 38, 38, 0.24);
+  border-color: rgba(182, 83, 71, 0.3);
 }
 
 .action-plan-action.status-blocked {
-  border-color: rgba(191, 143, 52, 0.24);
+  border-color: rgba(155, 109, 36, 0.28);
 }
 
 .action-plan-controls {
@@ -184,47 +158,50 @@
 }
 
 .action-plan-button {
-  border: 1px solid rgba(99, 122, 112, 0.2);
-  border-radius: 12px;
-  padding: 9px 16px;
+  min-width: 112px;
+  padding: 10px 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
 }
 
 .action-plan-button.is-secondary {
-  background: rgba(255, 255, 255, 0.72);
-  color: #416058;
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--brand-deep);
 }
 
 :root[data-theme="dark"] .action-plan-button.is-secondary {
-  background: rgba(28, 39, 36, 0.82);
-  color: #e6f0ea;
+  background: rgba(24, 31, 44, 0.84);
+  color: var(--text-primary);
 }
 
 .action-plan-button.is-primary {
-  border-color: rgba(93, 143, 130, 0.28);
-  background: linear-gradient(135deg, #edf5f1, #d9e8e1);
-  color: #28463f;
-}
-
-:root[data-theme="dark"] .action-plan-button.is-primary {
-  background: linear-gradient(135deg, rgba(78, 108, 94, 0.98), rgba(53, 72, 64, 0.98));
-  color: #eff7f1;
+  border-color: rgba(19, 56, 71, 0.16);
+  background: linear-gradient(135deg, var(--brand-deep) 0%, var(--brand-support) 100%);
+  color: #f9f7f2;
+  box-shadow: 0 14px 20px rgba(19, 56, 71, 0.16);
 }
 
 .action-plan-button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+  box-shadow: none;
 }
 
 @media (max-width: 640px) {
   .action-plan-card {
-    padding: 14px;
+    padding: 16px;
   }
 
   .action-plan-card-header,
-  .action-plan-action {
+  .action-plan-action,
+  .action-plan-controls {
     flex-direction: column;
+  }
+
+  .action-plan-button {
+    width: 100%;
   }
 }

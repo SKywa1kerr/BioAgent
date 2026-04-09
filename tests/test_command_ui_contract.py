@@ -22,10 +22,13 @@ def test_assistant_page_contract():
 def test_analysis_page_command_workbench_contract():
     app = _read("src/App.tsx")
     command_workbench = _read("src/components/CommandWorkbench.tsx")
+    app_css = _read("src/App.css")
 
     assert "<CommandWorkbench" in app
     assert "<ActionPlanCard" in app
     assert "<ExecutionTimeline" in app
+    assert 'className="analysis-command-stage"' in app
+    assert 'className="analysis-main-surface"' in app
     assert "window.electronAPI" in app
     assert "interpretCommand" in app
     assert "resultFilter" in app
@@ -39,3 +42,5 @@ def test_analysis_page_command_workbench_contract():
     assert 'event.key === "Enter" && !event.shiftKey' in command_workbench
     assert "nativeEvent.isComposing" in command_workbench
     assert "onKeyDown={handleKeyDown}" in command_workbench
+    assert ".analysis-command-stage" in app_css
+    assert ".analysis-main-surface" in app_css

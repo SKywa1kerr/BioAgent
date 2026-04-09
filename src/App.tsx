@@ -1168,56 +1168,60 @@ function App() {
             ) : null}
             <div className="analysis-workspace analysis-workspace--solo">
               <div className="analysis-main">
-                <div className="analysis-command-stack">
-                  <CommandWorkbench
-                    language={language}
-                    command={commandDraft}
-                    onCommandChange={setCommandDraft}
-                    onSubmit={(command) => {
-                      void handleCommandSubmit(command);
-                    }}
-                    quickPrompts={quickPrompts}
-                    batchSummary={batchSummary}
-                    plasmidSummary={plasmidSummary}
-                    sampleSummary={sampleSummary}
-                    disabled={isInterpretingCommand || isExecutingCommand}
-                  />
-                  {commandPlanSummary ? (
-                    <div className="analysis-command-output-grid">
-                      <ActionPlanCard
-                        language={language}
-                        planSummary={commandPlanSummary}
-                        actions={commandActions}
-                        needsConfirmation={awaitingCommandConfirmation}
-                        onConfirm={
-                          awaitingCommandConfirmation && commandPlan
-                            ? () => {
-                                void executeCommandPlan(commandPlan);
-                              }
-                            : undefined
-                        }
-                        onCancel={awaitingCommandConfirmation ? handleCancelCommandPlan : undefined}
-                      />
-                      {executionEvents.length > 0 ? (
-                        <ExecutionTimeline language={language} events={executionEvents} />
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-                <main className="main-content">
-                  <ResultsWorkbench
-                    language={language}
-                    samples={filteredSamples}
-                    selectedId={selectedResultId}
-                    onSelect={setSelectedId}
-                  >
-                    <div className="empty-state">
-                      <span className="empty-state-kicker">{t(language, "analysis.emptyKicker")}</span>
-                      <h3>{t(language, "analysis.emptyTitle")}</h3>
-                      <p>{t(language, "analysis.emptyBody")}</p>
-                    </div>
-                  </ResultsWorkbench>
-                </main>
+                <section className="analysis-command-stage">
+                  <div className="analysis-command-stack">
+                    <CommandWorkbench
+                      language={language}
+                      command={commandDraft}
+                      onCommandChange={setCommandDraft}
+                      onSubmit={(command) => {
+                        void handleCommandSubmit(command);
+                      }}
+                      quickPrompts={quickPrompts}
+                      batchSummary={batchSummary}
+                      plasmidSummary={plasmidSummary}
+                      sampleSummary={sampleSummary}
+                      disabled={isInterpretingCommand || isExecutingCommand}
+                    />
+                    {commandPlanSummary ? (
+                      <div className="analysis-command-output-grid">
+                        <ActionPlanCard
+                          language={language}
+                          planSummary={commandPlanSummary}
+                          actions={commandActions}
+                          needsConfirmation={awaitingCommandConfirmation}
+                          onConfirm={
+                            awaitingCommandConfirmation && commandPlan
+                              ? () => {
+                                  void executeCommandPlan(commandPlan);
+                                }
+                              : undefined
+                          }
+                          onCancel={awaitingCommandConfirmation ? handleCancelCommandPlan : undefined}
+                        />
+                        {executionEvents.length > 0 ? (
+                          <ExecutionTimeline language={language} events={executionEvents} />
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                </section>
+                <section className="analysis-main-surface">
+                  <main className="main-content">
+                    <ResultsWorkbench
+                      language={language}
+                      samples={filteredSamples}
+                      selectedId={selectedResultId}
+                      onSelect={setSelectedId}
+                    >
+                      <div className="empty-state">
+                        <span className="empty-state-kicker">{t(language, "analysis.emptyKicker")}</span>
+                        <h3>{t(language, "analysis.emptyTitle")}</h3>
+                        <p>{t(language, "analysis.emptyBody")}</p>
+                      </div>
+                    </ResultsWorkbench>
+                  </main>
+                </section>
               </div>
             </div>
           </>

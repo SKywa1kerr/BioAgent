@@ -21,13 +21,13 @@
 
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 18px;
   min-height: 0;
-  padding: 18px;
+  padding: 20px;
   color: var(--results-panel-text);
   background:
-    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.08), transparent 42%),
-    radial-gradient(circle at 0% 100%, rgba(14, 165, 233, 0.06), transparent 40%);
+    radial-gradient(circle at 100% 0%, rgba(138, 107, 52, 0.08), transparent 30%),
+    radial-gradient(circle at 0% 100%, rgba(62, 107, 120, 0.08), transparent 36%);
 }
 
 :root[data-theme="dark"] .results-workbench-shell {
@@ -54,9 +54,9 @@
 
 .results-summary-panel,
 .sample-details-panel {
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--results-panel-border);
-  border-radius: 22px;
+  border-radius: 26px;
   background:
     var(--results-panel-gloss),
     var(--results-panel-bg);
@@ -74,7 +74,8 @@
 .results-section-header h3 {
   margin: 4px 0 0;
   color: var(--results-panel-text);
-  font-size: 20px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24px;
   line-height: 1.2;
 }
 
@@ -111,9 +112,9 @@
 
 .results-summary-card {
   min-width: 0;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--results-panel-border);
-  border-radius: 18px;
+  border-radius: 22px;
   background: rgba(255, 255, 255, 0.75);
 }
 
@@ -134,7 +135,8 @@
   display: block;
   margin-top: 8px;
   color: var(--results-panel-text);
-  font-size: 30px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 34px;
   line-height: 1;
 }
 
@@ -196,7 +198,7 @@
 .sample-detail-card {
   overflow: hidden;
   border: 1px solid var(--results-panel-border);
-  border-radius: 18px;
+  border-radius: 22px;
   background: var(--results-panel-bg);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
   transition:
@@ -211,13 +213,13 @@
 }
 
 .sample-detail-card[open] {
-  border-color: rgba(37, 99, 235, 0.22);
-  box-shadow: 0 18px 32px rgba(37, 99, 235, 0.08);
+  border-color: rgba(62, 107, 120, 0.22);
+  box-shadow: 0 18px 32px rgba(62, 107, 120, 0.08);
 }
 
 .sample-detail-card.is-active {
-  border-color: rgba(37, 99, 235, 0.28);
-  box-shadow: 0 20px 34px rgba(37, 99, 235, 0.12);
+  border-color: rgba(138, 107, 52, 0.22);
+  box-shadow: 0 20px 34px rgba(138, 107, 52, 0.12);
 }
 
 .sample-detail-card:hover {
@@ -232,7 +234,7 @@
 }
 
 .sample-detail-card.is-active .sample-detail-summary {
-  background: linear-gradient(180deg, rgba(37, 99, 235, 0.04), transparent);
+  background: linear-gradient(180deg, rgba(138, 107, 52, 0.08), transparent);
 }
 
 .sample-detail-summary-grid > span {
@@ -334,8 +336,8 @@
 }
 
 .sample-detail-error {
-  padding: 14px 16px;
-  border-radius: 16px;
+  padding: 16px;
+  border-radius: 18px;
   background: var(--results-wrong-soft);
   border: 1px solid rgba(220, 38, 38, 0.16);
 }
@@ -381,7 +383,8 @@
   display: block;
   margin-top: 6px;
   color: var(--results-panel-text);
-  font-size: 20px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
   line-height: 1.1;
 }
 
@@ -390,8 +393,8 @@
   grid-template-columns: auto 1fr;
   gap: 12px;
   align-items: start;
-  padding: 14px 16px;
-  border-radius: 16px;
+  padding: 16px;
+  border-radius: 18px;
   border: 1px solid rgba(191, 143, 52, 0.24);
   background:
     linear-gradient(135deg, rgba(191, 143, 52, 0.12), transparent 70%),
@@ -465,8 +468,8 @@
 .sample-detail-trace-card {
   display: grid;
   gap: 8px;
-  padding: 14px 16px;
-  border-radius: 16px;
+  padding: 16px;
+  border-radius: 18px;
   border: 1px solid var(--results-panel-border);
   background:
     var(--results-card-gloss),
@@ -531,7 +534,7 @@
 .sample-detail-aa-code,
 .sample-detail-empty {
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: 18px;
   border: 1px solid var(--results-panel-border);
   background: var(--results-panel-subtle);
   color: var(--results-panel-text);
@@ -549,7 +552,7 @@
   border-spacing: 0;
   overflow: hidden;
   border: 1px solid var(--results-panel-border);
-  border-radius: 16px;
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.84);
 }
 
@@ -588,7 +591,7 @@
 .sample-detail-sequence-viewer {
   overflow: auto;
   border: 1px solid var(--results-panel-border);
-  border-radius: 16px;
+  border-radius: 18px;
   background: var(--results-panel-subtle);
 }
 
