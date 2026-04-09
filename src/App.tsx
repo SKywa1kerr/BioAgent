@@ -11,7 +11,7 @@ import {
 } from "./types";
 import { t } from "./i18n";
 import { TabLayout } from "./components/TabLayout";
-import { AgentPanel } from "./components/AgentPanel";
+import { AssistantPage } from "./components/AssistantPage";
 import { HistoryPage } from "./components/HistoryPage";
 import { SettingsPage } from "./components/SettingsPage";
 import { ResultsWorkbench } from "./components/ResultsWorkbench";
@@ -38,6 +38,7 @@ export function resolveDatasetImportState(
 function buildTabs(language: AppLanguage) {
   return [
     { id: "analysis", label: t(language, "tabs.analysis") },
+    { id: "assistant", label: t(language, "tabs.assistant") },
     { id: "history", label: t(language, "tabs.history") },
     { id: "settings", label: t(language, "tabs.settings") },
   ];
@@ -618,7 +619,7 @@ function App() {
                 </div>
               </section>
             ) : null}
-            <div className="analysis-workspace">
+            <div className="analysis-workspace analysis-workspace--solo">
               <div className="analysis-main">
                 <main className="main-content">
                   <ResultsWorkbench
@@ -635,17 +636,19 @@ function App() {
                   </ResultsWorkbench>
                 </main>
               </div>
-              <AgentPanel
-                language={language}
-                samples={samples}
-                selectedSampleId={selectedId}
-                sourcePath={ab1Dir}
-                genesDir={genesDir}
-                plasmid={plasmid}
-                onAnalysisComplete={handleAnalysisComplete}
-              />
             </div>
           </>
+        )}
+        {activeTab === "assistant" && (
+          <AssistantPage
+            language={language}
+            samples={samples}
+            selectedSampleId={selectedId}
+            sourcePath={ab1Dir}
+            genesDir={genesDir}
+            plasmid={plasmid}
+            onAnalysisComplete={handleAnalysisComplete}
+          />
         )}
         {activeTab === "history" && <HistoryPage language={language} />}
         {activeTab === "settings" && (

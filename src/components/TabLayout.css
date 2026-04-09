@@ -15,6 +15,8 @@
   background: rgba(255, 255, 255, 0.7);
   box-shadow: var(--shadow-card);
   backdrop-filter: blur(10px);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 :root[data-theme="dark"] .tab-nav {
@@ -22,7 +24,12 @@
   background: rgba(15, 23, 42, 0.78);
 }
 
+.tab-nav::-webkit-scrollbar {
+  display: none;
+}
+
 .tab-btn {
+  flex: 0 0 auto;
   min-height: 42px;
   padding: 0 18px;
   border: 1px solid transparent;

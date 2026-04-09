@@ -20,6 +20,7 @@ const zhTranslations: TranslationTree = {
   },
   tabs: {
     analysis: "分析",
+    assistant: "助手",
     history: "历史",
     settings: "设置",
   },
@@ -181,6 +182,12 @@ const zhTranslations: TranslationTree = {
     unavailableNoKey: "Agent 聊天不可用，因为尚未配置 LLM API Key。",
     unavailable: "Agent 聊天暂时不可用，请求已安全停止。",
   },
+  assistant: {
+    title: "智能助手",
+    kicker: "对话面板",
+    shellLabel: "助手工作台",
+    body: "在这个独立面板里继续围绕当前分析对话、检查样本、重跑分析或导出报告。",
+  },
   history: {
     unknownDate: "未知日期",
     unknownTime: "未知时间",
@@ -291,6 +298,7 @@ const enTranslations: TranslationTree = {
   },
   tabs: {
     analysis: "Analysis",
+    assistant: "Assistant",
     history: "History",
     settings: "Settings",
   },
@@ -450,6 +458,12 @@ const enTranslations: TranslationTree = {
     invalidResponse: "The agent returned an invalid response and the conversation was stopped safely.",
     unavailableNoKey: "Agent chat is unavailable because no LLM API key has been configured.",
     unavailable: "Agent chat is temporarily unavailable and the request was stopped safely.",
+  },
+  assistant: {
+    title: "Assistant",
+    kicker: "Conversation panel",
+    shellLabel: "Assistant workbench",
+    body: "Use this dedicated panel to keep talking about the current analysis, inspect samples, rerun analyses, or export reports.",
   },
   history: {
     unknownDate: "Unknown date",

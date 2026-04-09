@@ -576,11 +576,19 @@
   overflow: hidden;
 }
 
+.analysis-workspace--solo {
+  gap: 0;
+}
+
 .analysis-main {
   flex: 1;
   min-width: 0;
   min-height: 0;
   display: flex;
+}
+
+.analysis-workspace--solo .analysis-main {
+  flex: 1 1 auto;
 }
 
 .main-content {

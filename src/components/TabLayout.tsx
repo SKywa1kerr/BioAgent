@@ -17,12 +17,14 @@ export const TabLayout: React.FC<TabLayoutProps> = ({
   tabs, activeTab, onTabChange, children,
 }) => (
   <div className="tab-layout">
-    <nav className="tab-nav">
+    <nav className="tab-nav" aria-label="Application sections">
       {tabs.map((tab) => (
         <button
           key={tab.id}
+          type="button"
           className={`tab-btn ${activeTab === tab.id ? "active" : ""}`}
           onClick={() => onTabChange(tab.id)}
+          aria-pressed={activeTab === tab.id}
         >
           {tab.label}
         </button>
