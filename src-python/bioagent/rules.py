@@ -34,11 +34,29 @@ def judge_sample(sample: dict, thresholds: Optional[dict] = None) -> dict:
     aa_changes = sample.get("aa_changes", [])
     aa_n = sample.get("aa_changes_n", len(aa_changes))
     seq_len = sample.get("seq_length", 0)
+    high_identity = identity >= t["identity_high"]
+    no_cds_findings = (not frameshift) and aa_n == 0
 
     if sample.get("other_read_issues"):
         return {"sid": sid, "status": "wrong", "reason": "多读段冲突", "rule": 1}
-    if identity < t["seq_failure_identity"] or seq_len < t["seq_failure_min_length"]:
+    if identity < t["seq_failure_identity"] or (seq_len < t["seq_failure_min_length"] and not high_identity):
         return {"sid": sid, "status": "wrong", "reason": "测序失败", "rule": 2}
+    if high_identity and no_cds_findings and seq_len < t["short_synthetic_seq_max_length"] and cds_cov <= t["short_synthetic_coverage_max"]:
+        return {"sid": sid, "status": "ok", "reason": "生工重叠峰", "rule": 11}
+    if (
+        high_identity
+        and no_cds_findings
+        and t["short_synthetic_seq_max_length"] <= seq_len < t["short_overlap_seq_max_length"]
+        and cds_cov <= t["short_overlap_coverage_max"]
+    ):
+        return {"sid": sid, "status": "wrong", "reason": "重叠峰", "rule": 12}
+    if (
+        high_identity
+        and no_cds_findings
+        and t["short_overlap_seq_max_length"] <= seq_len < t["short_fragment_seq_max_length"]
+        and cds_cov <= t["short_fragment_coverage_max"]
+    ):
+        return {"sid": sid, "status": "wrong", "reason": "片段缺失", "rule": 13}
     if identity < t["identity_medium_low"] and aa_n > t["aa_overlap_severe"]:
         return {"sid": sid, "status": "wrong", "reason": "重叠峰，比对失败", "rule": 3}
     if identity < t["identity_medium_low"] and t["aa_overlap_moderate_min"] <= aa_n <= t["aa_overlap_moderate_max"]:

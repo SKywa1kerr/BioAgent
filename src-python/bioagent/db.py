@@ -27,7 +27,16 @@ def _default_db_path() -> str:
 def get_engine(db_url: str | None = None):
     global _engine
     if _engine is None:
-        url = db_url or f"sqlite:///{_default_db_path()}"
+        if db_url:
+            url = db_url
+        else:
+            # Check env var set by --db-path CLI arg first
+            env_path = os.environ.get("BIOAGENT_DB_PATH")
+            if env_path:
+                Path(env_path).parent.mkdir(parents=True, exist_ok=True)
+                url = f"sqlite:///{env_path}"
+            else:
+                url = f"sqlite:///{_default_db_path()}"
         _engine = create_engine(url, connect_args={"check_same_thread": False})
     return _engine
 

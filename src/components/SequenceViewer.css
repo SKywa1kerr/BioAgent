@@ -5,12 +5,16 @@
   font-size: 12px;
   background: #ffffff;
   color: #222;
-  overflow-y: auto;
+  overflow: auto;
   padding: 0;
   user-select: text;
 }
 
-/* ─── Minimap ─── */
+:root[data-theme="dark"] .sequence-viewer {
+  background: #0f172a;
+  color: #dbe7f5;
+}
+
 .minimap {
   position: sticky;
   top: 0;
@@ -18,6 +22,11 @@
   background: #f0f0f0;
   border-bottom: 1px solid #ccc;
   padding: 6px 12px;
+}
+
+:root[data-theme="dark"] .minimap {
+  background: #111827;
+  border-bottom-color: rgba(148, 163, 184, 0.16);
 }
 
 .minimap-track {
@@ -28,12 +37,28 @@
   overflow: hidden;
 }
 
+:root[data-theme="dark"] .minimap-track {
+  background: rgba(148, 163, 184, 0.12);
+}
+
 .minimap-tick {
   position: absolute;
   top: 0;
   width: 1px;
   height: 100%;
   background: #ccc;
+}
+
+:root[data-theme="dark"] .minimap-tick,
+:root[data-theme="dark"] .tick-major,
+:root[data-theme="dark"] .tick-minor::before,
+:root[data-theme="dark"] .row-gutter,
+:root[data-theme="dark"] .row-bp-count,
+:root[data-theme="dark"] .pos-mark,
+:root[data-theme="dark"] .minimap-label,
+:root[data-theme="dark"] .query-label {
+  color: #94a3b8;
+  background: transparent;
 }
 
 .minimap-label {
@@ -63,19 +88,22 @@
   border-radius: 1px;
 }
 
-/* ─── Sequence blocks ─── */
 .sequence-blocks {
-  padding: 8px 0;
+  min-width: max-content;
+  padding: 8px 0 12px;
 }
 
 .sequence-block {
   position: relative;
-  margin-bottom: 6px;
-  padding: 2px 12px 6px 12px;
+  margin-bottom: 10px;
+  padding: 10px 16px 10px 12px;
   border-bottom: 1px solid #eee;
 }
 
-/* ─── Common row layout ─── */
+:root[data-theme="dark"] .sequence-block {
+  border-bottom-color: rgba(148, 163, 184, 0.12);
+}
+
 .strand-row,
 .aa-row,
 .position-row,
@@ -103,7 +131,6 @@
   flex-shrink: 0;
 }
 
-/* ─── Bases ─── */
 .strand-bases,
 .aa-bases,
 .position-bases {
@@ -129,9 +156,8 @@
   font-weight: 600;
 }
 
-/* ─── Tick marks ─── */
 .tick-row {
-  line-height: 1.0;
+  line-height: 1;
   opacity: 0.5;
 }
 
@@ -148,25 +174,44 @@
   font-weight: bold;
 }
 
-/* ─── Enzyme labels ─── */
+.tick-minor {
+  font-size: 0;
+}
+
+.tick-minor::before {
+  content: ".";
+  font-size: 9px;
+}
+
 .enzyme-row {
   position: relative;
-  height: 16px;
-  margin-bottom: 2px;
+  min-height: 72px;
+  margin-bottom: 10px;
 }
 
 .enzyme-label {
   position: absolute;
-  top: 0;
+  top: calc(var(--enzyme-lane, 0) * 18px);
   font-size: 9px;
-  color: #0066cc;
-  white-space: pre-line;
+  color: #0f4c81;
+  white-space: nowrap;
   line-height: 1.1;
-  font-weight: 600;
+  font-weight: 700;
   transform: translateX(-50%);
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: rgba(239, 246, 255, 0.96);
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.08);
 }
 
-/* ─── Feature bar ─── */
+:root[data-theme="dark"] .enzyme-label {
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.22);
+  background: rgba(30, 41, 59, 0.94);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.26);
+}
+
 .feature-row {
   margin: 3px 0;
 }
@@ -204,13 +249,16 @@
   font-size: 12px;
 }
 
-/* ─── Amino acids ─── */
 .aa-char {
   width: var(--base-width);
   text-align: center;
   font-size: 10px;
   color: #555;
   font-weight: 600;
+}
+
+:root[data-theme="dark"] .aa-char {
+  color: #cbd5e1;
 }
 
 .aa-char.aa-spacer {
@@ -222,7 +270,6 @@
   font-weight: 800;
 }
 
-/* ─── Position numbers ─── */
 .position-row {
   line-height: 1.2;
 }
@@ -240,23 +287,31 @@
   width: var(--base-width);
 }
 
-/* ─── Chromatogram trace ─── */
 .trace-row {
-  margin: 4px 0;
+  margin: 8px 0;
 }
 
 .trace-canvas {
   display: block;
   border: 1px solid #e0e0e0;
   border-radius: 3px;
+  background: #ffffff;
 }
 
-/* ─── Query row ─── */
+:root[data-theme="dark"] .trace-canvas {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: #0b1220;
+}
+
 .query-row {
   margin-top: 2px;
   background: #f8f8f8;
   border-radius: 3px;
   padding: 2px 0;
+}
+
+:root[data-theme="dark"] .query-row {
+  background: rgba(148, 163, 184, 0.08);
 }
 
 .query-label {
@@ -265,7 +320,6 @@
   color: #666;
 }
 
-/* ─── Scrollbar styling ─── */
 .sequence-viewer::-webkit-scrollbar {
   width: 10px;
 }
@@ -274,11 +328,20 @@
   background: #f0f0f0;
 }
 
+:root[data-theme="dark"] .sequence-viewer::-webkit-scrollbar-track {
+  background: #111827;
+}
+
 .sequence-viewer::-webkit-scrollbar-thumb {
   background: #ccc;
   border-radius: 5px;
 }
 
+:root[data-theme="dark"] .sequence-viewer::-webkit-scrollbar-thumb {
+  background: #334155;
+}
+
 .sequence-viewer::-webkit-scrollbar-thumb:hover {
   background: #aaa;
 }
+

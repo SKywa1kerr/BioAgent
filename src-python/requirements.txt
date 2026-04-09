@@ -4,3 +4,4 @@ openai>=1.0
 pyyaml>=6.0
 sqlalchemy>=2.0
 openpyxl>=3.1
+pyinstaller>=6.0

@@ -45,3 +45,12 @@ def test_empty_save(tmp_db):
     analyses = list_analyses()
     assert len(analyses) == 1
     assert analyses[0]["total"] == 0
+
+
+def test_save_analysis_uses_readable_run_name(tmp_db):
+    aid = save_analysis([], [], {}, source_path="/tmp/demo")
+    assert aid
+
+    analyses = list_analyses()
+
+    assert analyses[0]["name"].startswith("分析 ")

@@ -1,256 +1,515 @@
-# BioAgent Desktop — Agent 侧边栏设计规格
+﻿## BioAgent Desktop Agent Panel Design
 
-## 目标
+### Goal
 
-在 BioAgent Desktop 的分析页右侧加入一个可展开/收起的 Agent 聊天侧边栏。用户用中文输入指令（如「帮我分析今天导入的数据」「哪些样本有突变」），Agent 调用工具执行任务并给出专业解读。
+Add a controlled `Agent Panel` to the analysis page of BioAgent Desktop. The panel should let the user ask questions in natural language, inspect the current analysis context, and trigger a small set of existing actions through a visible agentic loop.
 
-## 架构：混合模式
+This version is intentionally scoped to a controlled workflow:
 
-前端控制流程节奏（展示计划、等用户确认、逐步执行），Python 端提供工具层和 LLM 代理。
+- The agent starts from the current analysis page context.
+- The agent may query history, samples, sample detail, re-run analysis, and export reports.
+- The agent may propose a short plan and execute multiple tools sequentially.
+- The agent may not directly modify stored analysis results, rewrite judgments, or silently change settings.
 
-```
-用户输入中文 → IPC("agent-chat") → Python agent_chat
-  → LLM 返回工具调用计划
-  → 前端展示计划卡片，用户点「确认执行」
-  → 前端逐个调用 Python 工具 IPC
-  → 每步结果实时展示
-  → IPC("agent-chat") 把工具结果发给 LLM
-  → LLM 返回中文总结
-  → 前端渲染总结
-```
+The goal is to make the desktop app feel like an explainable biology analysis assistant, not a fully autonomous general-purpose agent.
 
-## UI 设计
+### Product Decision Summary
 
-### 侧边栏面板
+- Priority: complete `Agent Panel / agentic loop`
+- Interaction scope: option 2
+- Default context: current analysis first, with ability to query history and detail on demand
+- Execution style: the agent can produce a short plan and then execute multiple tools sequentially with visible status updates
+- UI placement: right-side panel inside the analysis page, not a separate tab
+- Design influence adopted from `claw-code`: explicit loop config, explicit stop reasons, typed tool categories, visible failure summaries
 
-- 位置：分析页右侧，可展开/收起
-- 展开宽度：360px
-- 收起时：显示一个小的 Agent 图标按钮
-- 展开/收起按钮在右上角
+## Architecture
 
-### 消息类型
+The implementation keeps the current Electron + React + Python sidecar structure.
 
-| 类型 | 说明 | 样式 |
-|------|------|------|
-| user | 用户输入的中文指令 | 右对齐气泡 |
-| text | Agent 的文本回复 | 左对齐气泡 |
-| plan | 工具调用计划 | 卡片+步骤列表+「确认执行」「取消」按钮 |
-| tool_status | 工具执行状态 | 紧凑行：⏳进行中 / ✅完成 / ❌失败 |
-| summary | Agent 的分析总结 | 左对齐气泡，可点击样本 ID 跳转 |
+1. React owns the visible chat session, tool status rendering, and loop control.
+2. Electron exposes a single `agent-chat` IPC entry plus the existing analysis/history/export IPC capabilities.
+3. Python owns prompt construction, tool descriptions, response parsing, and action selection.
+4. Tool execution remains in the desktop app layer and existing sidecar commands, not inside the model itself.
 
-### 联动
+This keeps the loop explainable and avoids giving the model direct authority over local system behavior.
 
-- 点击结果中的样本 ID → 左侧分析页跳转到该样本
-- `run_analysis` 的结果直接更新分析页的样本列表
-- 两侧共享同一份 `samples` 状态
+## Runtime Configuration
 
-### 美观要求
+Borrowing the useful idea from `claw-code`, the agent loop should not rely on hidden constants scattered across files. Version one should define a small explicit runtime config object.
 
-- 配色与现有 UI 一致（蓝色主色 #2a6cb6，白底灰字）
-- 消息气泡有柔和圆角和阴影
-- 工具状态紧凑但清晰
-- 计划卡片有明显的视觉分隔
-- 输入框带发送按钮，支持 Enter 发送
-
-## 工具定义
-
-6 个工具，每个对应一个 IPC 通道：
-
-### run_analysis
-- 功能：执行完整分析流程
-- 参数：`{ab1Dir: string, genesDir?: string, plasmid?: string}`
-- 返回：分析结果 JSON（样本列表）
-- 复用现有 `run-analysis` IPC
-
-### query_samples
-- 功能：查询/筛选当前或历史分析的样本
-- 参数：`{filter?: "ok"|"wrong"|"uncertain", sampleId?: string, analysisId?: string}`
-- 返回：匹配的样本列表
-- 新增 IPC `agent-query-samples`
-
-### query_history
-- 功能：查询分析历史记录
-- 参数：`{limit?: number}`
-- 返回：历史记录列表
-- 复用现有 `get-history` IPC
-
-### compare_datasets
-- 功能：对比两次分析的差异
-- 参数：`{analysisId1: string, analysisId2: string}`
-- 返回：差异摘要（新增/消失的突变、状态变化）
-- 新增 IPC `agent-compare`
-
-### export_report
-- 功能：导出 Excel 报告
-- 参数：`{samples: Sample[], sourcePath?: string}`
-- 返回：导出文件路径
-- 复用现有 `export-excel` IPC
-
-### get_sample_detail
-- 功能：获取单个样本的完整信息
-- 参数：`{sampleId: string}`
-- 返回：完整样本数据（含突变列表、比对信息）
-- 新增 IPC `agent-sample-detail`
-
-## Python 端设计
-
-### agent_chat.py
-
-核心对话模块，职责：
-1. 接收前端发来的消息和对话历史
-2. 构造 system prompt + 工具描述 + 用户消息
-3. 调用 OpenRouter LLM（通过现有 llm_client.py）
-4. 解析 LLM 返回的 JSON（工具调用或文本回复）
-5. 返回结构化响应给前端
-
-**LLM 调用方式**：不依赖 function calling API，使用 prompt 内嵌工具描述 + JSON 输出格式。这样兼容任何模型（包括免费模型）。
-
-**请求格式**：
-```json
-{"message": "帮我分析今天导入的数据", "history": [...], "context": {"currentSamples": [...], "currentDir": "..."}}
+```ts
+type AgentRuntimeConfig = {
+  maxRounds: number;
+  maxToolCallsPerTurn: number;
+  maxRecentMessages: number;
+  allowActionTools: boolean;
+  includeUsage: boolean;
+};
 ```
 
-**响应格式**：
-```json
-// 文本回复
-{"type": "text", "content": "好的，让我看看..."}
+Initial defaults:
 
-// 工具调用计划
-{"type": "tool_calls", "message": "我来帮你分析数据", "calls": [
-  {"tool": "run_analysis", "args": {"ab1Dir": "/path/to/data"}}
-]}
+- `maxRounds = 3`
+- `maxToolCallsPerTurn = 3`
+- `maxRecentMessages = 12`
+- `allowActionTools = true`
+- `includeUsage = true`
 
-// 基于工具结果的总结
-{"type": "summary", "content": "分析完成，共12个样本，9个OK，2个突变..."}
+The config can stay hardcoded in version one, but it should exist as a named shape so the loop behavior is easy to inspect and adjust later.
+
+## Agent Loop
+
+### Turn Model
+
+Each user request enters a controlled loop:
+
+1. Frontend sends the user message plus current analysis context to Python through `agent-chat`.
+2. Python returns either a direct reply or a list of tool calls with a short plan message.
+3. Frontend renders the plan, executes tools one by one, and renders each tool status.
+4. Tool results are added to the agent context and sent back to Python for the next turn.
+5. The loop ends when Python returns a final reply or the frontend reaches the turn limit.
+
+### Termination Rules
+
+- End immediately when Python returns `reply`.
+- Hard stop after 3 loop rounds.
+- If the limit is reached, show a final assistant message asking the user to narrow or continue the question.
+- Every terminal state should carry an explicit `stop_reason`.
+
+### Stop Reasons
+
+To keep the loop inspectable, every completed interaction should resolve to one of these reasons:
+
+- `final_reply`
+- `max_rounds_reached`
+- `tool_failed`
+- `invalid_model_output`
+- `permission_denied`
+- `aborted`
+
+The UI does not need to surface all of these as raw labels, but the runtime should keep them available for debugging and concise user-facing summaries.
+
+### Why This Shape
+
+This gives the app a real agentic workflow without introducing uncontrolled recursion, hidden side effects, or hard-to-debug cross-process behavior.
+
+## Message Protocol
+
+### Python Response Contract
+
+Python should return one of two actions:
+
+```ts
+type AgentTurnResponse =
+  | {
+      action: "reply";
+      content: string;
+      usage?: TokenUsage;
+      stopReason?: StopReason;
+    }
+  | {
+      action: "tool_calls";
+      message: string;
+      calls: ToolCall[];
+      usage?: TokenUsage;
+    };
 ```
 
-### agent_tools.py
+### Tool Call Contract
 
-工具注册与执行层，职责：
-1. 定义工具的元信息（名称、描述、参数schema）
-2. 生成工具描述文本供 system prompt 使用
-3. 提供 `query_samples`、`compare_datasets`、`get_sample_detail` 的实现（新增工具）
-
-### System Prompt
-
-```
-你是 BioAgent，一个专业的 Sanger 测序质控助手。
-
-你可以使用以下工具（通过返回 JSON 调用）：
-1. run_analysis — 分析测序数据
-2. query_samples — 查询/筛选样本
-3. query_history — 查看分析历史
-4. compare_datasets — 对比两次分析
-5. export_report — 导出 Excel 报告
-6. get_sample_detail — 查看样本详情
-
-用户会用中文与你交流。你应该：
-- 理解用户的意图，选择合适的工具
-- 对分析结果给出专业的中文解读
-- 标注需要关注的异常样本并解释原因
-- 用简洁清晰的语言回复
-
-当你需要调用工具时，返回以下 JSON 格式：
-{"action": "tool_calls", "calls": [{"tool": "工具名", "args": {...}}]}
-
-当你直接回复用户时，返回：
-{"action": "reply", "content": "你的回复"}
-```
-
-## 前端设计
-
-### 新增组件
-
-**AgentPanel.tsx** — 侧边栏容器
-- 展开/收起状态
-- 消息列表（滚动）
-- 输入框 + 发送按钮
-- 管理对话历史 `ChatMessage[]`
-- 处理工具调用的确认/取消/执行流程
-
-**ChatMessage.tsx** — 单条消息渲染
-- 根据 `type` 渲染不同样式
-- plan 类型渲染步骤列表和按钮
-- tool_status 渲染执行进度
-- summary 中的样本 ID 可点击
-
-### 类型定义
-
-```typescript
-interface ChatMessage {
-  id: string;
-  type: "user" | "agent" | "plan" | "tool_status" | "error";
-  content?: string;
-  toolCalls?: ToolCall[];
-  toolName?: string;
-  toolStatus?: "running" | "done" | "failed";
-  toolResult?: string;
-  timestamp: number;
-}
-
-interface ToolCall {
-  tool: string;
+```ts
+type ToolCall = {
+  tool: "query_samples" | "query_history" | "get_sample_detail" | "run_analysis" | "export_report";
   args: Record<string, unknown>;
-  description?: string;
-}
-
-interface AgentResponse {
-  type: "text" | "tool_calls" | "summary";
-  content?: string;
-  message?: string;
-  calls?: ToolCall[];
-}
+};
 ```
 
-### 控制流（前端 TypeScript）
+### Tool Metadata Contract
 
+Borrowing the useful part of `claw-code`'s tool typing, the Python side should maintain metadata for each tool instead of only a bare function map.
+
+```ts
+type ToolCategory = "query" | "action";
+
+type ToolSpec = {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+  category: ToolCategory;
+};
 ```
-1. 用户输入 → push user message → 发 IPC("agent-chat")
-2. 收到 {type: "text"} → push agent message → 结束
-3. 收到 {type: "tool_calls"} → push plan message → 等用户确认
-4. 用户点「确认」→ 逐个执行工具：
-   a. push tool_status(running)
-   b. 调用对应 IPC
-   c. 更新 tool_status(done/failed)
-   d. 如果是 run_analysis → 同时更新分析页 samples
-5. 全部完成 → 发 IPC("agent-chat") 带工具结果
-6. 收到 {type: "summary"} → push agent message → 结束
+
+This lets the prompt clearly distinguish tools that inspect data from tools that trigger work.
+
+### Frontend Context Contract
+
+```ts
+type AgentContext = {
+  currentAnalysis?: {
+    sourcePath?: string;
+    samples: Sample[];
+    selectedSampleId?: string | null;
+  };
+  recentToolResults?: ToolResult[];
+  history?: ChatMessage[];
+  runtime?: AgentRuntimeConfig;
+};
 ```
 
-## 文件清单
+### Usage Contract
 
-### 新增
-- `src-python/bioagent/agent_chat.py` — Agent LLM 对话核心
-- `src-python/bioagent/agent_tools.py` — 工具注册与新增工具实现
-- `src/components/AgentPanel.tsx` — 侧边栏面板
-- `src/components/AgentPanel.css` — 侧边栏样式
-- `src/components/ChatMessage.tsx` — 消息渲染
-- `src/components/ChatMessage.css` — 消息样式
+Borrowing another good pattern from `claw-code`, usage should be tracked explicitly instead of being hidden in logs.
 
-### 修改
-- `electron/main.js` — 新增 `agent-chat`、`agent-query-samples`、`agent-compare`、`agent-sample-detail` IPC handlers
-- `src/App.tsx` — 集成 AgentPanel，管理展开/收起，传递 samples 状态和回调
-- `src/App.css` — 布局调整（弹性布局支持侧边栏）
-- `src/types/index.ts` — 新增 ChatMessage、ToolCall、AgentResponse 类型
-- `src-python/bioagent/main.py` — 新增 `--agent-chat` 子命令入口
+```ts
+type TokenUsage = {
+  input: number;
+  output: number;
+  total?: number;
+};
+```
 
-## LLM 配置
+The first version only needs per-turn usage. Aggregated usage across the visible session can be added later in the frontend.
 
-- 开发测试：使用 SJTU API（base_url 和 key 在设置页配置）
-- 生产环境：用户在设置页填写自己的 API Key 和 Base URL
-- 默认模型：通过设置页可配置，首版默认 `google/gemma-3-27b-it:free`
-- 设置页已有 API Key 和 Base URL 字段，后续可加模型选择下拉框
+### Error And Permission Contract
 
-## 错误处理
+Tool and runtime failures should be normalized into explicit summaries.
 
-- API Key 未配置 → Agent 首条消息提示「请先在设置页配置 API Key」
-- LLM 返回格式不对 → 显示「理解失败，请换个说法试试」
-- 工具执行失败 → 工具状态显示 ❌ + 错误信息，不影响其他工具
-- 网络超时 → 显示重试按钮
+```ts
+type AgentFailure = {
+  kind: "tool_failed" | "invalid_model_output" | "permission_denied";
+  message: string;
+  toolName?: string;
+};
+```
 
-## 不在首版范围
+The permission case is mostly forward-looking for this desktop app, but the protocol should already have a place for it.
 
-- 对话历史持久化（刷新清空）
-- 流式输出（首版等完整响应）
-- 语音输入
-- 多轮自动推理（每次工具调用都需要用户确认）
+### UI Message Types
+
+The React layer should normalize conversation display into four message types:
+
+- `user`
+- `agent`
+- `plan`
+- `tool_status`
+
+These are display-oriented types. They exist to keep the panel readable and auditable.
+
+## Tool Boundaries
+
+Version one should expose exactly five tools.
+
+### 1. `query_samples`
+
+Category: `query`
+
+Purpose:
+Read the current sample list or a filtered subset.
+
+Allowed use:
+- Filter by status
+- Look up a sample by ID
+- Inspect a current analysis or a specific stored analysis
+
+No writes.
+
+### 2. `get_sample_detail`
+
+Category: `query`
+
+Purpose:
+Read the detailed fields for one sample so the agent can explain a judgment.
+
+Allowed use:
+- Identity
+- Coverage
+- Frameshift
+- Mutation summary
+- Rule/reason fields
+
+No writes.
+
+### 3. `query_history`
+
+Category: `query`
+
+Purpose:
+Read analysis history summaries.
+
+Allowed use:
+- List recent analyses
+- Compare counts or timestamps
+- Find a likely related past run
+
+Do not return full large payloads by default.
+
+### 4. `run_analysis`
+
+Category: `action`
+
+Purpose:
+Trigger an existing analysis flow using current app capabilities.
+
+Allowed arguments:
+- `ab1Dir`
+- `genesDir`
+- `plasmid`
+- optional `useLLM` flag, default off for this version
+
+This is an explicit action tool, but it only calls existing behavior already available in the app.
+
+### 5. `export_report`
+
+Category: `action`
+
+Purpose:
+Export a report for the current sample set.
+
+Allowed behavior:
+- Use the current export path workflow
+- Return success or failure plus exported path summary
+
+No hidden format changes or extra file generation behavior.
+
+### Global Tool Constraints
+
+- At most 3 tool calls per model turn
+- No duplicate call with identical args in the same turn
+- `run_analysis` and `export_report` must be preceded by a short plan message
+- If existing tool results are sufficient, the next turn should return `reply` instead of exploring further
+- If `allowActionTools` is false in runtime config, `run_analysis` and `export_report` must be filtered out before prompt construction
+
+## Frontend Design
+
+### Placement
+
+The `Agent Panel` belongs inside the analysis page as a right-side panel.
+
+Rationale:
+- The agent's default context is the current analysis page
+- Users should see samples and detailed evidence while chatting
+- This avoids making the workflow chat-first and preserves the current primary analysis flow
+
+### Layout
+
+Desktop default:
+- Left: sample list
+- Center: current sample detail and chromatogram or mutation views
+- Right: `Agent Panel`
+
+Narrow window fallback:
+- The right panel may collapse into a drawer, but desktop should prefer a persistent panel
+
+### Panel Sections
+
+1. Header
+- Panel title
+- Context indicator
+- Busy or idle indicator
+- Clear chat action
+
+2. Message stream
+- User messages
+- Agent final replies
+- Plan cards
+- Tool status cards
+- Concise failure cards when needed
+
+3. Composer
+- Multi-line input
+- Send action
+- Enter to send, Shift+Enter for newline
+
+### Message Rendering Rules
+
+- `user`: normal user bubble
+- `agent`: normal assistant card for direct answers and final summaries
+- `plan`: distinct lightweight card for what the agent will do next
+- `tool_status`: compact status card showing tool name, arguments summary, state, and short result summary
+
+The first version should avoid streaming tokens, multi-session chat management, or rich markdown-heavy rendering.
+
+### Failure Presentation
+
+Inspired by `claw-code`'s explicit runtime outcomes, the UI should not silently swallow errors.
+
+- Tool failure should render as a visible status card
+- Invalid model output should render as a safe assistant error card
+- Permission denial should render as a concise assistant explanation
+- Final replies may optionally include usage and stop reason in a subtle footer or developer-facing debug view
+
+## Backend Module Design
+
+### `src-python/bioagent/agent_tools.py`
+
+Responsibilities:
+- Register tool metadata
+- Define parameter schemas
+- Dispatch tool handlers
+- Build the tool description block used in the prompt
+- Filter tools by runtime permission context when needed
+
+This module should not know about Electron.
+
+### `src-python/bioagent/agent_chat.py`
+
+Responsibilities:
+- Build system prompt
+- Package current context
+- Call the LLM
+- Parse the LLM response into `reply` or `tool_calls`
+- Compact prior turns when needed
+- Return explicit stop reason or failure summaries
+
+This module should not execute Electron IPC.
+
+### `src-python/bioagent/main.py`
+
+Responsibilities:
+- Add a `--agent-chat` entry
+- Accept JSON input
+- Return JSON output
+- Stay as the single sidecar entry point
+
+This module should remain a CLI boundary, not the home for full agent logic.
+
+## Electron Changes
+
+### `electron/main.js`
+
+Add a new IPC handler:
+
+- `agent-chat`
+
+This handler should:
+- accept a JSON payload from the renderer
+- invoke Python with `--agent-chat`
+- return the JSON response to the renderer
+
+Existing IPC handlers remain responsible for actual local actions such as analysis, history, and export.
+
+## React Changes
+
+### `src/components/AgentPanel.tsx`
+
+Responsibilities:
+- manage visible chat state
+- own loop execution on the frontend
+- call `agent-chat`
+- execute returned tool calls sequentially
+- append `plan` and `tool_status` messages
+- stop when final reply or loop limit is reached
+- preserve concise runtime metadata such as `stopReason` and per-turn `usage`
+
+### `src/App.tsx`
+
+Responsibilities:
+- mount `AgentPanel` inside the analysis page
+- pass current samples, selected sample, and source-path context
+- keep the existing workflow intact
+
+### `src/types/index.ts`
+
+Add or update types for:
+- `ChatMessage`
+- `ToolCall`
+- `ToolSpec`
+- `ToolCategory`
+- `AgentTurnResponse`
+- `AgentRuntimeConfig`
+- `TokenUsage`
+- `StopReason`
+- failure summaries used by the panel loop
+
+## Error Handling
+
+The first version should make failure states explicit and visible:
+
+- If a tool fails, show a `tool_status` failure card
+- Feed the failure summary back into the next agent turn
+- Allow the agent to explain the failure or stop
+- If the loop limit is reached, produce a visible terminal message instead of silently failing
+- If `agent-chat` returns invalid JSON, render a safe assistant error message and stop the loop
+- If a tool is blocked by runtime permission context, return `permission_denied` instead of letting the loop continue ambiguously
+
+## Testing
+
+Testing should focus on behavior, not only rendering.
+
+### Python
+
+- Response parsing for `reply` and `tool_calls`
+- Tool registry prompt generation
+- Tool filtering by category or runtime permission context
+- Duplicate or invalid tool call handling
+- Loop-safe behavior for malformed model output
+- Explicit stop reason generation
+
+### React
+
+- Message normalization for `user`, `agent`, `plan`, `tool_status`
+- Sequential tool execution
+- Stop after final reply
+- Stop after max loop count
+- Failure rendering for tool errors
+- Preserve and display runtime metadata when available
+
+### Integration
+
+- Ask a question about current samples and receive a direct answer
+- Ask a question that requires sample detail lookup
+- Ask a question that requires history lookup
+- Ask for a rerun of analysis and see plan plus tool progress
+- Ask for report export and see result summary
+- Verify that a blocked action tool produces a visible denial instead of silent failure
+
+## Non-Goals For This Version
+
+- Direct editing of judgment results
+- Automatic settings mutation
+- Fully autonomous unlimited loop execution
+- Multi-conversation management
+- UI tab switching controlled by the agent
+- Rich markdown document generation inside chat
+- Plugin or MCP orchestration frameworks
+
+## Implementation Impact
+
+Expected main touched files:
+
+- `src-python/bioagent/main.py`
+- `src-python/bioagent/agent_chat.py`
+- `src-python/bioagent/agent_tools.py`
+- `electron/main.js`
+- `src/App.tsx`
+- `src/App.css`
+- `src/components/AgentPanel.tsx`
+- `src/components/AgentPanel.css`
+- `src/components/ChatMessage.tsx`
+- `src/components/ChatMessage.css`
+- `src/types/index.ts`
+
+## Open Decisions Resolved In This Spec
+
+- Agent scope is controlled, not general
+- Default context is current analysis first
+- Agent can query history or detail on demand
+- Agent can propose a short plan and execute multiple tools sequentially
+- Panel placement is inside the analysis page
+- Tool set is restricted to five actions
+- Loop ownership sits in the frontend
+- Python owns prompt construction and action parsing
+- Runtime behavior is shaped by explicit loop config, stop reasons, and typed tool metadata
+
+## Acceptance Criteria
+
+The feature is complete for this design when all of the following are true:
+
+1. The analysis page includes a visible `Agent Panel`.
+2. A user can ask a question about current analysis results and receive an answer.
+3. The agent can return a short plan and then execute multiple tools sequentially.
+4. Tool execution is visible in the UI as status updates.
+5. The agent can query history, sample list, sample detail, rerun analysis, and export a report.
+6. The loop always terminates via final reply or max-round stop.
+7. The runtime can report explicit stop reasons and per-turn usage.
+8. The agent does not directly alter stored results or silently mutate settings.

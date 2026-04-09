@@ -52,3 +52,30 @@ def test_uncertain_fallthrough(thresholds):
     result = judge_sample(s, thresholds)
     assert result["status"] == "uncertain"
     assert result["rule"] == -1
+
+
+def test_short_high_identity_trace_can_be_synthetic_overlap(thresholds):
+    s = {"sample_id": "X7", "identity": 1.0, "coverage": 0.02,
+         "frameshift": False, "aa_changes": [], "aa_changes_n": 0, "seq_length": 25}
+    result = judge_sample(s, thresholds)
+    assert result["status"] == "ok"
+    assert result["reason"] == "生工重叠峰"
+    assert result["rule"] == 11
+
+
+def test_short_high_identity_trace_can_be_overlap_failure(thresholds):
+    s = {"sample_id": "X8", "identity": 1.0, "coverage": 0.03,
+         "frameshift": False, "aa_changes": [], "aa_changes_n": 0, "seq_length": 39}
+    result = judge_sample(s, thresholds)
+    assert result["status"] == "wrong"
+    assert result["reason"] == "重叠峰"
+    assert result["rule"] == 12
+
+
+def test_very_short_low_coverage_fragment_can_be_fragment_loss(thresholds):
+    s = {"sample_id": "X9", "identity": 1.0, "coverage": 0.05,
+         "frameshift": False, "aa_changes": [], "aa_changes_n": 0, "seq_length": 65}
+    result = judge_sample(s, thresholds)
+    assert result["status"] == "wrong"
+    assert result["reason"] == "片段缺失"
+    assert result["rule"] == 13

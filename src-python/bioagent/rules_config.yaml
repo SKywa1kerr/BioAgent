@@ -13,5 +13,11 @@ thresholds:
   synthetic_identity_min: 0.85
   synthetic_identity_max: 0.95
   synthetic_aa_min: 15
+  short_synthetic_seq_max_length: 30
+  short_overlap_seq_max_length: 50
+  short_fragment_seq_max_length: 100
+  short_synthetic_coverage_max: 0.03
+  short_overlap_coverage_max: 0.05
+  short_fragment_coverage_max: 0.10
   quality_trim_min: 20
   quality_aa_filter: 30

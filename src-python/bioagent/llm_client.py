@@ -9,25 +9,13 @@ LLM client for Sanger sequencing QC judgment.
 import os
 import re
 import time
-from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
 
 from openai import OpenAI
 
 
-def _load_env():
-    """Load .env file from project root."""
-    # Path is now 3 levels up from src-python/bioagent/llm_client.py
-    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, _, value = line.partition("=")
-                os.environ.setdefault(key.strip(), value.strip())
-
-
-_load_env()
+DEFAULT_BASE_URL = "https://models.sjtu.edu.cn/api/v1"
+DEFAULT_MODEL = "deepseek-chat"
 
 SYSTEM_PROMPT = """\
 你是一个专业的Sanger测序质控分析员。根据以下比对证据，为每个样本输出判读结论。
@@ -65,24 +53,36 @@ SYSTEM_PROMPT = """\
 """
 
 
+def normalize_llm_base_url(value: Optional[str]) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return DEFAULT_BASE_URL
+
+    normalized = raw.rstrip("/")
+    if normalized.endswith("/chat/completions"):
+        normalized = normalized[: -len("/chat/completions")]
+    return normalized or DEFAULT_BASE_URL
+
+
 def call_llm(evidence_text: str,
-             model: str = "google/gemma-3-27b-it:free",
+             model: str = DEFAULT_MODEL,
              temperature: float = 0.0,
-             max_tokens: int = 4096) -> str:
+             max_tokens: int = 4096,
+             system_prompt: Optional[str] = None) -> str:
     """Call LLM API with evidence text. Returns raw response text."""
     api_key = os.environ.get("LLM_API_KEY")
-    base_url = os.environ.get("LLM_BASE_URL", "https://openrouter.ai/api/v1")
+    base_url = normalize_llm_base_url(os.environ.get("LLM_BASE_URL", DEFAULT_BASE_URL))
 
     if not api_key or api_key == "your-api-key-here":
         raise RuntimeError(
             "LLM_API_KEY not configured.\n"
-            "Please edit .env and set your API key."
+            "Please set your API key in the Settings tab."
         )
 
     client = OpenAI(api_key=api_key, base_url=base_url)
 
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
         {"role": "user", "content": evidence_text},
     ]
 
@@ -116,3 +116,18 @@ def parse_llm_result(raw_text: str) -> List[str]:
         if re.match(r"^C\d+", line):
             lines.append(line)
     return lines
+
+
+def parse_llm_result_map(raw_text: str) -> Dict[str, dict]:
+    result_map: Dict[str, dict] = {}
+    for line in parse_llm_result(raw_text):
+        match = re.match(r"^(?P<sid>\S+)\s+gene\s+is\s+(?P<status>ok|wrong)(?:\s+(?P<reason>.*))?$", line, re.IGNORECASE)
+        if not match:
+            continue
+        sid = match.group("sid").strip().upper()
+        result_map[sid] = {
+            "status": match.group("status").lower(),
+            "reason": (match.group("reason") or "").strip(),
+            "line": line.strip(),
+        }
+    return result_map

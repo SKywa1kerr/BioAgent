@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test:dataset-import": "node tests/test_dataset_import.mjs",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k \"vite\" \"sleep 2 && electron .\"",
+    "electron:dev": "concurrently -k \"vite\" \"powershell -NoProfile -Command \\\"while (-not (Test-NetConnection -ComputerName 127.0.0.1 -Port 1420 -InformationLevel Quiet)) { Start-Sleep -Milliseconds 300 }; electron .\\\"\"",
+    "build:python": "cd src-python && python -m PyInstaller .\\bioagent.spec --distpath ..\\dist-python --workpath ..\\build-python",
+    "build:all": "npm run build:python && npm run build && npm run electron:build",
     "electron:build": "npm run build && electron-builder"
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "recharts": "^3.8.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
@@ -23,5 +27,35 @@
     "electron-builder": "^25.0.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.bioagent.desktop",
+    "productName": "BioAgent",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-python/bioagent-sidecar/",
+        "to": "sidecar/bioagent-sidecar",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false
+    }
   }
 }

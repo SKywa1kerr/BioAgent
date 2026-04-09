@@ -159,13 +159,37 @@ def parse_genbank(filepath: str) -> Tuple[SeqRecord, str, int, int]:
     record = SeqIO.read(filepath, "genbank")
     seq = str(record.seq).upper()
 
-    # Find CDS feature
     cds_start, cds_end = None, None
+    target = record.id.upper()
+    best_feature = None
+    best_score = None
+
     for feature in record.features:
-        if feature.type == "CDS":
-            cds_start = int(feature.location.start) + 1  # 1-based
-            cds_end = int(feature.location.end)
-            break
+        if feature.type != "CDS":
+            continue
+
+        qualifiers = feature.qualifiers
+        label = str(qualifiers.get("label", [""])[0]).upper() if "label" in qualifiers else ""
+        gene = str(qualifiers.get("gene", [""])[0]).upper() if "gene" in qualifiers else ""
+        note = " ".join(qualifiers.get("note", [])).upper() if "note" in qualifiers else ""
+
+        score = 0
+        if target and target in label:
+            score += 10
+        if target and target in gene:
+            score += 10
+        if "INSERTED GENE" in note or "INSERTED GENE SEQUENCE" in note:
+            score += 6
+        if "INSERTED" in note:
+            score += 2
+
+        if best_feature is None or best_score is None or score > best_score:
+            best_feature = feature
+            best_score = score
+
+    if best_feature is not None:
+        cds_start = int(best_feature.location.start) + 1
+        cds_end = int(best_feature.location.end)
 
     return record, seq, cds_start, cds_end
 

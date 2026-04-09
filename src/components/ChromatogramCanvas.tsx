@@ -9,13 +9,6 @@ interface ChromatogramCanvasProps {
   onHover: (position: number | null, quality: number | null) => void;
 }
 
-const TRACE_COLORS = {
-  A: "#00aa00",
-  T: "#aa0000",
-  G: "#000000",
-  C: "#0000aa",
-};
-
 export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
   data,
   startPosition,
@@ -36,8 +29,19 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const isDarkTheme = document.documentElement.dataset.theme === "dark";
+    const traceColors = {
+      A: isDarkTheme ? "#4ade80" : "#16a34a",
+      T: isDarkTheme ? "#f87171" : "#dc2626",
+      G: isDarkTheme ? "#fbbf24" : "#b45309",
+      C: isDarkTheme ? "#60a5fa" : "#2563eb",
+    };
+    const background = isDarkTheme ? "#0f172a" : "#f8fbff";
+    const gridColor = isDarkTheme ? "rgba(148,163,184,0.12)" : "rgba(148,163,184,0.22)";
+    const labelColor = isDarkTheme ? "#dbe7f5" : "#334155";
+
     // Clear canvas
-    ctx.fillStyle = "#1a1a1a";
+    ctx.fillStyle = background;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     if (!data.traces) return;
@@ -45,7 +49,7 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
     const traces = data.traces;
     const width = canvas.width;
     const height = canvas.height;
-    const padding = 20;
+    const padding = 24;
 
     if (!data.baseCalls || !data.base_locations) return;
 
@@ -82,10 +86,20 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
     const xScale = (width - 2 * padding) / traceRange;
     const yScale = (height - 2 * padding) / (maxVal * 1.1);
 
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    for (let row = 1; row <= 4; row++) {
+      const y = padding + ((height - 2 * padding) / 4) * row;
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(width - padding, y);
+      ctx.stroke();
+    }
+
     ["A", "T", "G", "C"].forEach((base) => {
       const trace = traces[base as keyof typeof traces];
-      ctx.strokeStyle = TRACE_COLORS[base as keyof typeof TRACE_COLORS];
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = traceColors[base as keyof typeof traceColors];
+      ctx.lineWidth = 2;
       ctx.beginPath();
 
       for (let i = visibleStartTrace; i < visibleEndTrace; i++) {
@@ -103,7 +117,7 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
     });
 
     // Draw base calls and mixed peak indicators
-    ctx.font = "10px monospace";
+    ctx.font = "11px monospace";
     ctx.textAlign = "center";
     for (let i = startBaseIdx; i < endBaseIdx; i++) {
       const traceIdx = data.base_locations[i];
@@ -112,16 +126,23 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
       const x = padding + (traceIdx - visibleStartTrace) * xScale;
       const base = data.baseCalls[i];
 
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, height - padding - 6);
+      ctx.lineTo(x, height - padding + 8);
+      ctx.stroke();
+
       // Draw base letter
-      ctx.fillStyle = TRACE_COLORS[base as keyof typeof TRACE_COLORS] || "#fff";
-      ctx.fillText(base, x, height - 5);
+      ctx.fillStyle = traceColors[base as keyof typeof traceColors] || labelColor;
+      ctx.fillText(base, x, height - 8);
 
       // Highlight mixed peaks
       if (data.mixed_peaks.includes(i)) {
-        ctx.strokeStyle = "#ffff00";
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = isDarkTheme ? "#fde047" : "#ca8a04";
+        ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(x, height - 15, 3, 0, Math.PI * 2);
+        ctx.arc(x, height - 19, 4, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
@@ -179,7 +200,7 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
       setTooltip({
         x: e.clientX + 10,
         y: e.clientY - 30,
-        content: `Q${quality}${isMixed ? " (Mixed Peak)" : ""}`,
+        content: `${data.baseCalls[closestBaseIdx]} · Q${quality}${isMixed ? " · Mixed Peak" : ""}`,
       });
     }
   };
@@ -193,8 +214,8 @@ export const ChromatogramCanvas: React.FC<ChromatogramCanvasProps> = ({
     <div className="chromatogram-container">
       <canvas
         ref={canvasRef}
-        width={800}
-        height={150}
+        width={1200}
+        height={220}
         className="chromatogram-canvas"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}

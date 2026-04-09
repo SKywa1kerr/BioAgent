@@ -1,9 +1,65 @@
 const { app, BrowserWindow, dialog, ipcMain } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { execFile } = require("child_process");
+const { execFile, spawn } = require("child_process");
 
 const isDev = !app.isPackaged;
+
+// --------------- Python sidecar helpers ---------------
+
+/**
+ * Returns the command + args prefix to invoke the Python sidecar.
+ * In dev: uses system python -m bioagent.main
+ * In production: uses the PyInstaller-bundled executable
+ */
+function getPythonCommand() {
+  if (isDev) {
+    const pythonPath = process.platform === "win32" ? "py" : "python3";
+    const pythonDir = path.join(__dirname, "../src-python");
+    const baseArgs =
+      process.platform === "win32" ? ["-3", "-m", "bioagent.main"] : ["-m", "bioagent.main"];
+    return { cmd: pythonPath, baseArgs, cwd: pythonDir };
+  }
+  // Production: bundled sidecar next to the app
+  const ext = process.platform === "win32" ? ".exe" : "";
+  const sidecarDir = path.join(process.resourcesPath, "sidecar", "bioagent-sidecar");
+  const sidecarExe = path.join(sidecarDir, `bioagent-sidecar${ext}`);
+  return { cmd: sidecarExe, baseArgs: [], cwd: sidecarDir };
+}
+
+/**
+ * Build environment variables for the Python subprocess.
+ * Injects API key, base URL from saved settings, PYTHONPATH (dev only),
+ * and the unified DB path.
+ */
+function getAnalysisEnv() {
+  const env = { ...process.env };
+
+  // In dev mode, set PYTHONPATH so python -m works
+  if (isDev) {
+    env.PYTHONPATH = path.join(__dirname, "../src-python");
+  }
+
+  // Load saved settings and inject as env vars
+  try {
+    const raw = fs.readFileSync(getSettingsPath(), "utf-8");
+    const settings = JSON.parse(raw);
+    if (settings.llmApiKey) env.LLM_API_KEY = settings.llmApiKey;
+    if (settings.llmBaseUrl) env.LLM_BASE_URL = settings.llmBaseUrl;
+    if (settings.llmModel) env.LLM_MODEL = settings.llmModel;
+  } catch {
+    // No settings file yet — that's fine
+  }
+
+  return env;
+}
+
+/** Unified DB path inside userData */
+function getDbPath() {
+  return path.join(app.getPath("userData"), "bioagent.db");
+}
+
+// --------------- Window ---------------
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -26,7 +82,7 @@ function createWindow() {
   }
 }
 
-// IPC Handlers
+// --------------- IPC Handlers ---------------
 
 ipcMain.handle("open-folder-dialog", async () => {
   const result = await dialog.showOpenDialog({
@@ -34,6 +90,22 @@ ipcMain.handle("open-folder-dialog", async () => {
   });
   if (result.canceled || result.filePaths.length === 0) return null;
   return result.filePaths[0];
+});
+
+ipcMain.handle("inspect-dataset-directory", async (_event, folder) => {
+  if (!folder) {
+    return [];
+  }
+
+  return ["ab1", "gb"]
+    .map((name) => path.join(folder, name))
+    .filter((candidate) => {
+      try {
+        return fs.existsSync(candidate) && fs.statSync(candidate).isDirectory();
+      } catch {
+        return false;
+      }
+    });
 });
 
 ipcMain.handle("list-ab1-files", async (_event, folder) => {
@@ -52,41 +124,106 @@ ipcMain.handle("list-genbank-files", async (_event, folder) => {
 
 ipcMain.handle("run-analysis", async (_event, ab1Dir, genesDir, options = {}) => {
   return new Promise((resolve, reject) => {
-    const pythonPath = process.platform === "win32" ? "python" : "python3";
-    const pythonDir = path.join(__dirname, "../src-python");
+    const { cmd, baseArgs, cwd } = getPythonCommand();
+    const args = [...baseArgs];
+    const sendProgress = (payload) => {
+      if (!_event.sender.isDestroyed()) {
+        _event.sender.send("analysis-progress", payload);
+      }
+    };
 
-    const args = ["-m", "bioagent.main"];
     if (options.autoImport) {
       args.push("--auto-import");
     } else {
       args.push("--ab1-dir", ab1Dir);
     }
 
-    if (genesDir) {
-      args.push("--genes-dir", genesDir);
-    }
+    if (genesDir) args.push("--genes-dir", genesDir);
+    if (options.useLLM) args.push("--llm");
+    if (options.plasmid) args.push("--plasmid", options.plasmid);
+    if (options.model) args.push("--model", options.model);
 
-    if (options.useLLM) {
-      args.push("--llm");
-    }
+    args.push("--db-path", getDbPath());
 
-    if (options.plasmid) {
-      args.push("--plasmid", options.plasmid);
-    }
+    const env = getAnalysisEnv();
+    const child = spawn(cmd, args, { cwd, env, windowsHide: true });
+    let stdout = "";
+    let stderr = "";
+    let stderrBuffer = "";
 
-    const env = { ...process.env, PYTHONPATH: pythonDir };
+    sendProgress({
+      stage: "preparing",
+      percent: 2,
+      processedSamples: 0,
+      totalSamples: 0,
+      message: "Preparing analysis runtime.",
+    });
 
-    // Increase maxBuffer to 100MB to handle large chromatogram data
-    execFile(pythonPath, args, { cwd: pythonDir, env, maxBuffer: 100 * 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error) {
-        // Only reject if there's an actual error code, not just stderr output
-        console.error("Python Error:", stderr);
-        reject(`Analysis failed: ${stderr || error.message}`);
-      } else {
-        // Some Python libraries might print to stderr even on success
-        if (stderr) {
-          console.log("Python Warning/Info:", stderr);
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on("data", (chunk) => {
+      const text = chunk.toString();
+      stderr += text;
+      stderrBuffer += text;
+
+      const lines = stderrBuffer.split(/\r?\n/);
+      stderrBuffer = lines.pop() || "";
+      for (const line of lines) {
+        if (line.startsWith("__BIOAGENT_PROGRESS__")) {
+          const rawPayload = line.slice("__BIOAGENT_PROGRESS__".length);
+          try {
+            sendProgress(JSON.parse(rawPayload));
+          } catch (error) {
+            console.warn("Failed to parse progress payload:", rawPayload, error);
+          }
+          continue;
         }
+
+        if (line.trim()) {
+          console.log("Python Warning/Info:", line);
+        }
+      }
+    });
+
+    child.on("error", (error) => {
+      sendProgress({
+        stage: "failed",
+        percent: 100,
+        processedSamples: 0,
+        totalSamples: 0,
+        message: error.message,
+      });
+      reject(`Analysis failed: ${error.message}`);
+    });
+
+    child.on("close", (code) => {
+      if (stderrBuffer.trim()) {
+        if (stderrBuffer.startsWith("__BIOAGENT_PROGRESS__")) {
+          const rawPayload = stderrBuffer.slice("__BIOAGENT_PROGRESS__".length);
+          try {
+            sendProgress(JSON.parse(rawPayload));
+          } catch (error) {
+            console.warn("Failed to parse trailing progress payload:", rawPayload, error);
+          }
+        } else {
+          console.log("Python Warning/Info:", stderrBuffer);
+        }
+      }
+
+      if (code !== 0) {
+        const errorMessage = stderr || `Process exited with code ${code}`;
+        sendProgress({
+          stage: "failed",
+          percent: 100,
+          processedSamples: 0,
+          totalSamples: 0,
+          message: errorMessage.trim(),
+        });
+        console.error("Python Error:", errorMessage);
+        reject(`Analysis failed: ${errorMessage}`);
+      } else {
         resolve(stdout);
       }
     });
@@ -96,15 +233,34 @@ ipcMain.handle("run-analysis", async (_event, ab1Dir, genesDir, options = {}) =>
 // History handler
 ipcMain.handle("get-history", async () => {
   return new Promise((resolve, reject) => {
-    const pythonPath = process.platform === "win32" ? "python" : "python3";
-    const pythonDir = path.join(__dirname, "../src-python");
-    const env = { ...process.env, PYTHONPATH: pythonDir };
-    execFile(pythonPath, ["-m", "bioagent.main", "--history"], { cwd: pythonDir, env }, (err, stdout, stderr) => {
+    const { cmd, baseArgs, cwd } = getPythonCommand();
+    const args = [...baseArgs, "--history", "--db-path", getDbPath()];
+    const env = getAnalysisEnv();
+
+    execFile(cmd, args, { cwd, env }, (err, stdout, stderr) => {
       if (err) {
         console.error("History error:", stderr);
         reject(stderr || err.message);
       } else {
         if (stderr) console.log("History info:", stderr);
+        resolve(stdout);
+      }
+    });
+  });
+});
+
+ipcMain.handle("agent-chat", async (_event, payload) => {
+  return new Promise((resolve, reject) => {
+    const { cmd, baseArgs, cwd } = getPythonCommand();
+    const args = [...baseArgs, "--agent-chat", JSON.stringify(payload)];
+    const env = getAnalysisEnv();
+
+    execFile(cmd, args, { cwd, env, maxBuffer: 20 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (err) {
+        console.error("Agent chat error:", stderr);
+        reject(stderr || err.message);
+      } else {
+        if (stderr) console.log("Agent chat info:", stderr);
         resolve(stdout);
       }
     });
@@ -140,13 +296,12 @@ ipcMain.handle("export-excel", async (_event, samples, sourcePath) => {
   const tmpFile = path.join(app.getPath("temp"), "bioagent-export.json");
   fs.writeFileSync(tmpFile, JSON.stringify({ samples, source_path: sourcePath || "" }));
 
-  const pythonPath = process.platform === "win32" ? "python" : "python3";
-  const pythonDir = path.join(__dirname, "../src-python");
-  const env = { ...process.env, PYTHONPATH: pythonDir };
-  const args = ["-m", "bioagent.main", "--export-excel", filePath, "--export-data", tmpFile];
+  const { cmd, baseArgs, cwd } = getPythonCommand();
+  const args = [...baseArgs, "--export-excel", filePath, "--export-data", tmpFile];
+  const env = getAnalysisEnv();
 
   return new Promise((resolve, reject) => {
-    execFile(pythonPath, args, { cwd: pythonDir, env }, (err, stdout, stderr) => {
+    execFile(cmd, args, { cwd, env }, (err, stdout, stderr) => {
       if (err) {
         console.error("Export error:", stderr);
         reject(stderr || err.message);
@@ -157,6 +312,8 @@ ipcMain.handle("export-excel", async (_event, samples, sourcePath) => {
     });
   });
 });
+
+// --------------- App lifecycle ---------------
 
 app.whenReady().then(createWindow);
 

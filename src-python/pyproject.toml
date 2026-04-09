@@ -13,5 +13,10 @@ dependencies = [
     "openai>=1.0",
 ]
 
+[project.optional-dependencies]
+build = [
+    "pyinstaller>=6.0",
+]
+
 [project.scripts]
 bioagent = "bioagent.main:main"

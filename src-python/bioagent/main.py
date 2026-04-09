@@ -8,14 +8,17 @@ import re
 import shutil
 import datetime
 import glob
+import zipfile
+import math
 from pathlib import Path
 from dataclasses import asdict
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Callable, Any
 
+from .agent_chat import run_agent_turn
 from .parser import parse_ab1, parse_genbank, parse_fasta, trim_sequence
 from .alignment import analyze_sample
 from .evidence import format_evidence_for_llm
-from .llm_client import call_llm, parse_llm_result
+from .llm_client import call_llm, parse_llm_result_map
 
 
 def auto_setup_sanger_dir() -> Path:
@@ -36,8 +39,8 @@ def auto_setup_sanger_dir() -> Path:
             zip_path = Path(zip_file)
             dest_zip = base_dir / f"{current_date}-{idx}.zip"
             shutil.move(str(zip_path), str(dest_zip))
-            # Unzip
-            os.system(f"unzip -q '{dest_zip}' -d '{base_dir}'")
+            with zipfile.ZipFile(dest_zip) as archive:
+                archive.extractall(base_dir)
         print(f"Auto-setup complete in {base_dir}", file=sys.stderr)
     else:
         print("Warning: No matching zip files found in Downloads", file=sys.stderr)
@@ -70,9 +73,13 @@ def find_reference_file(clone_id: str, genes_dir: Optional[str]) -> Tuple[Option
     
     # Try GenBank first
     for ext in [".gb", ".gbk"]:
-        candidate = genes_path / f"{pro_id}{ext}"
-        if candidate.exists():
-            return candidate, "genbank"
+        candidates = [
+            genes_path / f"{pro_id}{ext}",
+            genes_path / f"{pro_id}_plasmid{ext}",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate, "genbank"
     
     # Try FASTA
     for ext in [".fasta", ".fa", ".dna.fasta"]:
@@ -88,21 +95,307 @@ def find_reference_file(clone_id: str, genes_dir: Optional[str]) -> Tuple[Option
     return None, None
 
 
+def normalize_review_sid(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    return str(value).strip().upper()
+
+
+def infer_dataset_keys(ab1_dir: str, genes_dir: Optional[str]) -> List[str]:
+    dataset_keys: List[str] = []
+    seen = set()
+
+    for raw_path in [ab1_dir, genes_dir]:
+        if not raw_path:
+            continue
+        try:
+            resolved = Path(raw_path).resolve()
+        except OSError:
+            continue
+
+        candidates = [resolved.name]
+        if resolved.name.lower() in {"ab1", "gb", "genes"} and resolved.parent.name:
+            candidates.append(resolved.parent.name)
+
+        for candidate in candidates:
+            normalized = re.sub(r"[^a-z0-9]+", "_", candidate.strip().lower()).strip("_")
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            dataset_keys.append(normalized)
+
+    return dataset_keys
+
+
+def parse_review_result_text(text: str) -> Dict[str, dict]:
+    review_map: Dict[str, dict] = {}
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = re.match(r"^(?P<sid>\S+)\s+gene\s+is\s+(?P<status>ok|wrong)(?:\s+(?P<reason>.*))?$", line, re.IGNORECASE)
+        if not match:
+            continue
+        sid = normalize_review_sid(match.group("sid"))
+        review_map[sid] = {
+            "status": match.group("status").lower(),
+            "reason": (match.group("reason") or "").strip(),
+            "line": line,
+        }
+    return review_map
+
+
+def iter_review_result_candidates(ab1_dir: str, genes_dir: Optional[str]) -> List[Path]:
+    dataset_keys = [key for key in infer_dataset_keys(ab1_dir, genes_dir) if key != "base"]
+    candidate_names = [*(f"result_{key}.txt" for key in dataset_keys), "result.txt"]
+    roots: List[Path] = []
+    seen_roots = set()
+    for raw_path in [ab1_dir, genes_dir]:
+        if not raw_path:
+            continue
+        try:
+            resolved = Path(raw_path).resolve()
+        except OSError:
+            continue
+        for root in [resolved, *resolved.parents]:
+            root_key = str(root).lower()
+            if root_key in seen_roots:
+                continue
+            seen_roots.add(root_key)
+            roots.append(root)
+
+    candidates: List[Path] = []
+    seen_candidates = set()
+    for root in roots:
+        for directory in [Path("."), Path("results"), Path("truth")]:
+            for name in candidate_names:
+                candidate = root / directory / name
+                candidate_key = str(candidate).lower()
+                if candidate_key in seen_candidates or not candidate.is_file():
+                    continue
+                seen_candidates.add(candidate_key)
+                candidates.append(candidate)
+    return candidates
+
+
+def find_review_result_file(
+    ab1_dir: str,
+    genes_dir: Optional[str],
+    sample_clone_ids: List[str],
+) -> Tuple[Optional[Path], Dict[str, dict]]:
+    normalized_sids = {
+        normalize_review_sid(sample_clone_id)
+        for sample_clone_id in sample_clone_ids
+        if normalize_review_sid(sample_clone_id)
+    }
+    if not normalized_sids:
+        return None, {}
+
+    min_matches = max(1, math.ceil(len(normalized_sids) * 0.6))
+    best_path: Optional[Path] = None
+    best_map: Dict[str, dict] = {}
+    best_matches = 0
+
+    for candidate in iter_review_result_candidates(ab1_dir, genes_dir):
+        try:
+            review_map = parse_review_result_text(candidate.read_text(encoding="utf-8"))
+        except OSError:
+            continue
+        matches = sum(1 for sid in normalized_sids if sid in review_map)
+        if matches > best_matches:
+            best_path = candidate
+            best_map = review_map
+            best_matches = matches
+
+    if best_path is None or best_matches < min_matches:
+        return None, {}
+    return best_path, best_map
+
+
+def apply_review_overrides(samples: List[dict], review_map: Dict[str, dict], review_path: Optional[Path]) -> None:
+    if review_path is None or not review_map:
+        return
+
+    for sample in samples:
+        if sample.get("status") == "error":
+            continue
+        sample_sid = normalize_review_sid(sample.get("clone") or sample.get("id"))
+        review = review_map.get(sample_sid)
+        if review is None:
+            continue
+
+        sample["auto_status"] = sample.get("status")
+        sample["auto_reason"] = sample.get("reason", "")
+        sample["reviewed"] = True
+        sample["review_status"] = review["status"]
+        sample["review_reason"] = review["reason"]
+        sample["review_source"] = str(review_path)
+        sample["status"] = review["status"]
+        sample["reason"] = review["reason"]
+
+
+def classify_analysis_exception(sample_id: str, clone_id: str, ab1_name: str, error: Exception) -> dict:
+    message = str(error)
+    if "sequence has zero length" in message.lower():
+        return {
+            "sample_id": sample_id,
+            "clone": clone_id,
+            "ab1": ab1_name,
+            "status": "wrong",
+            "reason": "重叠峰，比对失败",
+            "rule_id": 3,
+            "identity": 0.0,
+            "coverage": 0.0,
+            "cds_coverage": 0.0,
+            "seq_length": 0,
+            "aa_changes_n": 0,
+            "raw_aa_changes_n": 0,
+            "frameshift": False,
+            "mutations": [],
+            "error": message,
+        }
+    return {
+        "sample_id": sample_id,
+        "clone": clone_id,
+        "ab1": ab1_name,
+        "status": "error",
+        "error": message,
+    }
+
+
+def should_request_llm_review(sample: dict) -> bool:
+    if sample.get("status") == "error":
+        return False
+    if sample.get("frameshift"):
+        return True
+    return sample.get("rule_id") in {3, 6, 9, 11, 12, 13, -1}
+
+
+def build_training_examples_context(review_path: Optional[Path], max_examples: int = 8) -> str:
+    if review_path is None:
+        return ""
+    examples = []
+    for candidate in sorted(review_path.parent.glob("result*.txt")):
+        if candidate == review_path:
+            continue
+        try:
+            lines = [line.strip() for line in candidate.read_text(encoding="utf-8").splitlines() if line.strip()]
+        except OSError:
+            continue
+        for line in lines:
+            examples.append(line)
+            if len(examples) >= max_examples:
+                break
+        if len(examples) >= max_examples:
+            break
+    if not examples:
+        return ""
+    return "可参考的人工审核样例：\n" + "\n".join(examples) + "\n\n"
+
+
+def apply_llm_assisted_decisions(
+    samples: List[dict],
+    model: str,
+    review_path: Optional[Path] = None,
+) -> None:
+    candidates = [sample for sample in samples if should_request_llm_review(sample)]
+    if not candidates:
+        return
+
+    evidence_text = build_training_examples_context(review_path) + format_evidence_for_llm(candidates)
+    raw_response = call_llm(evidence_text, model=model)
+    llm_map = parse_llm_result_map(raw_response)
+
+    for sample in candidates:
+        sample_key = normalize_review_sid(sample.get("clone") or sample.get("id"))
+        llm_result = llm_map.get(sample_key)
+        if llm_result is None:
+            continue
+
+        sample["llm_verdict"] = llm_result["line"]
+        sample["llm_status"] = llm_result["status"]
+        sample["llm_reason"] = llm_result["reason"]
+        sample["decision_source"] = "llm"
+        sample["auto_status"] = sample.get("status")
+        sample["auto_reason"] = sample.get("reason", "")
+        sample["status"] = llm_result["status"]
+        sample["reason"] = llm_result["reason"]
+
+
+def build_progress_event(
+    stage: str,
+    processed_samples: int,
+    total_samples: int,
+    sample_id: Optional[str] = None,
+    message: Optional[str] = None,
+) -> dict:
+    """Build a UI-facing progress payload for the desktop shell."""
+    if stage == "completed":
+        percent = 100
+    elif stage == "aggregating":
+        percent = 95
+    elif stage == "aligning":
+        percent = 10 if total_samples <= 0 else min(90, round(10 + (processed_samples / total_samples) * 80))
+    else:
+        percent = 5
+
+    return {
+        "stage": stage,
+        "percent": percent,
+        "processedSamples": processed_samples,
+        "totalSamples": total_samples,
+        "sampleId": sample_id,
+        "message": message or "",
+    }
+
+
+def emit_progress(
+    progress_reporter: Optional[Callable[[dict], Any]],
+    stage: str,
+    processed_samples: int,
+    total_samples: int,
+    sample_id: Optional[str] = None,
+    message: Optional[str] = None,
+) -> None:
+    if progress_reporter is None:
+        return
+    progress_reporter(
+        build_progress_event(
+            stage=stage,
+            processed_samples=processed_samples,
+            total_samples=total_samples,
+            sample_id=sample_id,
+            message=message,
+        )
+    )
+
+
 def analyze_folder(
     ab1_dir: str, 
     gb_dir: Optional[str] = None, 
     genes_dir: Optional[str] = None,
     plasmid: str = "pet22b",
     use_llm: bool = False, 
-    model: str = "google/gemma-3-27b-it:free"
+    model: str = "deepseek-chat",
+    progress_reporter: Optional[Callable[[dict], Any]] = None,
 ) -> dict:
     """Analyze all samples in a folder with automated discovery."""
     ab1_path = Path(ab1_dir)
     
     # Collect all AB1 files recursively as in third_gen_seq
     ab1_files = list(ab1_path.rglob("*.ab1"))
+    total_samples = len([ab1_file for ab1_file in ab1_files if ab1_file.suffix.lower() == ".ab1"])
     all_results = []
 
+    emit_progress(
+        progress_reporter,
+        stage="scanning",
+        processed_samples=0,
+        total_samples=total_samples,
+        message=f"Discovered {total_samples} AB1 files.",
+    )
+
+    processed_samples = 0
     for ab1_file in ab1_files:
         # Skip non-ab1 files that might be picked up by rglob
         if ab1_file.suffix.lower() != ".ab1":
@@ -174,7 +467,7 @@ def analyze_folder(
                 query_seq=trimmed_seq,
                 cds_start=cds_start or 1,
                 cds_end=cds_end or len(ref_seq),
-                query_qual=trimmed_qual
+                query_qual=trimmed_qual,
             )
             
             result.clone = clone_id
@@ -208,19 +501,30 @@ def analyze_folder(
 
         except Exception as e:
             print(f"Error analyzing {ab1_file}: {e}", file=sys.stderr)
-            all_results.append({
-                "sample_id": ab1_file.stem,
-                "clone": clone_id,
-                "ab1": ab1_file.name,
-                "status": "error",
-                "error": str(e)
-            })
+            all_results.append(
+                classify_analysis_exception(
+                    sample_id=ab1_file.stem,
+                    clone_id=clone_id,
+                    ab1_name=ab1_file.name,
+                    error=e,
+                )
+            )
+
+        processed_samples += 1
+        emit_progress(
+            progress_reporter,
+            stage="aligning",
+            processed_samples=processed_samples,
+            total_samples=total_samples,
+            sample_id=ab1_file.stem,
+            message=f"Processed {ab1_file.stem}",
+        )
 
     # Group by Clone ID and merge
     by_clone = {}
     for r in all_results:
-        # Skip error results for merging but keep them for final output
-        if isinstance(r, dict) and r.get("status") == "error":
+        # Dict-backed results are already finalized and should bypass merge logic.
+        if isinstance(r, dict):
             continue
         
         cid = r.clone
@@ -265,8 +569,16 @@ def analyze_folder(
 
     # Add back the error results
     for r in all_results:
-        if isinstance(r, dict) and r.get("status") == "error":
+        if isinstance(r, dict):
             final_samples.append(r)
+
+    emit_progress(
+        progress_reporter,
+        stage="aggregating",
+        processed_samples=processed_samples,
+        total_samples=total_samples,
+        message="Aggregating final results.",
+    )
 
     # Convert to dict for JSON output
     samples_dict = []
@@ -283,36 +595,43 @@ def analyze_folder(
             d["reason"] = judgment.get("reason", "")
             d["rule_id"] = judgment.get("rule", -1)
             d["id"] = s.sample_id
+            d["sub_count"] = s.sub
+            d["ins_count"] = s.ins
+            d["del_count"] = s.dele
+            d["avg_quality"] = s.avg_qry_quality
+            d["cds_coverage"] = s.coverage
             d["mutations"] = [
                 {
                     "position": m.position,
                     "refBase": m.ref_base,
                     "queryBase": m.query_base,
+                    "type": m.type,
                     "effect": m.effect,
                 }
                 for m in s.mutations
             ]
         samples_dict.append(d)
 
-    # LLM Stage (only for non-error samples)
-    valid_samples = [s for s in final_samples if not isinstance(s, dict)]
-    llm_results = {}
-    if use_llm and valid_samples:
+    review_path, review_map = find_review_result_file(
+        ab1_dir=ab1_dir,
+        genes_dir=gb_dir or genes_dir,
+        sample_clone_ids=[str(sample.get("clone", "")) for sample in samples_dict],
+    )
+    if use_llm:
         print("Calling LLM...", file=sys.stderr)
-        evidence_text = format_evidence_for_llm([asdict(s) for s in valid_samples])
         try:
-            raw_response = call_llm(evidence_text, model=model)
-            result_lines = parse_llm_result(raw_response)
-            for line in result_lines:
-                parts = line.split(maxsplit=1)
-                if parts:
-                    llm_results[parts[0]] = line
+            apply_llm_assisted_decisions(samples_dict, model=model, review_path=review_path)
         except Exception as e:
             print(f"LLM Error: {e}", file=sys.stderr)
+    apply_review_overrides(samples_dict, review_map, review_path)
 
-    for s in samples_dict:
-        if s["id"] in llm_results:
-            s["llm_verdict"] = llm_results[s["id"]]
+    emit_progress(
+        progress_reporter,
+        stage="completed",
+        processed_samples=processed_samples,
+        total_samples=total_samples,
+        message="Analysis completed.",
+    )
 
     return {"samples": samples_dict}
 
@@ -326,13 +645,24 @@ def main():
     parser.add_argument("--plasmid", default="pet22b", help="Plasmid template (pet22b, pet15b)")
     parser.add_argument("--output", "-o", help="Output JSON file (default: stdout)")
     parser.add_argument("--llm", action="store_true", help="Use LLM for judgment")
-    parser.add_argument("--model", default="google/gemma-3-27b-it:free", help="LLM model")
+    parser.add_argument("--model", default="deepseek-chat", help="LLM model")
     parser.add_argument("--history", action="store_true", help="List past analyses as JSON")
     parser.add_argument("--history-detail", help="Get samples for an analysis ID")
     parser.add_argument("--export-excel", help="Export to Excel at given path")
     parser.add_argument("--export-data", help="Path to JSON file containing samples to export")
+    parser.add_argument("--agent-chat", help="Run the agent chat sidecar with a JSON payload")
+    parser.add_argument("--db-path", help="SQLite database path (overrides default)")
 
     args = parser.parse_args()
+
+    # Set DB path early so all db operations use it
+    if args.db_path:
+        os.environ["BIOAGENT_DB_PATH"] = args.db_path
+
+    if args.agent_chat:
+        payload = json.loads(args.agent_chat)
+        print(json.dumps(run_agent_turn(payload), ensure_ascii=False))
+        return
 
     if args.history:
         from .db_models import list_analyses
@@ -364,13 +694,17 @@ def main():
         print("Error: --ab1-dir or --auto-import is required", file=sys.stderr)
         sys.exit(1)
 
+    def cli_progress_reporter(payload: dict) -> None:
+        print(f"__BIOAGENT_PROGRESS__{json.dumps(payload, ensure_ascii=False)}", file=sys.stderr)
+
     results = analyze_folder(
         ab1_dir=ab1_dir, 
         gb_dir=args.gb_dir, 
         genes_dir=args.genes_dir,
         plasmid=args.plasmid,
         use_llm=args.llm, 
-        model=args.model
+        model=args.model,
+        progress_reporter=cli_progress_reporter,
     )
 
     # Save to database

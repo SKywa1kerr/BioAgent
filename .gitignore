@@ -7,3 +7,6 @@ data/
 node_modules
 .vscode
 .claude
+dist-python/
+build-python/
+release/

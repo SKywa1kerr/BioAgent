@@ -22,11 +22,52 @@ interface SequenceViewerProps {
   cdsStart: number;
   cdsEnd: number;
   featureName?: string;
+  className?: string;
 }
 
 const BASES_PER_LINE = 80;
 const TRACE_HEIGHT = 100;
+const ENZYME_LABEL_GAP = 8;
+const ENZYME_LABEL_CHAR_WIDTH = 0.72;
 
+interface BlockRestrictionSite {
+  position: number;
+  names: string[];
+  label: string;
+  lane: number;
+}
+
+function summarizeRestrictionNames(names: string[]) {
+  if (names.length <= 2) {
+    return names.join(" / ");
+  }
+  return `${names.slice(0, 2).join(" / ")} +${names.length - 2}`;
+}
+
+function layoutRestrictionSites(sites: Array<{ position: number; names: string[] }>): BlockRestrictionSite[] {
+  const laneEnds: number[] = [];
+
+  return [...sites]
+    .sort((left, right) => left.position - right.position)
+    .map((site) => {
+      const label = summarizeRestrictionNames(site.names);
+      const labelWidth = Math.max(5, Math.min(18, Math.ceil(label.length * ENZYME_LABEL_CHAR_WIDTH)));
+      let lane = laneEnds.findIndex((laneEnd) => site.position - laneEnd >= ENZYME_LABEL_GAP);
+
+      if (lane === -1) {
+        lane = laneEnds.length;
+        laneEnds.push(site.position + labelWidth);
+      } else {
+        laneEnds[lane] = site.position + labelWidth;
+      }
+
+      return {
+        ...site,
+        label,
+        lane,
+      };
+    });
+}
 // Single-letter to 3-letter amino acid mapping
 const AA_THREE: Record<string, string> = {
   A: "Ala", R: "Arg", N: "Asn", D: "Asp", C: "Cys",
@@ -185,6 +226,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
   cdsStart,
   cdsEnd,
   featureName = "CDS",
+  className,
 }) => {
   const displayRef = alignedRefG || refSequence;
   const displayQuery = alignedQueryG || querySequence;
@@ -262,13 +304,14 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     const matchSlice = matches ? matches.slice(blockStart, blockEnd) : [];
 
     // Restriction sites in this block
-    const blockSites: { position: number; names: string[] }[] = [];
+    const rawBlockSites: Array<{ position: number; names: string[] }> = [];
     siteGroups.forEach((names, pos) => {
       if (pos >= blockStart && pos < blockEnd) {
-        blockSites.push({ position: pos - blockStart, names });
+        rawBlockSites.push({ position: pos - blockStart, names });
       }
     });
-
+    const blockSites = layoutRestrictionSites(rawBlockSites);
+    const enzymeLaneCount = blockSites.reduce((maxLane, site) => Math.max(maxLane, site.lane + 1), 0);
     // Amino acids in this block
     const blockAAs: AminoAcid[] = aminoAcids.filter(
       (aa) => aa.position >= blockStart && aa.position < blockEnd
@@ -287,14 +330,21 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
       <div key={blockIdx} className="sequence-block">
         {/* Restriction enzyme labels */}
         {blockSites.length > 0 && (
-          <div className="enzyme-row">
+          <div
+            className="enzyme-row"
+            style={{ ["--enzyme-lanes" as "--enzyme-lanes"]: enzymeLaneCount } as React.CSSProperties}
+          >
             {blockSites.map((site, i) => (
               <span
                 key={i}
                 className="enzyme-label"
-                style={{ left: `calc(60px + ${site.position} * var(--base-width))` }}
+                title={site.names.join(", ")}
+                style={{
+                  left: `calc(60px + ${site.position} * var(--base-width))`,
+                  ["--enzyme-lane" as "--enzyme-lane"]: site.lane,
+                } as React.CSSProperties}
               >
-                {site.names.join("\n")}
+                {site.label}
               </span>
             ))}
           </div>
@@ -328,7 +378,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
             {refSlice.split("").map((_, i) => {
               const pos = blockStart + i + 1;
               if (pos % 10 === 0) return <span key={i} className="tick-major">+</span>;
-              return <span key={i} className="tick-minor">·</span>;
+              return <span key={i} className="tick-minor" aria-hidden="true" />;
             })}
           </span>
         </div>
@@ -453,7 +503,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
   };
 
   return (
-    <div className="sequence-viewer">
+    <div className={`sequence-viewer${className ? ` ${className}` : ""}`}>
       {/* Minimap ruler */}
       <div className="minimap">
         <div className="minimap-track">
@@ -498,3 +548,5 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = ({
     </div>
   );
 };
+
+
