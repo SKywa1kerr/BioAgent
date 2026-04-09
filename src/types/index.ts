@@ -272,3 +272,58 @@ export interface AppSettings {
 
 export type AppLanguage = "zh" | "en";
 export type AppTheme = "light" | "dark";
+
+export type CommandActionId =
+  | "import_dataset"
+  | "set_ab1_dir"
+  | "set_genes_dir"
+  | "set_plasmid"
+  | "run_analysis"
+  | "filter_results"
+  | "open_sample"
+  | "export_report"
+  | "open_export_folder";
+
+export type CommandActionCategory = "dataset" | "analysis" | "navigation" | "export";
+
+export type CommandActionStatus = "pending" | "ready" | "running" | "done" | "failed" | "blocked";
+
+export interface CommandActionDefinition {
+  id: CommandActionId;
+  labelKey: string;
+  descriptionKey: string;
+  category: CommandActionCategory;
+  needsConfirmation: boolean;
+}
+
+export interface CommandWorkbenchPrompt {
+  id: string;
+  label: string;
+  command: string;
+}
+
+export interface CommandWorkbenchSummaryItem {
+  label: string;
+  value: string;
+  hint?: string;
+}
+
+export interface CommandPlanSummary {
+  title: string;
+  body: string;
+}
+
+export interface CommandPlanAction {
+  id: CommandActionId;
+  title: string;
+  detail?: string;
+  status: CommandActionStatus;
+  needsConfirmation: boolean;
+}
+
+export interface CommandTimelineEvent {
+  id: string;
+  title: string;
+  detail?: string;
+  status: "queued" | "running" | "done" | "failed";
+}
