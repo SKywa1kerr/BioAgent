@@ -268,6 +268,9 @@ export interface AppSettings {
   analysisDecisionMode?: "rules" | "hybrid";
   language?: AppLanguage;
   theme?: AppTheme;
+  recentDatasetDir?: string;
+  recentAb1Dir?: string;
+  recentGbDir?: string;
 }
 
 export type AppLanguage = "zh" | "en";

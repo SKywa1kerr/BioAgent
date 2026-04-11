@@ -2,6 +2,8 @@
   "name": "bioagent-desktop",
   "private": true,
   "version": "0.1.0",
+  "description": "Desktop workbench for Sanger sequencing QC, mutation analysis, and optional AI-assisted review.",
+  "author": "Frank",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -48,7 +50,8 @@
       }
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "signAndEditExecutable": false
     },
     "mac": {
       "target": "dmg"

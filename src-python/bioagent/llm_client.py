@@ -16,6 +16,8 @@ from openai import OpenAI
 
 DEFAULT_BASE_URL = "https://models.sjtu.edu.cn/api/v1"
 DEFAULT_MODEL = "deepseek-chat"
+DEFAULT_REQUEST_TIMEOUT_SECONDS = 30
+DEFAULT_REQUEST_RETRIES = 2
 
 SYSTEM_PROMPT = """\
 你是一个专业的Sanger测序质控分析员。根据以下比对证据，为每个样本输出判读结论。
@@ -79,14 +81,19 @@ def call_llm(evidence_text: str,
             "Please set your API key in the Settings tab."
         )
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
+    client = OpenAI(
+        api_key=api_key,
+        base_url=base_url,
+        timeout=DEFAULT_REQUEST_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
 
     messages = [
         {"role": "system", "content": system_prompt or SYSTEM_PROMPT},
         {"role": "user", "content": evidence_text},
     ]
 
-    max_retries = 5
+    max_retries = DEFAULT_REQUEST_RETRIES
     for attempt in range(max_retries):
         try:
             response = client.chat.completions.create(
@@ -94,6 +101,7 @@ def call_llm(evidence_text: str,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 messages=messages,
+                timeout=DEFAULT_REQUEST_TIMEOUT_SECONDS,
             )
             result = response.choices[0].message.content
             if result is None:

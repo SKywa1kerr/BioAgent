@@ -42,8 +42,12 @@ def peak_borders(base_locations: List[int], traces_len: int, i: int) -> Tuple[in
 
 def area_under_peak(traces: Dict[str, List[int]], start: int, end: int, base: str) -> int:
     """Return area under the curve in a given trace between indices start and end."""
-    area = sum(traces[base.upper()][start : end + 1])
-    return area
+    trace = traces[base.upper()]
+    start = max(0, start)
+    end = min(end, len(trace) - 1)
+    if start > end:
+        return 0
+    return sum(trace[start : end + 1])
 
 
 def signal_to_noise(seq: str, base_locations: List[int], traces: Dict[str, List[int]], i: int) -> float:
@@ -79,14 +83,17 @@ def find_mixed_peaks(seq: str, base_locations: List[int], traces: Dict[str, List
             continue
 
         base = seq[i]
-        start, end = peak_borders(base_locations, len(traces["A"]), i)
+        traces_len = len(next(iter(traces.values())))
+        if pos >= traces_len:
+            continue
+        start, end = peak_borders(base_locations, traces_len, i)
         areas = {b: area_under_peak(traces, start, end, b) for b in traces.keys()}
-        peaks = {b: values[pos] for b, values in traces.items()}
+        peaks = {b: values[pos] if pos < len(values) else 0 for b, values in traces.items()}
         if base != "N":
-            main_peak = peaks[base.upper()]
+            main_peak = peaks.get(base.upper(), 0)
         else:
-            main_peak = max(peaks.values())
-            base = max(peaks, key=peaks.get)
+            main_peak = max(peaks.values()) if peaks else 0
+            base = max(peaks, key=peaks.get) if peaks else "N"
 
         for letter, area in areas.items():
             if (
@@ -154,6 +161,42 @@ def parse_ab1(filepath: str) -> Tuple[str, ChromatogramData]:
     return seq, chrom_data
 
 
+def find_orf(seq: str) -> Tuple[Optional[int], Optional[int], str]:
+    """Find the longest ORF starting with ATG and ending with a stop codon."""
+    seq = seq.upper()
+    stops = ["TAA", "TAG", "TGA"]
+
+    def _find_in_strand(strand: str) -> Tuple[Optional[int], Optional[int]]:
+        best = (None, None)
+        curr_max = 0
+        for frame in range(3):
+            for i in range(frame, len(strand) - 2, 3):
+                if strand[i : i + 3] == "ATG":
+                    for j in range(i + 3, len(strand) - 2, 3):
+                        if strand[j : j + 3] in stops:
+                            length = j + 3 - i
+                            if length > curr_max:
+                                curr_max = length
+                                best = (i + 1, j + 3)
+                            break
+        return best
+
+    f_start, f_end = _find_in_strand(seq)
+    rev_seq = str(Seq(seq).reverse_complement())
+    r_start, r_end = _find_in_strand(rev_seq)
+
+    f_len = (f_end - f_start) if f_start else 0
+    r_len = (r_end - r_start) if r_start else 0
+
+    if f_len >= r_len and f_start:
+        return f_start, f_end, "FORWARD"
+    if r_start:
+        actual_start = len(seq) - r_end + 1
+        actual_end = len(seq) - r_start + 1
+        return actual_start, actual_end, "REVERSE"
+    return None, None, "FORWARD"
+
+
 def parse_genbank(filepath: str) -> Tuple[SeqRecord, str, int, int]:
     """Parse GenBank file and return record with CDS info."""
     record = SeqIO.read(filepath, "genbank")
@@ -190,6 +233,8 @@ def parse_genbank(filepath: str) -> Tuple[SeqRecord, str, int, int]:
     if best_feature is not None:
         cds_start = int(best_feature.location.start) + 1
         cds_end = int(best_feature.location.end)
+    elif cds_start is None:
+        cds_start, cds_end, _ = find_orf(seq)
 
     return record, seq, cds_start, cds_end
 

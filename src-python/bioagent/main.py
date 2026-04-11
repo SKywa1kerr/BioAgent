@@ -468,6 +468,7 @@ def analyze_folder(
                 cds_start=cds_start or 1,
                 cds_end=cds_end or len(ref_seq),
                 query_qual=trimmed_qual,
+                is_circular=plasmid.lower() != "none",
             )
             
             result.clone = clone_id
@@ -618,6 +619,13 @@ def analyze_folder(
         sample_clone_ids=[str(sample.get("clone", "")) for sample in samples_dict],
     )
     if use_llm:
+        emit_progress(
+            progress_reporter,
+            stage="aggregating",
+            processed_samples=processed_samples,
+            total_samples=total_samples,
+            message="Applying AI review to borderline samples.",
+        )
         print("Calling LLM...", file=sys.stderr)
         try:
             apply_llm_assisted_decisions(samples_dict, model=model, review_path=review_path)

@@ -135,6 +135,93 @@ def test_parse_genbank_selects_inserted_gene_cds_over_first_cds(tmp_path):
     assert cds_end == 420
 
 
+def test_parse_genbank_falls_back_to_detected_orf_when_cds_missing(tmp_path):
+    gb_path = tmp_path / "orf_only.gb"
+    seq = "GGGATGAAACCCGGGTAAACC"
+    record = SeqRecord(Seq(seq), id="ORF_ONLY", name="ORF_ONLY", description="orf fallback")
+    record.annotations["molecule_type"] = "DNA"
+    record.features = []
+    SeqIO.write(record, gb_path, "genbank")
+
+    _, parsed_seq, cds_start, cds_end = parse_genbank(str(gb_path))
+
+    assert parsed_seq == seq
+    assert cds_start == 4
+    assert cds_end == 18
+
+
+def test_analyze_folder_passes_linear_reference_mode_when_plasmid_is_none(monkeypatch, tmp_path):
+    ab1_dir = tmp_path / "ab1"
+    genes_dir = tmp_path / "genes"
+    ab1_dir.mkdir()
+    genes_dir.mkdir()
+
+    (ab1_dir / "C515-1.ab1").write_bytes(b"ab1")
+    (genes_dir / "C515.fasta").write_text(">C515\nATGAAACCCGGGTAA\n", encoding="utf-8")
+
+    captured = {}
+
+    def fake_parse_ab1(_path):
+        return (
+            "ATGAAACCCGGGTAA",
+            ChromatogramData(
+                traces_a=[1] * 15,
+                traces_t=[1] * 15,
+                traces_g=[1] * 15,
+                traces_c=[1] * 15,
+                quality=[40] * 15,
+                base_calls="ATGAAACCCGGGTAA",
+                base_locations=list(range(15)),
+                mixed_peaks=[],
+            ),
+        )
+
+    def fake_parse_fasta(_path):
+        return ("test", "ATGAAACCCGGGTAA")
+
+    def fake_trim_sequence(query_seq, quality):
+        return query_seq, quality, 0
+
+    def fake_analyze_sample(sample_id, ref_seq, query_seq, cds_start, cds_end, query_qual, is_circular=True):
+        captured["is_circular"] = is_circular
+        return AlignmentResult(
+            sample_id=sample_id,
+            ref_sequence=ref_seq,
+            query_sequence=query_seq,
+            aligned_query=query_seq,
+            matches=[True] * len(query_seq),
+            mutations=[],
+            cds_start=cds_start,
+            cds_end=cds_end,
+            frameshift=False,
+            identity=1.0,
+            coverage=1.0,
+            aligned_ref_g=ref_seq,
+            aligned_query_g=query_seq,
+            clone="C515",
+            ab1=f"{sample_id}.ab1",
+            gb="ref.fasta",
+            avg_qry_quality=40.0,
+            quality=[40] * len(query_seq),
+            traces_a=[1] * len(query_seq),
+            traces_t=[1] * len(query_seq),
+            traces_g=[1] * len(query_seq),
+            traces_c=[1] * len(query_seq),
+            base_locations=list(range(len(query_seq))),
+            mixed_peaks=[],
+        )
+
+    monkeypatch.setattr("bioagent.main.parse_ab1", fake_parse_ab1)
+    monkeypatch.setattr("bioagent.main.parse_fasta", fake_parse_fasta)
+    monkeypatch.setattr("bioagent.main.trim_sequence", fake_trim_sequence)
+    monkeypatch.setattr("bioagent.main.analyze_sample", fake_analyze_sample)
+
+    result = analyze_folder(str(ab1_dir), genes_dir=str(genes_dir), plasmid="none")
+
+    assert len(result["samples"]) == 1
+    assert captured["is_circular"] is False
+
+
 def test_parse_review_result_text_reads_status_and_reason():
     parsed = parse_review_result_text(
         "C379-a gene is ok\n"
