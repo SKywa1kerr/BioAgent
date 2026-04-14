@@ -3,4 +3,7 @@ __pycache__/
 .env
 outputs/
 data/
-.gitignore
+node_modules/
+dist/
+release/
+.claude/
