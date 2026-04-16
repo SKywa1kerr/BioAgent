@@ -3,13 +3,50 @@ import { spawn } from "child_process";
 import { EventEmitter } from "events";
 
 const DEFAULT_MODEL = "deepseek-chat";
-const MAX_TURNS = 5;
-const MAX_TOOL_CALLS_PER_TURN = 3;
+const MAX_TURNS = 3;
+const MAX_TOOL_CALLS_PER_TURN = 2;
+const LLM_TIMEOUT_MS = 45000;
+const MAX_HISTORY_NON_TOOL_MESSAGES = 6;
+const MAX_PROMPT_MESSAGES = 8;
+const MAX_TOOL_CONTENT_CHARS = 1800;
+
+const RETRY_MAX = 2;
+const RETRY_DELAYS_MS = [1000, 3000];
+
+function isRetryableError(error) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  if (/429|rate.?limit|too many requests/i.test(msg)) return true;
+  if (/50[023]|bad gateway|service unavailable|internal server/i.test(msg)) return true;
+  if (/etimedout|econnreset|econnrefused|socket hang up|network/i.test(msg)) return true;
+  return false;
+}
+
+async function withRetry(fn, onRetry) {
+  let lastError;
+  for (let attempt = 0; attempt <= RETRY_MAX; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < RETRY_MAX && isRetryableError(error)) {
+        const delay = RETRY_DELAYS_MS[attempt] || 3000;
+        if (onRetry) onRetry(attempt + 1, delay, error);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
+}
 
 export class AgentHarness extends EventEmitter {
   constructor(settings) {
     super();
-    this.settings = settings;
+    this.settings = {
+      ...settings,
+      llmTimeoutMs: settings?.llmTimeoutMs ?? LLM_TIMEOUT_MS,
+    };
     this.messages = [];
     this.mcpProcess = null;
     this.mcpRequestId = 0;
@@ -62,8 +99,19 @@ export class AgentHarness extends EventEmitter {
 
   async _mcpCall(method, params) {
     return new Promise((resolve, reject) => {
+      if (!this.mcpProcess?.stdin) {
+        reject(new Error(`MCP process is not ready: ${method}`));
+        return;
+      }
       const id = `req-${++this.mcpRequestId}`;
       const handler = (msg) => {
+        if (msg?.error) {
+          clearTimeout(timeoutId);
+          this.removeListener("mcp-response", handler);
+          const message = typeof msg.error === "string" ? msg.error : msg.error.message || JSON.stringify(msg.error);
+          reject(new Error(message));
+          return;
+        }
         if (msg?.id !== id) return;
         clearTimeout(timeoutId);
         this.removeListener("mcp-response", handler);
@@ -84,31 +132,25 @@ export class AgentHarness extends EventEmitter {
   }
 
   buildSystemPrompt() {
-    return `你是 Ultimate BioAgent，一个可以理解中文指令的生物信息学智能体。
-
-你可以调用这些工具：
-- analyze_sequences：先做基础分析
-- detect_mutation_trends：分析突变热点和规律
-- generate_lab_suggestions：给出实验改进建议
-- query_history：查看历史分析
-- get_analysis_detail：查看单次分析详情
-
-工作原则：
-1. 用户让你“分析数据/看看结果”时，优先先调用 analyze_sequences。
-2. 用户问“有没有共同规律/热点/趋势”时，调用 detect_mutation_trends。
-3. 用户问“下一步怎么做/实验建议/如何优化”时，调用 generate_lab_suggestions。
-4. 如果一个请求同时要求分析、趋势、建议，你应该按顺序自主调用多个工具完成任务。
-5. 始终使用中文简洁回复。
-6. 删除、覆盖、外发等危险操作必须先确认。
-
-输出要求：
-- 有工具可用时优先调用工具，不要空谈。
-- 完成后给出总结性中文答复。`;
+    return [
+      "You are Ultimate BioAgent.",
+      "Always answer briefly and clearly.",
+      "Use tools when useful:",
+      "- analyze_sequences: run baseline sequence analysis",
+      "- detect_mutation_trends: detect hotspot and trend patterns",
+      "- generate_lab_suggestions: suggest experiment improvements",
+      "- query_history: check prior analyses (only when user asks for history)",
+      "- get_analysis_detail: fetch detail for a specific analysis",
+      "When user asks to analyze a dataset, call analyze_sequences first and avoid extra tool calls.",
+      "Do not call query_history unless explicitly requested.",
+      "If a request includes analysis + trends + suggestions, call multiple tools in sequence.",
+      "Risky actions must require user confirmation first.",
+    ].join("\n");
   }
 
   getClient() {
     if (!this.settings.llmApiKey) {
-      throw new Error("LLM API Key 未配置，请先在界面中填写。");
+      throw new Error("LLM API key is missing. Please configure it in the UI.");
     }
     return new OpenAI({
       apiKey: this.settings.llmApiKey,
@@ -117,16 +159,76 @@ export class AgentHarness extends EventEmitter {
   }
 
   inferUiAction(content) {
-    if (content.includes("趋势") || content.includes("热点") || content.includes("规律")) return "show_trends";
-    if (content.includes("建议") || content.includes("优化") || content.includes("实验")) return "show_suggestions";
-    if (content.includes("分析") || content.includes("结果") || content.includes("样本")) return "show_analysis";
+    const text = (content || "").toLowerCase();
+    if (text.includes("trend") || text.includes("hotspot")) return "show_trends";
+    if (text.includes("suggest") || text.includes("experiment")) return "show_suggestions";
+    if (text.includes("analysis") || text.includes("result")) return "show_analysis";
     return "show_text";
   }
 
+  compactHistoryForNewTurn() {
+    this.messages = this.messages
+      .filter((msg) => msg && typeof msg === "object" && msg.role !== "tool")
+      .slice(-MAX_HISTORY_NON_TOOL_MESSAGES)
+      .map((msg) => ({ role: msg.role, content: msg.content || "" }));
+  }
+
+  summarizeToolResult(toolName, result) {
+    if (!result || typeof result !== "object") {
+      return String(result || "");
+    }
+
+    if (toolName === "analyze_sequences") {
+      const sampleCount = typeof result.sample_count === "number" ? result.sample_count : undefined;
+      const inlineSamples = Array.isArray(result.samples) ? result.samples.length : 0;
+      const detailSamples = Array.isArray(result?.detail?.samples) ? result.detail.samples.length : 0;
+      return JSON.stringify({
+        ok: result.ok,
+        analysis_id: result.analysis_id,
+        dataset: result.dataset,
+        sample_count: sampleCount,
+        samples_inlined: inlineSamples || detailSamples,
+        detail_loaded: Boolean(result.detail),
+        detail_error: result.detail_error,
+        used_llm: result.used_llm,
+      });
+    }
+
+    if (toolName === "get_analysis_detail") {
+      return JSON.stringify({
+        ok: result.ok,
+        analysis_id: result.analysis_id,
+        dataset: result.dataset,
+        sample_count: result.sample_count,
+        has_samples: Array.isArray(result.samples),
+        sample_len: Array.isArray(result.samples) ? result.samples.length : 0,
+      });
+    }
+
+    let text = "";
+    try {
+      text = JSON.stringify(result);
+    } catch {
+      text = String(result);
+    }
+
+    if (text.length > MAX_TOOL_CONTENT_CHARS) {
+      return `${text.slice(0, MAX_TOOL_CONTENT_CHARS)} ...[truncated]`;
+    }
+    return text;
+  }
+
   async runTurn(userMessage, onEvent) {
-    if (this.isRunning) return;
+    if (this.isRunning) {
+      onEvent({ type: "busy", message: "Agent is already processing another request. Please wait." });
+      return;
+    }
+
     this.isRunning = true;
+    this.compactHistoryForNewTurn();
     this.messages.push({ role: "user", content: userMessage });
+
+    let replied = false;
 
     try {
       for (let turn = 0; turn < MAX_TURNS; turn += 1) {
@@ -134,29 +236,32 @@ export class AgentHarness extends EventEmitter {
 
         const client = this.getClient();
 
-        const response = await client.chat.completions.create({
-          model: this.settings.llmModel || DEFAULT_MODEL,
-          temperature: 0,
-          max_tokens: 1200,
-          messages: [
-            { role: "system", content: this.buildSystemPrompt() },
-            ...this.messages.slice(-10),
-          ],
-          tools: this.mcpTools.map((tool) => ({
-            type: "function",
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: tool.parameters,
-            },
-          })),
-        });
+        const response = await withRetry(
+          () => client.chat.completions.create({
+            model: this.settings.llmModel || DEFAULT_MODEL,
+            temperature: 0,
+            max_tokens: 1200,
+            timeout: this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
+            messages: [{ role: "system", content: this.buildSystemPrompt() }, ...this.messages.slice(-MAX_PROMPT_MESSAGES)],
+            tools: this.mcpTools.map((tool) => ({
+              type: "function",
+              function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters,
+              },
+            })),
+          }),
+          (attempt, delay, error) => {
+            onEvent({ type: "thinking", retrying: true, attempt, message: `Retrying (${attempt}/${RETRY_MAX})...` });
+          },
+        );
 
         const message = response.choices[0].message;
         if (message.tool_calls && message.tool_calls.length > 0) {
           const toolCalls = message.tool_calls.slice(0, MAX_TOOL_CALLS_PER_TURN);
           this.messages.push({ role: "assistant", content: message.content || "", tool_calls: toolCalls });
-          onEvent({ type: "tool_calls_start", message: "正在执行分析步骤..." });
+          onEvent({ type: "tool_calls_start", message: "Running tool steps..." });
 
           for (const toolCall of toolCalls) {
             const toolName = toolCall.function.name;
@@ -168,22 +273,55 @@ export class AgentHarness extends EventEmitter {
             }
             onEvent({ type: "tool_call", tool: toolName, args: parsedArgs });
             const result = await this.callMcpTool(toolName, parsedArgs);
+            if (toolName === "analyze_sequences" && result && result.ok && result.analysis_id) {
+              try {
+                const detail = await this.callMcpTool("get_analysis_detail", { analysis_id: result.analysis_id });
+                if (detail && detail.ok) {
+                  result.detail = detail;
+                  if (Array.isArray(detail.samples)) {
+                    result.samples = detail.samples;
+                  }
+                } else {
+                  result.detail_error = (detail && detail.error) || "Failed to load analysis detail";
+                }
+              } catch (error) {
+                result.detail_error = error instanceof Error ? error.message : String(error);
+              }
+            }
             onEvent({ type: "tool_result", tool: toolName, result });
             this.messages.push({
               role: "tool",
               tool_call_id: toolCall.id,
-              content: JSON.stringify(result),
+              content: this.summarizeToolResult(toolName, result),
             });
           }
           continue;
         }
 
-        const content = message.content || "分析完成。";
+        const content = message.content || "Analysis completed.";
         this.messages.push({ role: "assistant", content });
         const uiAction = this.inferUiAction(content);
         onEvent({ type: "reply", content, uiAction });
+        replied = true;
         break;
       }
+
+      if (!replied) {
+        const message = `No final reply after ${MAX_TURNS} turns. Retry or switch model.`;
+        const content = `Run failed: ${message}`;
+        this.messages.push({ role: "assistant", content });
+        onEvent({ type: "error", message });
+        onEvent({ type: "reply", content, uiAction: "show_text" });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/contextwindow|context length|maximum context|input_tokens/i.test(message)) {
+        this.compactHistoryForNewTurn();
+      }
+      const content = `Run failed: ${message}`;
+      this.messages.push({ role: "assistant", content });
+      onEvent({ type: "error", message });
+      onEvent({ type: "reply", content, uiAction: "show_text" });
     } finally {
       this.isRunning = false;
     }
