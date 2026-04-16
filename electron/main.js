@@ -9,6 +9,7 @@ let agentHarness = null;
 const INIT_TIMEOUT_MS = 30000;
 const MAX_DEBUG_ENTRIES = 4000;
 const debugEntries = [];
+let flushTimer = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -56,6 +57,24 @@ function exportDebugLog() {
   const lines = debugEntries.map((entry) => JSON.stringify(entry));
   fs.writeFileSync(target, lines.join("\n"), "utf8");
   return target;
+}
+
+const AUTO_FLUSH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const AUTO_FLUSH_MIN_ENTRIES = 50;
+let lastFlushedCount = 0;
+
+function autoFlushDebugLog() {
+  if (debugEntries.length <= lastFlushedCount || debugEntries.length < AUTO_FLUSH_MIN_ENTRIES) return;
+  try {
+    const root = path.resolve(__dirname, "..", "outputs", "debug");
+    fs.mkdirSync(root, { recursive: true });
+    const target = path.join(root, "debug-latest.log");
+    const lines = debugEntries.map((entry) => JSON.stringify(entry));
+    fs.writeFileSync(target, lines.join("\n"), "utf8");
+    lastFlushedCount = debugEntries.length;
+  } catch {
+    // ignore flush errors
+  }
 }
 
 function listFilesSafe(dirPath) {
@@ -132,6 +151,7 @@ function pushLifecycle(trace, sender, phase, message, extra = {}) {
 
 app.whenReady().then(async () => {
   createWindow();
+  flushTimer = setInterval(autoFlushDebugLog, AUTO_FLUSH_INTERVAL_MS);
 
   const mod = await import(pathToFileURL(path.join(__dirname, "agent_harness.mjs")).href);
   const AgentHarness = mod.AgentHarness;
@@ -255,6 +275,8 @@ app.whenReady().then(async () => {
 });
 
 app.on("window-all-closed", () => {
+  if (flushTimer) clearInterval(flushTimer);
+  autoFlushDebugLog();
   if (agentHarness) {
     agentHarness.shutdown();
     agentHarness = null;
