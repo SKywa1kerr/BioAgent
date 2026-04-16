@@ -274,7 +274,7 @@ export function ResultsTable({ samples, language }: ResultsTableProps) {
                       <div className="sample-detail-section-head"><h4>{t(language, "table.chromatogram")}</h4></div>
                       {chromatogram ? (
                         <Suspense fallback={<div className="sample-detail-empty">{t(language, "table.loadingChromatogram")}</div>}>
-                          <ChromatogramCanvas data={chromatogram} startPosition={1} endPosition={chromatogram.baseCalls.length} />
+                          <ChromatogramCanvas data={chromatogram} startPosition={1} endPosition={chromatogram.baseCalls.length} mutations={muts} />
                         </Suspense>
                       ) : (
                         <div className="sample-detail-empty">
