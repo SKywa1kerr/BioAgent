@@ -171,6 +171,9 @@ const zh: Dict = {
   "chat.copied": "已复制",
   "chat.clear": "清空对话",
   "chat.clearConfirm": "确定清空所有对话记录？",
+  "panel.tab.analysis": "序列分析",
+  "panel.tab.trends": "突变趋势",
+  "panel.tab.suggestions": "实验建议",
 };
 
 const en: Dict = {
@@ -342,6 +345,9 @@ const en: Dict = {
   "chat.copied": "Copied",
   "chat.clear": "Clear chat",
   "chat.clearConfirm": "Clear all chat messages?",
+  "panel.tab.analysis": "Analysis",
+  "panel.tab.trends": "Trends",
+  "panel.tab.suggestions": "Suggestions",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

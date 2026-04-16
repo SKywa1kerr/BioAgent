@@ -31,6 +31,23 @@ export function App() {
 
   const agent = useAgentHarness(language);
 
+  /* ── Panel history cache ──────────────────────────────────────────── */
+
+  const [panelCache, setPanelCache] = useState<Record<string, any>>({});
+  const [activeTab, setActiveTab] = useState<PanelType>("text");
+
+  useEffect(() => {
+    const type = agent.panelType;
+    const payload = agent.panelPayload;
+    if (payload && (type === "analysis" || type === "trends" || type === "suggestions")) {
+      setPanelCache((prev) => ({ ...prev, [type]: payload }));
+      setActiveTab(type);
+    }
+  }, [agent.panelType, agent.panelPayload]);
+
+  const TAB_TYPES: PanelType[] = ["analysis", "trends", "suggestions"];
+  const availableTabs = TAB_TYPES.filter((tab) => panelCache[tab] != null);
+
   /* ── Persist theme & language ──────────────────────────────────────── */
 
   useEffect(() => {
@@ -76,6 +93,30 @@ export function App() {
     );
   }
 
+  /* ── Panel tab bar ────────────────────────────────────────────────── */
+
+  function renderTabBar() {
+    if (!agent.initialized || availableTabs.length <= 1) return null;
+    const tabLabels: Record<string, string> = {
+      analysis: t(language, "panel.tab.analysis"),
+      trends: t(language, "panel.tab.trends"),
+      suggestions: t(language, "panel.tab.suggestions"),
+    };
+    return (
+      <div className="panel-tab-bar">
+        {availableTabs.map((tab) => (
+          <button
+            key={tab}
+            className={`panel-tab${activeTab === tab ? " panel-tab-active" : ""}`}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tabLabels[tab] || tab}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   /* ── Panel routing ────────────────────────────────────────────────── */
 
   function renderPanel() {
@@ -116,12 +157,14 @@ export function App() {
       );
     }
 
-    if (agent.panelType === "analysis") return <AnalysisPanel result={agent.panelPayload} language={language} />;
-    if (agent.panelType === "trends") return <MutationTrendPanel result={agent.panelPayload} language={language} />;
-    if (agent.panelType === "suggestions") return <LabSuggestionPanel result={agent.panelPayload} language={language} />;
     if (agent.panelType === "confirmation") {
       return <ConfirmationDialog message={agent.confirmMessage} onConfirm={() => agent.setPanelType("text")} onCancel={() => agent.setPanelType("text")} language={language} />;
     }
+
+    const cachedPayload = panelCache[activeTab];
+    if (activeTab === "analysis" && cachedPayload) return <AnalysisPanel result={cachedPayload} language={language} />;
+    if (activeTab === "trends" && cachedPayload) return <MutationTrendPanel result={cachedPayload} language={language} />;
+    if (activeTab === "suggestions" && cachedPayload) return <LabSuggestionPanel result={cachedPayload} language={language} />;
 
     return (
       <div className="detail-card audience-card">
@@ -151,7 +194,8 @@ export function App() {
       />
 
       <main className="canvas-panel">
-        <SmartCanvas title={t(language, "app.canvasTitle")} panelType={agent.panelType}>
+        <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
+          {renderTabBar()}
           {renderCompactProgress()}
           <ErrorBoundary
             fallbackTitle={t(language, "app.ready.title")}

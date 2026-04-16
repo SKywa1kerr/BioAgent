@@ -703,3 +703,39 @@ body,
   margin: 0 0 16px 0;
   font-size: 18px;
 }
+
+.panel-tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 0 14px 10px;
+  border-bottom: 1px solid var(--panel-border);
+  margin-bottom: 10px;
+}
+
+.panel-tab {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.panel-tab:hover {
+  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
+  color: var(--text-main);
+}
+
+.panel-tab-active {
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-color: transparent;
+}
+
+.panel-tab-active:hover {
+  background: var(--button-bg);
+  color: var(--button-text);
+}
