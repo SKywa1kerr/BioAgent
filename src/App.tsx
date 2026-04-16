@@ -1,183 +1,173 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { SmartCanvas, type PanelType } from "./components/SmartCanvas";
+import { ChatPanel } from "./components/ChatPanel";
+import { SettingsModal } from "./components/SettingsModal";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
+import { useAgentHarness } from "./hooks/useAgentHarness";
+import { loadSettings, saveSettings, type AgentSettings } from "./lib/settingsStorage";
+import { t, type AppLanguage } from "./i18n";
 
-declare global {
-  interface Window {
-    electronAPI: {
-      invoke: (channel: string, ...args: unknown[]) => Promise<any>;
-      onAgentEvent: (callback: (payload: any) => void) => () => void;
-    };
-  }
+/* ── Helpers ────────────────────────────────────────────────────────── */
+
+function getLocalStorageValue<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const saved = window.localStorage.getItem(key);
+    if (saved && (allowed as readonly string[]).includes(saved)) return saved as T;
+  } catch { /* ignore */ }
+  return fallback;
 }
 
-const MAX_MESSAGES = 60;
-const MAX_EVENTS = 80;
-
-function resolvePanelFromEvent(payload: any): { panelType: PanelType; panelPayload: any; confirmMessage?: string } | null {
-  if (payload.type === "confirm") {
-    return {
-      panelType: "confirmation",
-      panelPayload: null,
-      confirmMessage: payload.message || "请确认执行该操作",
-    };
-  }
-
-  if (payload.type === "tool_result") {
-    if (payload.tool === "detect_mutation_trends") return { panelType: "trends", panelPayload: payload.result };
-    if (payload.tool === "generate_lab_suggestions") return { panelType: "suggestions", panelPayload: payload.result };
-    if (payload.tool === "analyze_sequences") return { panelType: "analysis", panelPayload: payload.result };
-  }
-
-  if (payload.type === "reply") {
-    if (payload.uiAction === "show_trends") return { panelType: "trends", panelPayload: payload.result || payload };
-    if (payload.uiAction === "show_suggestions") return { panelType: "suggestions", panelPayload: payload.result || payload };
-    if (payload.uiAction === "show_analysis") return { panelType: "analysis", panelPayload: payload.result || payload };
-    return { panelType: "text", panelPayload: payload };
-  }
-
-  return null;
-}
+/* ── App ────────────────────────────────────────────────────────────── */
 
 export function App() {
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
-  const [input, setInput] = useState("");
-  const [events, setEvents] = useState<any[]>([]);
-  const [initialized, setInitialized] = useState(false);
-  const [panelType, setPanelType] = useState<PanelType>("text");
-  const [panelPayload, setPanelPayload] = useState<any>(null);
-  const [confirmMessage, setConfirmMessage] = useState("");
-  const [llmApiKey, setLlmApiKey] = useState("");
-  const [llmBaseUrl, setLlmBaseUrl] = useState("https://models.sjtu.edu.cn/api/v1");
-  const [llmModel, setLlmModel] = useState("deepseek-chat");
-  const [statusMessage, setStatusMessage] = useState("请先初始化智能体");
+  const [language, setLanguage] = useState<AppLanguage>(() => getLocalStorageValue("bioagent-language", ["zh", "en"] as const, "zh"));
+  const [theme, setTheme] = useState<"light" | "dark">(() => getLocalStorageValue("bioagent-theme", ["light", "dark"] as const, "dark"));
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<AgentSettings>(loadSettings);
+
+  const agent = useAgentHarness(language);
+
+  /* ── Persist theme & language ──────────────────────────────────────── */
 
   useEffect(() => {
-    const unsubscribe = window.electronAPI.onAgentEvent((payload) => {
-      setEvents((current) => [...current, payload].slice(-MAX_EVENTS));
+    document.documentElement.dataset.theme = theme;
+    try { window.localStorage.setItem("bioagent-theme", theme); } catch { /* ignore */ }
+  }, [theme]);
 
-      if (payload.type === "reply") {
-        setMessages((current) => [...current, { role: "assistant", content: payload.content }].slice(-MAX_MESSAGES));
-      }
+  useEffect(() => {
+    try { window.localStorage.setItem("bioagent-language", language); } catch { /* ignore */ }
+  }, [language]);
 
-      const resolved = resolvePanelFromEvent(payload);
-      if (resolved) {
-        setPanelType(resolved.panelType);
-        setPanelPayload(resolved.panelPayload);
-        if (resolved.confirmMessage) {
-          setConfirmMessage(resolved.confirmMessage);
-        }
-      }
-    });
-    return () => unsubscribe?.();
-  }, []);
+  /* ── Settings save → init ─────────────────────────────────────────── */
 
-  const latestEvent = useMemo(() => events[events.length - 1], [events]);
-
-  async function initializeHarness() {
-    try {
-      setStatusMessage("正在初始化智能体...");
-      await window.electronAPI.invoke("agent-harness-shutdown");
-      await window.electronAPI.invoke("agent-harness-init", {
-        llmApiKey,
-        llmBaseUrl,
-        llmModel,
-      });
-      setInitialized(true);
-      setStatusMessage("智能体已就绪");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatusMessage(`初始化失败：${message}`);
-    }
+  function handleSettingsSave(next: AgentSettings) {
+    setSettings(next);
+    saveSettings(next);
+    setSettingsOpen(false);
+    void agent.initialize(next);
   }
 
-  async function handleSend() {
-    const content = input.trim();
-    if (!content) return;
-    if (!initialized) {
-      setStatusMessage("请先初始化智能体");
+  /* ── Send (auto-init if needed) ───────────────────────────────────── */
+
+  function handleSend(text: string) {
+    if (!agent.initialized && settings.llmApiKey) {
+      void agent.initialize(settings).then(() => agent.sendMessage(text, settings));
       return;
     }
-    setMessages((current) => [...current, { role: "user", content }].slice(-MAX_MESSAGES));
-    setInput("");
-    try {
-      await window.electronAPI.invoke("agent-harness-run", content, {
-        llmApiKey,
-        llmBaseUrl,
-        llmModel,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      setMessages((current) => [...current, { role: "assistant", content: `调用失败：${message}` }]);
-    }
+    void agent.sendMessage(text, settings);
   }
 
+  /* ── Compact progress bar (inside canvas) ─────────────────────────── */
+
+  function renderCompactProgress() {
+    const running = ["run", "thinking", "tool_calls", "tool_call", "tool_result"].includes(agent.progress.phase) && agent.progress.progress < 100;
+    if (!running) return null;
+    return (
+      <div className="compact-progress">
+        <div className="compact-progress-label">{agent.progress.label}</div>
+        <div className="compact-progress-track">
+          <div className="compact-progress-fill" style={{ width: `${Math.max(8, agent.progress.progress)}%` }} />
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Panel routing ────────────────────────────────────────────────── */
+
   function renderPanel() {
-    if (!initialized) {
+    if (!agent.initialized) {
       return (
-        <div className="detail-card">
-          <h3>智能体配置</h3>
-          <div className="settings-form">
-            <label>
-              <span>LLM API Key</span>
-              <input type="password" value={llmApiKey} onChange={(e) => setLlmApiKey(e.target.value)} placeholder="请输入 API Key" />
-            </label>
-            <label>
-              <span>Base URL</span>
-              <input value={llmBaseUrl} onChange={(e) => setLlmBaseUrl(e.target.value)} placeholder="https://models.sjtu.edu.cn/api/v1" />
-            </label>
-            <label>
-              <span>Model</span>
-              <input value={llmModel} onChange={(e) => setLlmModel(e.target.value)} placeholder="deepseek-chat" />
-            </label>
-            <div className="settings-actions">
-              <button className="primary-button" onClick={() => void initializeHarness()}>初始化智能体</button>
+        <div className="result-panel">
+          <div className="detail-card">
+            <h3>{t(language, "app.panel.settings")}</h3>
+            <div className="settings-form">
+              <label>
+                <span>{t(language, "app.field.apiKey")}</span>
+                <input type="password" value={settings.llmApiKey} onChange={(e) => setSettings((s) => ({ ...s, llmApiKey: e.target.value }))} placeholder="sk-..." />
+              </label>
+              <label>
+                <span>{t(language, "app.field.baseUrl")}</span>
+                <input value={settings.llmBaseUrl} onChange={(e) => setSettings((s) => ({ ...s, llmBaseUrl: e.target.value }))} placeholder="https://models.sjtu.edu.cn/api/v1" />
+              </label>
+              <label>
+                <span>{t(language, "app.field.model")}</span>
+                <input value={settings.llmModel} onChange={(e) => setSettings((s) => ({ ...s, llmModel: e.target.value }))} placeholder="deepseek-chat" />
+              </label>
+              <div className="settings-actions">
+                <button className="primary-button" onClick={() => handleSettingsSave(settings)}>{t(language, "app.action.init")}</button>
+              </div>
+              <div className="status-line">{agent.statusMessage}</div>
             </div>
-            <div className="status-line">{statusMessage}</div>
+          </div>
+          <div className="detail-card progress-card clean-progress-card">
+            <h3>{t(language, "app.progress.cardTitle")}</h3>
+            <div className="progress-track">
+              <div className="progress-fill" style={{ width: `${agent.progress.progress}%` }} />
+            </div>
+            <div className="progress-meta clean-progress-meta">
+              <span>{agent.progress.label}</span>
+            </div>
           </div>
         </div>
       );
     }
 
-    if (panelType === "analysis") return <AnalysisPanel result={panelPayload} />;
-    if (panelType === "trends") return <MutationTrendPanel result={panelPayload} />;
-    if (panelType === "suggestions") return <LabSuggestionPanel result={panelPayload} />;
-    if (panelType === "confirmation") {
-      return (
-        <ConfirmationDialog
-          message={confirmMessage}
-          onConfirm={() => setPanelType("text")}
-          onCancel={() => setPanelType("text")}
-        />
-      );
+    if (agent.panelType === "analysis") return <AnalysisPanel result={agent.panelPayload} language={language} />;
+    if (agent.panelType === "trends") return <MutationTrendPanel result={agent.panelPayload} language={language} />;
+    if (agent.panelType === "suggestions") return <LabSuggestionPanel result={agent.panelPayload} language={language} />;
+    if (agent.panelType === "confirmation") {
+      return <ConfirmationDialog message={agent.confirmMessage} onConfirm={() => agent.setPanelType("text")} onCancel={() => agent.setPanelType("text")} language={language} />;
     }
-    return latestEvent ? <pre>{JSON.stringify(latestEvent, null, 2)}</pre> : "等待智能体结果...";
+
+    return (
+      <div className="detail-card audience-card">
+        <h3>{t(language, "app.ready.title")}</h3>
+        <p>{t(language, "app.ready.body")}</p>
+      </div>
+    );
   }
+
+  /* ── Layout ───────────────────────────────────────────────────────── */
 
   return (
     <div className="app-shell">
-      <aside className="chat-panel">
-        <div className="panel-title">Ultimate BioAgent</div>
-        <div className="message-list">
-          {messages.map((message, index) => (
-            <div key={index} className={`message message-${message.role}`}>
-              {message.content}
-            </div>
-          ))}
-        </div>
-        <div className="composer">
-          <textarea value={input} onChange={(e) => setInput(e.target.value)} placeholder="请输入中文指令，比如：分析这批数据并给出实验建议" />
-          <button onClick={handleSend}>发送</button>
-        </div>
-      </aside>
+      <ChatPanel
+        messages={agent.messages}
+        isRunning={agent.isRunning}
+        progress={agent.progress}
+        language={language}
+        initialized={agent.initialized}
+        onSend={handleSend}
+        onExportDebug={() => void agent.exportDebugLog()}
+        onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
+        onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
+        onOpenSettings={() => setSettingsOpen(true)}
+        theme={theme}
+      />
+
       <main className="canvas-panel">
-        <SmartCanvas title="Smart Canvas" panelType={panelType}>
-          {renderPanel()}
+        <SmartCanvas title={t(language, "app.canvasTitle")} panelType={agent.panelType}>
+          {renderCompactProgress()}
+          <ErrorBoundary
+            fallbackTitle={t(language, "app.ready.title")}
+            retryLabel={language === "zh" ? "重试" : "Retry"}
+          >
+            {renderPanel()}
+          </ErrorBoundary>
         </SmartCanvas>
       </main>
+
+      <SettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSave={handleSettingsSave}
+        currentSettings={settings}
+        language={language}
+      />
     </div>
   );
 }
