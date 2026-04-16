@@ -32,6 +32,7 @@ const zh: Dict = {
   "app.field.apiKey": "LLM API Key",
   "app.field.baseUrl": "基础地址",
   "app.field.model": "模型",
+  "app.field.maxTokens": "最大 Token 数",
   "app.action.init": "初始化智能体",
   "app.action.send": "发送",
   "app.action.sending": "发送中...",
@@ -162,7 +163,14 @@ const zh: Dict = {
   "table.query": "样本",
   "table.type": "类型",
   "table.effect": "影响",
+  "table.expandAll": "全部展开",
+  "table.collapseAll": "全部折叠",
+  "table.exportCsv": "导出 CSV",
   "table.showing": "已渲染 {visible}/{total} 条样本",
+  "chat.copy": "复制",
+  "chat.copied": "已复制",
+  "chat.clear": "清空对话",
+  "chat.clearConfirm": "确定清空所有对话记录？",
 };
 
 const en: Dict = {
@@ -195,6 +203,7 @@ const en: Dict = {
   "app.field.apiKey": "LLM API Key",
   "app.field.baseUrl": "Base URL",
   "app.field.model": "Model",
+  "app.field.maxTokens": "Max Tokens",
   "app.action.init": "Initialize Agent",
   "app.action.send": "Send",
   "app.action.sending": "Sending...",
@@ -325,7 +334,14 @@ const en: Dict = {
   "table.query": "Query",
   "table.type": "Type",
   "table.effect": "Effect",
+  "table.expandAll": "Expand all",
+  "table.collapseAll": "Collapse all",
+  "table.exportCsv": "Export CSV",
   "table.showing": "Rendered {visible}/{total} samples",
+  "chat.copy": "Copy",
+  "chat.copied": "Copied",
+  "chat.clear": "Clear chat",
+  "chat.clearConfirm": "Clear all chat messages?",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

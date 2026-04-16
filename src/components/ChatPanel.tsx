@@ -18,6 +18,7 @@ interface ChatPanelProps {
   onToggleLanguage: () => void;
   onToggleTheme: () => void;
   onOpenSettings: () => void;
+  onClear: () => void;
   theme: "light" | "dark";
 }
 
@@ -102,13 +103,39 @@ function isLongAssistantMessage(content: string): boolean {
   return normalized.length > 420 || lineCount > 9;
 }
 
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export function ChatPanel({
   messages, isRunning, progress, language, initialized,
-  onSend, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, theme,
+  onSend, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [expandedMessageKeys, setExpandedMessageKeys] = useState<Set<string>>(new Set());
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+
+  // Stable message IDs: counter increments for each new message
+  const idCounterRef = useRef(0);
+  const stableIdsRef = useRef<string[]>([]);
+
+  // Timestamps keyed by stable ID
+  const timestampsRef = useRef<Map<string, number>>(new Map());
+
+  // Reconcile stable IDs with current messages array
+  if (stableIdsRef.current.length > messages.length) {
+    // Messages were cleared or trimmed — reset
+    stableIdsRef.current = [];
+    timestampsRef.current.clear();
+  }
+  while (stableIdsRef.current.length < messages.length) {
+    idCounterRef.current += 1;
+    const newId = `msg-${idCounterRef.current}`;
+    stableIdsRef.current.push(newId);
+    timestampsRef.current.set(newId, Date.now());
+  }
 
   useEffect(() => {
     const node = messageListRef.current;
@@ -138,6 +165,13 @@ export function ChatPanel({
     }
   }
 
+  function handleCopy(stableId: string, content: string) {
+    void navigator.clipboard.writeText(content).then(() => {
+      setCopiedId(stableId);
+      setTimeout(() => setCopiedId((current) => (current === stableId ? null : current)), 1500);
+    });
+  }
+
   const showProgress = isRunning || (["run", "thinking", "tool_calls", "tool_call", "tool_result"].includes(progress.phase) && progress.progress < 100);
 
   return (
@@ -145,6 +179,9 @@ export function ChatPanel({
       <div className="panel-title panel-title-row">
         <span>{t(language, "app.title")}</span>
         <div className="panel-action-group">
+          <button className="theme-toggle" onClick={onClear} title={t(language, "chat.clear")}>
+            {t(language, "chat.clear")}
+          </button>
           <button className="theme-toggle" onClick={onOpenSettings} title={t(language, "settings.title")}>
             {"\u2699"}
           </button>
@@ -162,34 +199,47 @@ export function ChatPanel({
 
       <div className="message-list" ref={messageListRef}>
         {messages.map((message, index) => {
-          const messageKey = `${index}-${message.role}-${message.content.length}`;
+          const stableId = stableIdsRef.current[index];
+          const ts = timestampsRef.current.get(stableId);
           const isAssistant = message.role === "assistant";
           const isLong = isAssistant && isLongAssistantMessage(message.content);
-          const expanded = isLong && expandedMessageKeys.has(messageKey);
+          const expanded = isLong && expandedMessageKeys.has(stableId);
 
           return (
-            <div key={messageKey} className={`message message-${message.role}`}>
+            <div key={stableId} className={`message message-${message.role}`}>
+              {ts != null && (
+                <div className="message-timestamp">{formatTime(ts)}</div>
+              )}
               {isAssistant ? (
                 <>
                   <div className={`message-content${isLong && !expanded ? " message-content-collapsed" : ""}`}>
                     {renderStructuredMessage(message.content)}
                   </div>
-                  {isLong ? (
+                  <div className="message-actions">
+                    {isLong ? (
+                      <button
+                        type="button"
+                        className="message-expand-button"
+                        onClick={() => {
+                          setExpandedMessageKeys((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(stableId)) next.delete(stableId);
+                            else next.add(stableId);
+                            return next;
+                          });
+                        }}
+                      >
+                        {expanded ? t(language, "app.message.collapse") : t(language, "app.message.expand")}
+                      </button>
+                    ) : null}
                     <button
                       type="button"
-                      className="message-expand-button"
-                      onClick={() => {
-                        setExpandedMessageKeys((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(messageKey)) next.delete(messageKey);
-                          else next.add(messageKey);
-                          return next;
-                        });
-                      }}
+                      className="message-copy-button"
+                      onClick={() => handleCopy(stableId, message.content)}
                     >
-                      {expanded ? t(language, "app.message.collapse") : t(language, "app.message.expand")}
+                      {copiedId === stableId ? t(language, "chat.copied") : t(language, "chat.copy")}
                     </button>
-                  ) : null}
+                  </div>
                 </>
               ) : message.content}
             </div>

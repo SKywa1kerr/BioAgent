@@ -315,6 +315,7 @@ export function useAgentHarness(language: AppLanguage) {
           llmApiKey: cleanedKey,
           llmBaseUrl: settings.llmBaseUrl,
           llmModel: settings.llmModel,
+          maxTokens: settings.maxTokens,
         }),
         INIT_TIMEOUT_MS,
         "Initialization",
@@ -365,6 +366,7 @@ export function useAgentHarness(language: AppLanguage) {
         llmApiKey: cleanedKey,
         llmBaseUrl: settings.llmBaseUrl,
         llmModel: settings.llmModel,
+        maxTokens: settings.maxTokens,
       });
 
       if (runTokenRef.current !== currentRunToken) return;
@@ -424,5 +426,6 @@ export function useAgentHarness(language: AppLanguage) {
     sendMessage,
     exportDebugLog,
     setPanelType,
+    clearMessages: () => setMessages([]),
   };
 }

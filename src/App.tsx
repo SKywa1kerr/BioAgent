@@ -146,6 +146,7 @@ export function App() {
         onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
         onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
         onOpenSettings={() => setSettingsOpen(true)}
+        onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
         theme={theme}
       />
 

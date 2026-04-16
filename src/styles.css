@@ -619,6 +619,35 @@ body,
   background: color-mix(in srgb, var(--message-assistant-bg) 72%, transparent);
 }
 
+.message-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.message-copy-button {
+  border: 1px solid var(--message-assistant-border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 999px;
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.message-copy-button:hover {
+  background: color-mix(in srgb, var(--message-assistant-bg) 72%, transparent);
+}
+
+.message-timestamp {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  margin-bottom: 2px;
+}
+
 .error-boundary-card {
   display: grid;
   gap: 12px;
