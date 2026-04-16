@@ -24,7 +24,7 @@ export function SettingsModal({ open, onClose, onSave, currentSettings, language
   }
 
   return (
-    <div className="settings-modal-overlay" onClick={onClose}>
+    <div className="settings-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={t(language, "settings.title")}>
       <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
         <h3>{t(language, "settings.title")}</h3>
         <div className="settings-form">
