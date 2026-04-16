@@ -15,11 +15,12 @@ export function SettingsModal({ open, onClose, onSave, currentSettings, language
   const [apiKey, setApiKey] = useState(currentSettings.llmApiKey);
   const [baseUrl, setBaseUrl] = useState(currentSettings.llmBaseUrl);
   const [model, setModel] = useState(currentSettings.llmModel);
+  const [maxTokens, setMaxTokens] = useState(currentSettings.maxTokens);
 
   if (!open) return null;
 
   function handleSave() {
-    onSave({ llmApiKey: apiKey, llmBaseUrl: baseUrl, llmModel: model });
+    onSave({ llmApiKey: apiKey, llmBaseUrl: baseUrl, llmModel: model, maxTokens });
   }
 
   return (
@@ -38,6 +39,10 @@ export function SettingsModal({ open, onClose, onSave, currentSettings, language
           <label>
             <span>{t(language, "app.field.model")}</span>
             <input value={model} onChange={(e) => setModel(e.target.value)} />
+          </label>
+          <label>
+            <span>{t(language, "app.field.maxTokens")}</span>
+            <input type="number" value={maxTokens} onChange={(e) => setMaxTokens(Number(e.target.value) || 2400)} min={256} max={8192} />
           </label>
           <div className="settings-actions">
             <button className="ghost-button" onClick={onClose}>{t(language, "settings.cancel")}</button>

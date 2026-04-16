@@ -5,12 +5,14 @@ export interface AgentSettings {
   llmApiKey: string;
   llmBaseUrl: string;
   llmModel: string;
+  maxTokens: number;
 }
 
 const DEFAULTS: AgentSettings = {
   llmApiKey: "",
   llmBaseUrl: "https://models.sjtu.edu.cn/api/v1",
   llmModel: "deepseek-chat",
+  maxTokens: 2400,
 };
 
 export function loadSettings(): AgentSettings {
@@ -22,6 +24,7 @@ export function loadSettings(): AgentSettings {
       llmApiKey: typeof parsed.k === "string" ? atob(parsed.k) : DEFAULTS.llmApiKey,
       llmBaseUrl: typeof parsed.u === "string" ? parsed.u : DEFAULTS.llmBaseUrl,
       llmModel: typeof parsed.m === "string" ? parsed.m : DEFAULTS.llmModel,
+      maxTokens: typeof parsed.t === "number" ? parsed.t : DEFAULTS.maxTokens,
     };
   } catch {
     return { ...DEFAULTS };
@@ -36,6 +39,7 @@ export function saveSettings(settings: AgentSettings): void {
         k: btoa(settings.llmApiKey),
         u: settings.llmBaseUrl,
         m: settings.llmModel,
+        t: settings.maxTokens,
       }),
     );
   } catch {

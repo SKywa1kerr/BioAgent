@@ -246,7 +246,7 @@ export class AgentHarness extends EventEmitter {
           () => client.chat.completions.create({
             model: this.settings.llmModel || DEFAULT_MODEL,
             temperature: 0,
-            max_tokens: 1200,
+            max_tokens: this.settings.maxTokens || 2400,
             timeout: this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
             messages: [{ role: "system", content: this.buildSystemPrompt() }, ...this.messages.slice(-MAX_PROMPT_MESSAGES)],
             tools: this.mcpTools.map((tool) => ({
