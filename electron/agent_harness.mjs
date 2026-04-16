@@ -111,6 +111,9 @@ export class AgentHarness extends EventEmitter {
       }
       const id = `req-${++this.mcpRequestId}`;
       const handler = (msg) => {
+        // Ignore responses for other requests
+        if (msg?.id && msg.id !== id) return;
+
         if (msg?.error) {
           clearTimeout(timeoutId);
           this.removeListener("mcp-response", handler);
@@ -118,6 +121,7 @@ export class AgentHarness extends EventEmitter {
           reject(new Error(message));
           return;
         }
+
         if (msg?.id !== id) return;
         clearTimeout(timeoutId);
         this.removeListener("mcp-response", handler);
