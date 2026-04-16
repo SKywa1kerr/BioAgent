@@ -175,29 +175,29 @@ export function ChatPanel({
   const showProgress = isRunning || (["run", "thinking", "tool_calls", "tool_call", "tool_result"].includes(progress.phase) && progress.progress < 100);
 
   return (
-    <aside className="chat-panel">
+    <aside className="chat-panel" aria-label="Chat">
       <div className="panel-title panel-title-row">
         <span>{t(language, "app.title")}</span>
         <div className="panel-action-group">
-          <button className="theme-toggle" onClick={onClear} title={t(language, "chat.clear")}>
+          <button className="theme-toggle action-danger" onClick={onClear} title={t(language, "chat.clear")} aria-label={t(language, "chat.clear")}>
             {t(language, "chat.clear")}
           </button>
-          <button className="theme-toggle" onClick={onOpenSettings} title={t(language, "settings.title")}>
+          <button className="theme-toggle action-settings" onClick={onOpenSettings} title={t(language, "settings.title")} aria-label={t(language, "settings.title")}>
             {"\u2699"}
           </button>
-          <button className="theme-toggle" onClick={onToggleLanguage}>
+          <button className="theme-toggle" onClick={onToggleLanguage} aria-label={t(language, "app.lang")}>
             {t(language, "app.lang")}
           </button>
-          <button className="theme-toggle" onClick={onExportDebug}>
+          <button className="theme-toggle action-secondary" onClick={onExportDebug} aria-label={t(language, "app.action.exportDebug")}>
             {t(language, "app.action.exportDebug")}
           </button>
-          <button className="theme-toggle" onClick={onToggleTheme}>
+          <button className="theme-toggle" onClick={onToggleTheme} aria-label={theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")}>
             {theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")}
           </button>
         </div>
       </div>
 
-      <div className="message-list" ref={messageListRef}>
+      <div className="message-list" ref={messageListRef} role="log" aria-live="polite" aria-label="Messages">
         {messages.map((message, index) => {
           const stableId = stableIdsRef.current[index];
           const ts = timestampsRef.current.get(stableId);
@@ -261,12 +261,14 @@ export function ChatPanel({
         </div>
       ) : null}
 
-      <div className="composer">
+      <div className="composer" role="form" aria-label="Message composer">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={t(language, "app.input.placeholder")}
+          aria-label={t(language, "app.input.placeholder")}
+          title={t(language, "shortcut.focusChat")}
           disabled={!initialized || isRunning}
         />
         <button onClick={handleSendClick} disabled={!initialized || isRunning}>
