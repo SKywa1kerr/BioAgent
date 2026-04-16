@@ -79,7 +79,13 @@ export class AgentHarness extends EventEmitter {
       }
     });
 
-    this.mcpProcess.stderr.on("data", () => {});
+    this.mcpProcess.stderr.on("data", (chunk) => {
+      const text = chunk.toString().trim();
+      if (text) {
+        console.error("[MCP stderr]", text);
+        this.emit("mcp-stderr", text);
+      }
+    });
     this.mcpProcess.on("error", (error) => {
       this.emit("mcp-response", { error: String(error) });
     });
