@@ -174,6 +174,9 @@ const zh: Dict = {
   "panel.tab.analysis": "序列分析",
   "panel.tab.trends": "突变趋势",
   "panel.tab.suggestions": "实验建议",
+  "shortcut.focusChat": "Ctrl+L 聚焦输入",
+  "shortcut.settings": "Ctrl+, 设置",
+  "app.offline": "网络连接已断开，LLM 功能不可用。",
 };
 
 const en: Dict = {
@@ -348,6 +351,9 @@ const en: Dict = {
   "panel.tab.analysis": "Analysis",
   "panel.tab.trends": "Trends",
   "panel.tab.suggestions": "Suggestions",
+  "shortcut.focusChat": "Ctrl+L Focus input",
+  "shortcut.settings": "Ctrl+, Settings",
+  "app.offline": "Network disconnected. LLM features unavailable.",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

@@ -476,6 +476,18 @@ body,
   transition: width 220ms ease;
 }
 
+.offline-banner {
+  grid-column: 1 / -1;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, rgba(220, 38, 38, 0.12), rgba(220, 38, 38, 0.06));
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: 12px;
+  color: var(--text-main);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
 @media (max-width: 1280px) {
   .app-shell {
     grid-template-columns: 1fr;
@@ -489,9 +501,54 @@ body,
 }
 
 
+:focus-visible {
+  outline: 2px solid var(--chart-primary-color);
+  outline-offset: 2px;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--chart-primary-color);
+  outline-offset: 2px;
+}
+
 .theme-toggle:hover {
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--panel-border) 58%, var(--chart-primary-color));
+}
+
+.action-settings {
+  font-size: 14px;
+}
+
+.action-danger {
+  color: rgba(220, 38, 38, 0.8);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.action-danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: #dc2626;
+}
+
+:root[data-theme="dark"] .action-danger {
+  color: rgba(248, 113, 113, 0.8);
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+:root[data-theme="dark"] .action-danger:hover {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #f87171;
+}
+
+.action-secondary {
+  opacity: 0.7;
+  font-size: 11px;
+}
+
+.action-secondary:hover {
+  opacity: 1;
 }
 
 .message-pending {

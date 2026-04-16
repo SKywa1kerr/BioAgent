@@ -29,6 +29,19 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AgentSettings>(loadSettings);
 
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+
   const agent = useAgentHarness(language);
 
   /* ── Panel history cache ──────────────────────────────────────────── */
@@ -58,6 +71,45 @@ export function App() {
   useEffect(() => {
     try { window.localStorage.setItem("bioagent-language", language); } catch { /* ignore */ }
   }, [language]);
+
+  /* ── Global keyboard shortcuts ───────────────────────────────────── */
+
+  useEffect(() => {
+    function handleGlobalKeyDown(e: KeyboardEvent) {
+      const mod = e.metaKey || e.ctrlKey;
+
+      // Ctrl+, → open settings
+      if (mod && e.key === ",") {
+        e.preventDefault();
+        setSettingsOpen(true);
+        return;
+      }
+
+      // Escape → close settings
+      if (e.key === "Escape" && settingsOpen) {
+        e.preventDefault();
+        setSettingsOpen(false);
+        return;
+      }
+
+      // Ctrl+L → focus chat input
+      if (mod && e.key === "l") {
+        e.preventDefault();
+        document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
+        return;
+      }
+
+      // Ctrl+Shift+Delete → clear chat
+      if (mod && e.shiftKey && e.key === "Delete") {
+        e.preventDefault();
+        if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages();
+        return;
+      }
+    }
+
+    document.addEventListener("keydown", handleGlobalKeyDown);
+    return () => document.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [settingsOpen, language]);
 
   /* ── Settings save → init ─────────────────────────────────────────── */
 
@@ -178,6 +230,7 @@ export function App() {
 
   return (
     <div className="app-shell">
+      {!isOnline ? <div className="offline-banner">{t(language, "app.offline")}</div> : null}
       <ChatPanel
         messages={agent.messages}
         isRunning={agent.isRunning}
@@ -193,7 +246,7 @@ export function App() {
         theme={theme}
       />
 
-      <main className="canvas-panel">
+      <main className="canvas-panel" aria-label="Analysis canvas">
         <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
           {renderTabBar()}
           {renderCompactProgress()}
