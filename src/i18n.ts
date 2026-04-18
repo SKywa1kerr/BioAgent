@@ -232,6 +232,14 @@ const zh: Dict = {
   "onboarding.step2.body": "在左侧聊天框输入请求，例如：分析 pro 数据集。",
   "onboarding.step3.title": "查看与导出结果",
   "onboarding.step3.body": "结果在右侧工作台；按 Ctrl+K 打开命令面板可一键导出 CSV/JSON/PDF。",
+  "shortcuts.title": "键盘快捷键",
+  "shortcuts.action.palette": "命令面板",
+  "shortcuts.action.focusChat": "聚焦聊天输入",
+  "shortcuts.action.settings": "打开设置",
+  "shortcuts.action.send": "发送消息",
+  "shortcuts.action.newline": "换行",
+  "shortcuts.action.overlay": "显示此清单",
+  "shortcuts.action.close": "关闭模态 / 面板",
 };
 
 const en: Dict = {
@@ -464,6 +472,14 @@ const en: Dict = {
   "onboarding.step2.body": "Type a request in the chat on the left, e.g. \"analyze pro dataset\".",
   "onboarding.step3.title": "Review and export results",
   "onboarding.step3.body": "Results appear on the right; press Ctrl+K to open the command palette and export CSV/JSON/PDF.",
+  "shortcuts.title": "Keyboard shortcuts",
+  "shortcuts.action.palette": "Command palette",
+  "shortcuts.action.focusChat": "Focus chat input",
+  "shortcuts.action.settings": "Open settings",
+  "shortcuts.action.send": "Send message",
+  "shortcuts.action.newline": "New line",
+  "shortcuts.action.overlay": "Show this list",
+  "shortcuts.action.close": "Close modal / panel",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

@@ -1,0 +1,64 @@
+.shortcuts-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 25, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 48;
+}
+
+.shortcuts-overlay {
+  width: min(420px, 92vw);
+  background: var(--results-panel-bg, #fff);
+  color: var(--results-panel-text, #0f172a);
+  border: 1px solid var(--results-panel-border, rgba(0, 0, 0, 0.08));
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
+}
+
+.shortcuts-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.shortcuts-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.shortcuts-close {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  color: inherit;
+}
+
+.shortcuts-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.shortcuts-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.shortcuts-list kbd {
+  font-family: ui-monospace, Menlo, monospace;
+  background: var(--results-panel-subtle, rgba(148, 163, 184, 0.1));
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  min-width: 110px;
+}

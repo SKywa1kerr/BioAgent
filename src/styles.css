@@ -796,3 +796,10 @@ button:focus-visible {
   background: var(--button-bg);
   color: var(--button-text);
 }
+
+/* ── Global focus-visible audit (Round 3) ─────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--results-primary, #1f78c1);
+  outline-offset: 2px;
+  border-radius: 4px;
+}

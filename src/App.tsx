@@ -5,6 +5,7 @@ import { SettingsModal } from "./components/SettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
 import { OnboardingCoach } from "./components/OnboardingCoach";
+import { ShortcutsOverlay } from "./components/ShortcutsOverlay";
 import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
@@ -33,6 +34,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AgentSettings>(loadSettings);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [prefillText, setPrefillText] = useState<string | null>(null);
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
   const onboarding = useOnboarding();
@@ -82,11 +84,25 @@ export function App() {
 
   /* ── Global keyboard shortcuts ───────────────────────────────────── */
 
-  const isAnyModalOpen = settingsOpen || !!agent.confirmMessage;
+  const isAnyModalOpen = settingsOpen || !!agent.confirmMessage || shortcutsOpen;
 
   useEffect(() => {
     function handleGlobalKeyDown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
+
+      // "?" → shortcuts overlay (only when not in editable + no other modal)
+      if (e.key === "?" && !mod && !e.altKey) {
+        const target = e.target as HTMLElement | null;
+        const editable =
+          target?.tagName === "INPUT" ||
+          target?.tagName === "TEXTAREA" ||
+          target?.isContentEditable === true;
+        if (editable) return;
+        if (isAnyModalOpen || paletteOpen || shortcutsOpen) return;
+        e.preventDefault();
+        setShortcutsOpen(true);
+        return;
+      }
 
       // Ctrl+K → toggle command palette
       if (mod && e.key.toLowerCase() === "k") {
@@ -103,11 +119,18 @@ export function App() {
         return;
       }
 
-      // Escape → close settings
-      if (e.key === "Escape" && settingsOpen) {
-        e.preventDefault();
-        setSettingsOpen(false);
-        return;
+      // Escape → close topmost panel
+      if (e.key === "Escape") {
+        if (shortcutsOpen) {
+          e.preventDefault();
+          setShortcutsOpen(false);
+          return;
+        }
+        if (settingsOpen) {
+          e.preventDefault();
+          setSettingsOpen(false);
+          return;
+        }
       }
 
       // Ctrl+L → focus chat input
@@ -127,7 +150,7 @@ export function App() {
 
     document.addEventListener("keydown", handleGlobalKeyDown);
     return () => document.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [settingsOpen, language, agent, isAnyModalOpen]);
+  }, [settingsOpen, shortcutsOpen, paletteOpen, language, agent, isAnyModalOpen]);
 
   /* ── Command registry (cross-cutting) ─────────────────────────────── */
 
@@ -389,7 +412,13 @@ export function App() {
         language={language}
       />
 
-      {!onboarding.complete && !settingsOpen && !paletteOpen ? (
+      <ShortcutsOverlay
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+        language={language}
+      />
+
+      {!onboarding.complete && !settingsOpen && !paletteOpen && !shortcutsOpen ? (
         <OnboardingCoach language={language} onDismiss={onboarding.finish} />
       ) : null}
     </div>
