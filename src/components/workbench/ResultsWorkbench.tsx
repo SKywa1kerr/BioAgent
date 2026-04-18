@@ -3,6 +3,7 @@ import type { WorkbenchSample } from "./types";
 import { ResultsCharts } from "./ResultsCharts";
 import { ResultsSummary } from "./ResultsSummary";
 import { ResultsTable } from "./ResultsTable";
+import { ExportMenu } from "./ExportMenu";
 import { buildResultsView, bucketSampleStatus } from "./utils";
 import { useWorkbenchControls } from "../../hooks/useWorkbenchControls";
 import type { AppLanguage } from "../../i18n";
@@ -12,9 +13,10 @@ import "./ResultsWorkbench.css";
 interface ResultsWorkbenchProps {
   samples: WorkbenchSample[];
   language: AppLanguage;
+  dataset?: string;
 }
 
-export function ResultsWorkbench({ samples, language }: ResultsWorkbenchProps) {
+export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenchProps) {
   const { controls, setStatusFilter, setSearchQuery, setSortKey, setSummaryScope, reset } = useWorkbenchControls();
   const { statusFilter, searchQuery, sortKey, summaryScope } = controls;
 
@@ -94,6 +96,12 @@ export function ResultsWorkbench({ samples, language }: ResultsWorkbenchProps) {
               <option value="mutations">{t(language, "wb.sort.mutations")}</option>
             </select>
           </label>
+          <ExportMenu
+            samples={visibleSamples}
+            filters={{ statusFilter, searchQuery, sortKey }}
+            dataset={dataset}
+            language={language}
+          />
         </div>
         <div className="results-filter-row">
           {statusOptions.map((option) => (

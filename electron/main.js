@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain } = require("electron");
+﻿const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { pathToFileURL } = require("url");
@@ -163,6 +163,23 @@ app.whenReady().then(async () => {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       return { ok: false, error: message };
+    }
+  });
+
+  ipcMain.handle("export-save-file", async (_event, payload) => {
+    if (!mainWindow) return { canceled: true, error: "no-window" };
+    const { defaultPath, filters, data, encoding } = payload || {};
+    try {
+      const result = await dialog.showSaveDialog(mainWindow, { defaultPath, filters });
+      if (result.canceled || !result.filePath) return { canceled: true };
+      const buffer = encoding === "base64"
+        ? Buffer.from(String(data ?? ""), "base64")
+        : Buffer.from(String(data ?? ""), "utf8");
+      fs.writeFileSync(result.filePath, buffer);
+      return { canceled: false, filePath: result.filePath };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { canceled: true, error: message };
     }
   });
 
