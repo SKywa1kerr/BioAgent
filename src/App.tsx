@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SmartCanvas, type PanelType } from "./components/SmartCanvas";
 import { ChatPanel } from "./components/ChatPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { CommandPalette } from "./components/CommandPalette";
 import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
 import { useAgentHarness } from "./hooks/useAgentHarness";
+import { registerCommand } from "./lib/commands/registry";
 import { loadSettings, saveSettings, type AgentSettings } from "./lib/settingsStorage";
 import { t, type AppLanguage } from "./i18n";
 
@@ -28,6 +30,9 @@ export function App() {
   const [theme, setTheme] = useState<"light" | "dark">(() => getLocalStorageValue("bioagent-theme", ["light", "dark"] as const, "dark"));
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState<AgentSettings>(loadSettings);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [prefillText, setPrefillText] = useState<string | null>(null);
+  const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -74,9 +79,19 @@ export function App() {
 
   /* ── Global keyboard shortcuts ───────────────────────────────────── */
 
+  const isAnyModalOpen = settingsOpen || !!agent.confirmMessage;
+
   useEffect(() => {
     function handleGlobalKeyDown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey;
+
+      // Ctrl+K → toggle command palette
+      if (mod && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (isAnyModalOpen) return;
+        setPaletteOpen((v) => !v);
+        return;
+      }
 
       // Ctrl+, → open settings
       if (mod && e.key === ",") {
@@ -95,7 +110,7 @@ export function App() {
       // Ctrl+L → focus chat input
       if (mod && e.key === "l") {
         e.preventDefault();
-        document.querySelector<HTMLTextAreaElement>(".composer textarea")?.focus();
+        chatInputRef.current?.focus();
         return;
       }
 
@@ -109,7 +124,101 @@ export function App() {
 
     document.addEventListener("keydown", handleGlobalKeyDown);
     return () => document.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [settingsOpen, language]);
+  }, [settingsOpen, language, agent, isAnyModalOpen]);
+
+  /* ── Command registry (cross-cutting) ─────────────────────────────── */
+
+  const focusChat = useCallback(() => chatInputRef.current?.focus(), []);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const toggleTheme = useCallback(() => setTheme((t) => (t === "light" ? "dark" : "light")), []);
+  const toggleLanguage = useCallback(() => setLanguage((l) => (l === "zh" ? "en" : "zh")), []);
+  const prefillChat = useCallback((text: string) => setPrefillText(text), []);
+
+  useEffect(() => {
+    const offs: Array<() => void> = [];
+
+    offs.push(
+      registerCommand({
+        id: "nav.focus-chat",
+        title: t(language, "palette.cmd.focusChat"),
+        group: "nav",
+        shortcut: "Ctrl+L",
+        run: focusChat,
+      }),
+      registerCommand({
+        id: "nav.open-settings",
+        title: t(language, "palette.cmd.openSettings"),
+        group: "nav",
+        shortcut: "Ctrl+,",
+        run: openSettings,
+      }),
+      registerCommand({
+        id: "nav.tab-analysis",
+        title: t(language, "palette.cmd.tabAnalysis"),
+        group: "nav",
+        when: () => panelCache.analysis != null,
+        run: () => setActiveTab("analysis"),
+      }),
+      registerCommand({
+        id: "nav.tab-trends",
+        title: t(language, "palette.cmd.tabTrends"),
+        group: "nav",
+        when: () => panelCache.trends != null,
+        run: () => setActiveTab("trends"),
+      }),
+      registerCommand({
+        id: "nav.tab-suggestions",
+        title: t(language, "palette.cmd.tabSuggestions"),
+        group: "nav",
+        when: () => panelCache.suggestions != null,
+        run: () => setActiveTab("suggestions"),
+      }),
+      registerCommand({
+        id: "appearance.toggle-theme",
+        title: t(language, "palette.cmd.toggleTheme"),
+        group: "appearance",
+        run: toggleTheme,
+      }),
+      registerCommand({
+        id: "appearance.toggle-lang",
+        title: t(language, "palette.cmd.toggleLang"),
+        group: "appearance",
+        run: toggleLanguage,
+      }),
+      registerCommand({
+        id: "log.export-debug",
+        title: t(language, "palette.cmd.exportDebug"),
+        group: "log",
+        run: () => void agent.exportDebugLog(),
+      }),
+      registerCommand({
+        id: "examples.analyze-base",
+        title: t(language, "palette.cmd.example.base"),
+        group: "examples",
+        run: () => prefillChat("分析 base 数据集"),
+      }),
+      registerCommand({
+        id: "examples.analyze-pro",
+        title: t(language, "palette.cmd.example.pro"),
+        group: "examples",
+        run: () => prefillChat("分析 pro 数据集"),
+      }),
+      registerCommand({
+        id: "examples.trends",
+        title: t(language, "palette.cmd.example.trends"),
+        group: "examples",
+        run: () => prefillChat("显示突变趋势"),
+      }),
+      registerCommand({
+        id: "examples.suggestions",
+        title: t(language, "palette.cmd.example.suggestions"),
+        group: "examples",
+        run: () => prefillChat("给出实验建议"),
+      }),
+    );
+
+    return () => { offs.forEach((off) => off()); };
+  }, [language, focusChat, openSettings, toggleTheme, toggleLanguage, prefillChat, agent, panelCache.analysis, panelCache.trends, panelCache.suggestions]);
 
   /* ── Settings save → init ─────────────────────────────────────────── */
 
@@ -244,6 +353,10 @@ export function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
         theme={theme}
+        prefillText={prefillText}
+        onPrefillConsumed={() => setPrefillText(null)}
+        inputRef={chatInputRef}
+        onOpenPalette={() => setPaletteOpen(true)}
       />
 
       <main className="canvas-panel" aria-label="Analysis canvas">
@@ -264,6 +377,12 @@ export function App() {
         onClose={() => setSettingsOpen(false)}
         onSave={handleSettingsSave}
         currentSettings={settings}
+        language={language}
+      />
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
         language={language}
       />
     </div>

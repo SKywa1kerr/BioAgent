@@ -20,6 +20,10 @@ interface ChatPanelProps {
   onOpenSettings: () => void;
   onClear: () => void;
   theme: "light" | "dark";
+  prefillText?: string | null;
+  onPrefillConsumed?: () => void;
+  inputRef?: React.RefObject<HTMLTextAreaElement>;
+  onOpenPalette?: () => void;
 }
 
 function renderInlineRichText(text: string): ReactNode[] {
@@ -111,11 +115,21 @@ function formatTime(ts: number): string {
 export function ChatPanel({
   messages, isRunning, progress, language, initialized,
   onSend, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
+  prefillText, onPrefillConsumed, inputRef, onOpenPalette,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [expandedMessageKeys, setExpandedMessageKeys] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (prefillText != null) {
+      setInput(prefillText);
+      inputRef?.current?.focus();
+      onPrefillConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefillText]);
 
   // Stable message IDs: counter increments for each new message
   const idCounterRef = useRef(0);
@@ -263,6 +277,7 @@ export function ChatPanel({
 
       <div className="composer" role="form" aria-label="Message composer">
         <textarea
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
