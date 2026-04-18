@@ -72,3 +72,44 @@ test("samplesToJson omits filters when not provided", () => {
   assert.equal(parsed.filters, null);
   assert.equal(parsed.count, 1);
 });
+
+import { buildDocDefinition, PDF_LIMITS } from "../src/lib/exporters/pdfDoc.js";
+
+test("buildDocDefinition detail mode produces sample sections", () => {
+  const doc = buildDocDefinition({
+    samples: [{ id: "s1", status: "ok", identity: 99.5, reason: "looks good" }],
+    filters: { statusFilter: "all", searchQuery: "", sortKey: "status" },
+    dataset: "pro",
+    detailMode: true,
+  });
+  assert.ok(Array.isArray(doc.content));
+  assert.ok(doc.content.some((c) => c.text === "s1" && c.style === "sampleHeader"));
+});
+
+test("buildDocDefinition summary mode skips per-sample sections", () => {
+  const samples = Array.from({ length: PDF_LIMITS.MAX_DETAIL_SAMPLES + 1 }, (_, i) => ({ id: `s${i}` }));
+  const doc = buildDocDefinition({
+    samples,
+    filters: { statusFilter: "all", searchQuery: "", sortKey: "status" },
+    detailMode: false,
+  });
+  assert.equal(doc.content.filter((c) => c.style === "sampleHeader").length, 0);
+});
+
+test("buildDocDefinition truncates long reason text", () => {
+  const longReason = "a".repeat(PDF_LIMITS.MAX_REASON_CHARS + 100);
+  const doc = buildDocDefinition({
+    samples: [{ id: "s1", reason: longReason }],
+    filters: null,
+    detailMode: true,
+  });
+  const reasonNode = doc.content.find((c) => c.style === "reason");
+  assert.ok(reasonNode);
+  assert.ok(reasonNode.text.length <= PDF_LIMITS.MAX_REASON_CHARS + 1);
+  assert.ok(reasonNode.text.endsWith("…"));
+});
+
+test("buildDocDefinition uses NotoSansSC default font", () => {
+  const doc = buildDocDefinition({ samples: [], filters: null, detailMode: false });
+  assert.equal(doc.defaultStyle.font, "NotoSansSC");
+});
