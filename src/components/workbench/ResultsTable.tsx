@@ -8,6 +8,8 @@ import { t } from "../../i18n";
 interface ResultsTableProps {
   samples: WorkbenchSample[];
   language: AppLanguage;
+  isFiltered?: boolean;
+  onClearFilters?: () => void;
 }
 
 const ROW_ESTIMATE_COLLAPSED = 64;
@@ -68,35 +70,7 @@ function statusLabel(language: AppLanguage, status: "ok" | "wrong" | "uncertain"
   return t(language, `wb.status.${status}`);
 }
 
-function exportCsv(samples: WorkbenchSample[]) {
-  const headers = ["ID", "Clone", "Status", "Reason", "Identity", "Coverage", "Mutations", "AA Changes", "Frameshift", "Orientation"];
-  const rows = samples.map((s) => [
-    s.id,
-    s.clone || "",
-    bucketSampleStatus(s),
-    s.reason || s.review_reason || s.llm_reason || s.auto_reason || "",
-    typeof s.identity === "number" ? s.identity.toFixed(4) : "",
-    typeof (s.cds_coverage ?? s.coverage) === "number" ? (s.cds_coverage ?? s.coverage)!.toFixed(4) : "",
-    String(countSampleMutations(s)),
-    Array.isArray(s.aa_changes) ? s.aa_changes.join("; ") : (s.aa_changes || ""),
-    s.frameshift ? "Yes" : "No",
-    s.orientation || "",
-  ]);
-
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
-    .join("\n");
-
-  const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `bioagent-samples-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-export function ResultsTable({ samples, language }: ResultsTableProps) {
+export function ResultsTable({ samples, language, isFiltered, onClearFilters }: ResultsTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const parentRef = useRef<HTMLDivElement | null>(null);
 
@@ -148,9 +122,6 @@ export function ResultsTable({ samples, language }: ResultsTableProps) {
         <button className="sample-toolbar-button" onClick={() => setExpandedIds(new Set())}>
           {t(language, "table.collapseAll")}
         </button>
-        <button className="sample-toolbar-button" onClick={() => exportCsv(samples)}>
-          {t(language, "table.exportCsv")}
-        </button>
       </div>
 
       <div className="sample-details-list" ref={parentRef}>
@@ -166,8 +137,25 @@ export function ResultsTable({ samples, language }: ResultsTableProps) {
 
         {samples.length === 0 ? (
           <div className="results-table-empty">
-            <strong>{t(language, "table.noDataTitle")}</strong>
-            <span>{t(language, "table.noDataBody")}</span>
+            {isFiltered ? (
+              <>
+                <strong>{t(language, "wb.empty.filtered")}</strong>
+                {onClearFilters ? (
+                  <button
+                    type="button"
+                    className="sample-toolbar-button"
+                    onClick={onClearFilters}
+                  >
+                    {t(language, "wb.empty.clear")}
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <strong>{t(language, "table.noDataTitle")}</strong>
+                <span>{t(language, "table.noDataBody")}</span>
+              </>
+            )}
           </div>
         ) : (
           <div style={{ height: totalSize, position: "relative", width: "100%" }}>

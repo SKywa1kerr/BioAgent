@@ -13,6 +13,7 @@
   YAxis,
   ZAxis,
 } from "recharts";
+import { useMemo } from "react";
 import type { ReactNode } from "react";
 import type { WorkbenchSample } from "./types";
 import { bucketSampleStatus, formatPercent } from "./utils";
@@ -126,10 +127,10 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
 
 export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[]; language: AppLanguage }) {
   const hasSamples = samples.length > 0;
-  const identityBins = buildBins(samples, getIdentityValue);
-  const coverageBins = buildBins(samples, getCoverageValue);
-  const scatterData = buildScatterData(samples);
-  const statusSlices = buildStatusSlices(samples);
+  const identityBins = useMemo(() => buildBins(samples, getIdentityValue), [samples]);
+  const coverageBins = useMemo(() => buildBins(samples, getCoverageValue), [samples]);
+  const scatterData = useMemo(() => buildScatterData(samples), [samples]);
+  const statusSlices = useMemo(() => buildStatusSlices(samples), [samples]);
 
   return (
     <section className="results-charts-panel" aria-label={t(language, "charts.title")}>

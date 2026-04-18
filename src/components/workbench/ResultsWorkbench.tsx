@@ -122,7 +122,12 @@ export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenc
         </div>
       </section>
 
-      <ResultsTable samples={visibleSamples} language={language} />
+      <ResultsTable
+        samples={visibleSamples}
+        language={language}
+        isFiltered={hasActiveControls}
+        onClearFilters={reset}
+      />
     </section>
   );
 }
