@@ -1,4 +1,5 @@
-﻿import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import type { WorkbenchSample } from "./types";
 import { bucketSampleStatus, countSampleMutations, formatPercent } from "./utils";
 import type { AppLanguage } from "../../i18n";
@@ -9,10 +10,9 @@ interface ResultsTableProps {
   language: AppLanguage;
 }
 
-const PAGE_SIZE = 24;
-const INITIAL_RENDER_COUNT = 10;
-const RENDER_BATCH_SIZE = 12;
-const RENDER_BATCH_INTERVAL_MS = 70;
+const ROW_ESTIMATE_COLLAPSED = 64;
+const ROW_ESTIMATE_EXPANDED = 480;
+const OVERSCAN = 6;
 
 const ChromatogramCanvas = lazy(async () => {
   const mod = await import("./ChromatogramCanvas");
@@ -39,12 +39,7 @@ function parseAaChanges(value: WorkbenchSample["aa_changes"]): string[] {
 function toChromatogramData(sample: WorkbenchSample) {
   if (!sample.traces_a || !sample.traces_t || !sample.traces_g || !sample.traces_c || !sample.query_sequence) return null;
   return {
-    traces: {
-      A: sample.traces_a,
-      T: sample.traces_t,
-      G: sample.traces_g,
-      C: sample.traces_c,
-    },
+    traces: { A: sample.traces_a, T: sample.traces_t, G: sample.traces_g, C: sample.traces_c },
     quality: sample.quality || [],
     baseCalls: sample.query_sequence,
     base_locations: sample.base_locations || [],
@@ -102,54 +97,28 @@ function exportCsv(samples: WorkbenchSample[]) {
 }
 
 export function ResultsTable({ samples, language }: ResultsTableProps) {
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [renderedCount, setRenderedCount] = useState(INITIAL_RENDER_COUNT);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const listRef = useRef<HTMLDivElement | null>(null);
+  const parentRef = useRef<HTMLDivElement | null>(null);
+
+  const virtualizer = useVirtualizer({
+    count: samples.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: (index) => (expandedIds.has(samples[index]?.id) ? ROW_ESTIMATE_EXPANDED : ROW_ESTIMATE_COLLAPSED),
+    overscan: OVERSCAN,
+    getItemKey: (index) => samples[index]?.id ?? index,
+  });
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-    setRenderedCount(INITIAL_RENDER_COUNT);
-    if (listRef.current) listRef.current.scrollTop = 0;
+    if (parentRef.current) parentRef.current.scrollTop = 0;
+    virtualizer.measure();
+    // samples identity change should reset scroll + re-measure
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [samples]);
 
-  const visibleSamples = useMemo(() => samples.slice(0, visibleCount), [samples, visibleCount]);
-
   useEffect(() => {
-    setRenderedCount((current) => {
-      const start = Math.min(INITIAL_RENDER_COUNT, visibleSamples.length);
-      return current > visibleSamples.length ? start : Math.max(current, start);
-    });
-  }, [visibleSamples.length]);
-
-  useEffect(() => {
-    if (renderedCount >= visibleSamples.length) return;
-    const timer = setTimeout(() => {
-      setRenderedCount((current) => Math.min(visibleSamples.length, current + RENDER_BATCH_SIZE));
-    }, RENDER_BATCH_INTERVAL_MS);
-    return () => clearTimeout(timer);
-  }, [renderedCount, visibleSamples.length]);
-
-  const progressivelyRenderedSamples = useMemo(
-    () => visibleSamples.slice(0, Math.min(renderedCount, visibleSamples.length)),
-    [visibleSamples, renderedCount],
-  );
-
-  function loadMoreIfNeeded() {
-    setVisibleCount((current) => {
-      if (current >= samples.length) return current;
-      return Math.min(samples.length, current + PAGE_SIZE);
-    });
-  }
-
-  function handleListScroll() {
-    const node = listRef.current;
-    if (!node) return;
-    const nearBottom = node.scrollTop + node.clientHeight >= node.scrollHeight - 240;
-    if (nearBottom) loadMoreIfNeeded();
-  }
-
-  const pendingSkeletonCount = Math.min(4, Math.max(0, visibleSamples.length - progressivelyRenderedSamples.length));
+    virtualizer.measure();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedIds]);
 
   function toggleExpand(id: string) {
     setExpandedIds((prev) => {
@@ -159,6 +128,9 @@ export function ResultsTable({ samples, language }: ResultsTableProps) {
       return next;
     });
   }
+
+  const virtualItems = virtualizer.getVirtualItems();
+  const totalSize = virtualizer.getTotalSize();
 
   return (
     <section className="results-table-panel" aria-label={t(language, "table.title")}>
@@ -170,7 +142,7 @@ export function ResultsTable({ samples, language }: ResultsTableProps) {
       </div>
 
       <div className="sample-table-toolbar">
-        <button className="sample-toolbar-button" onClick={() => setExpandedIds(new Set(progressivelyRenderedSamples.map(s => s.id)))}>
+        <button className="sample-toolbar-button" onClick={() => setExpandedIds(new Set(samples.map(s => s.id)))}>
           {t(language, "table.expandAll")}
         </button>
         <button className="sample-toolbar-button" onClick={() => setExpandedIds(new Set())}>
@@ -181,8 +153,8 @@ export function ResultsTable({ samples, language }: ResultsTableProps) {
         </button>
       </div>
 
-      <div className="sample-details-list" ref={listRef} onScroll={handleListScroll}>
-        <div className="sample-detail-head-row">
+      <div className="sample-details-list" ref={parentRef}>
+        <div className="sample-detail-head-row" style={{ position: "sticky", top: 0, zIndex: 1 }}>
           <span>{t(language, "table.sample")}</span>
           <span>{t(language, "table.status")}</span>
           <span>{t(language, "table.reason")}</span>
@@ -198,16 +170,31 @@ export function ResultsTable({ samples, language }: ResultsTableProps) {
             <span>{t(language, "table.noDataBody")}</span>
           </div>
         ) : (
-          <>
-            {progressivelyRenderedSamples.map((sample) => {
+          <div style={{ height: totalSize, position: "relative", width: "100%" }}>
+            {virtualItems.map((virtualRow) => {
+              const sample = samples[virtualRow.index];
+              if (!sample) return null;
               const status = bucketSampleStatus(sample);
-              const aaChanges = parseAaChanges(sample.aa_changes);
-              const chromatogram = toChromatogramData(sample);
-              const muts = Array.isArray(sample.mutations) ? sample.mutations : [];
-              const noChromReason = chromatogram ? "" : chromatogramUnavailableReason(sample);
+              const isOpen = expandedIds.has(sample.id);
+              const aaChanges = isOpen ? parseAaChanges(sample.aa_changes) : [];
+              const chromatogram = isOpen ? toChromatogramData(sample) : null;
+              const muts = isOpen && Array.isArray(sample.mutations) ? sample.mutations : [];
+              const noChromReason = isOpen && !chromatogram ? chromatogramUnavailableReason(sample) : "";
 
               return (
-                <div key={sample.id} className={`sample-detail-card${expandedIds.has(sample.id) ? " is-open" : ""}`}>
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  className={`sample-detail-card${isOpen ? " is-open" : ""}`}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
                   <div className="sample-detail-summary sample-detail-summary-grid" onClick={() => toggleExpand(sample.id)}>
                     <span className="sample-detail-sample" data-label={t(language, "table.sample")} title={sample.id}>{sample.id}</span>
                     <span className={`sample-detail-status status-${status}`} data-label={t(language, "table.status")}>{statusLabel(language, status)}</span>
@@ -218,95 +205,83 @@ export function ResultsTable({ samples, language }: ResultsTableProps) {
                     <span className="sample-detail-toggle-cell" aria-hidden="true" />
                   </div>
 
-                  {expandedIds.has(sample.id) ? (
-                  <div className="sample-detail-body">
-                    <div className="sample-detail-metrics">
-                      <article className="sample-detail-metric-card"><span>{t(language, "table.clone")}</span><strong>{sample.clone || "-"}</strong></article>
-                      <article className="sample-detail-metric-card"><span>{t(language, "table.orientation")}</span><strong>{sample.orientation || "-"}</strong></article>
-                      <article className="sample-detail-metric-card"><span>{t(language, "table.frameshift")}</span><strong>{sample.frameshift ? t(language, "table.yes") : t(language, "table.no")}</strong></article>
-                      <article className="sample-detail-metric-card"><span>{t(language, "table.avgQ")}</span><strong>{typeof (sample.avg_qry_quality ?? sample.avg_quality) === "number" ? (sample.avg_qry_quality ?? sample.avg_quality)?.toFixed(1) : "-"}</strong></article>
-                    </div>
-
-                    <div className="sample-detail-section">
-                      <div className="sample-detail-section-head"><h4>{t(language, "table.aaChanges")}</h4></div>
-                      {aaChanges.length > 0 ? <div className="sample-detail-aa-code">{aaChanges.join(" ")}</div> : <div className="sample-detail-empty">{t(language, "table.noAa")}</div>}
-                    </div>
-
-                    <div className="sample-detail-section">
-                      <div className="sample-detail-section-head"><h4>{t(language, "table.mutationTable")}</h4></div>
-                      {muts.length > 0 ? (
-                        <table className="sample-detail-table">
-                          <thead>
-                            <tr>
-                              <th>{t(language, "table.pos")}</th>
-                              <th>{t(language, "table.ref")}</th>
-                              <th>{t(language, "table.query")}</th>
-                              <th>{t(language, "table.type")}</th>
-                              <th>{t(language, "table.effect")}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {muts.map((mutation, idx) => (
-                              <tr key={`${sample.id}-${idx}`}>
-                                <td>{mutation.position ?? "-"}</td>
-                                <td className="sample-detail-base">{mutation.refBase ?? "-"}</td>
-                                <td className="sample-detail-base">{mutation.queryBase ?? "-"}</td>
-                                <td>{mutationType(mutation.type)}</td>
-                                <td>{mutation.effect || "-"}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <div className="sample-detail-empty">{t(language, "table.noMutation")}</div>
-                      )}
-                    </div>
-
-                    <div className="sample-detail-section">
-                      <div className="sample-detail-section-head"><h4>{t(language, "table.alignment")}</h4></div>
-                      <div className="sample-detail-aa-code">
-                        <div><strong>REF:</strong> {(sample.aligned_ref_g || sample.ref_sequence || "").slice(0, 600)}</div>
-                        <div><strong>QRY:</strong> {(sample.aligned_query_g || sample.query_sequence || "").slice(0, 600)}</div>
+                  {isOpen ? (
+                    <div className="sample-detail-body">
+                      <div className="sample-detail-metrics">
+                        <article className="sample-detail-metric-card"><span>{t(language, "table.clone")}</span><strong>{sample.clone || "-"}</strong></article>
+                        <article className="sample-detail-metric-card"><span>{t(language, "table.orientation")}</span><strong>{sample.orientation || "-"}</strong></article>
+                        <article className="sample-detail-metric-card"><span>{t(language, "table.frameshift")}</span><strong>{sample.frameshift ? t(language, "table.yes") : t(language, "table.no")}</strong></article>
+                        <article className="sample-detail-metric-card"><span>{t(language, "table.avgQ")}</span><strong>{typeof (sample.avg_qry_quality ?? sample.avg_quality) === "number" ? (sample.avg_qry_quality ?? sample.avg_quality)?.toFixed(1) : "-"}</strong></article>
                       </div>
-                    </div>
 
-                    <div className="sample-detail-section">
-                      <div className="sample-detail-section-head"><h4>{t(language, "table.chromatogram")}</h4></div>
-                      {chromatogram ? (
-                        <Suspense fallback={<div className="sample-detail-empty">{t(language, "table.loadingChromatogram")}</div>}>
-                          <ChromatogramCanvas data={chromatogram} startPosition={1} endPosition={chromatogram.baseCalls.length} mutations={muts} />
-                        </Suspense>
-                      ) : (
-                        <div className="sample-detail-empty">
-                          <div>{t(language, "table.noChromatogram")}</div>
-                          <div>{t(language, "table.noChromatogramReason", { reason: noChromReason })}</div>
+                      <div className="sample-detail-section">
+                        <div className="sample-detail-section-head"><h4>{t(language, "table.aaChanges")}</h4></div>
+                        {aaChanges.length > 0 ? <div className="sample-detail-aa-code">{aaChanges.join(" ")}</div> : <div className="sample-detail-empty">{t(language, "table.noAa")}</div>}
+                      </div>
+
+                      <div className="sample-detail-section">
+                        <div className="sample-detail-section-head"><h4>{t(language, "table.mutationTable")}</h4></div>
+                        {muts.length > 0 ? (
+                          <table className="sample-detail-table">
+                            <thead>
+                              <tr>
+                                <th>{t(language, "table.pos")}</th>
+                                <th>{t(language, "table.ref")}</th>
+                                <th>{t(language, "table.query")}</th>
+                                <th>{t(language, "table.type")}</th>
+                                <th>{t(language, "table.effect")}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {muts.map((mutation, idx) => (
+                                <tr key={`${sample.id}-${idx}`}>
+                                  <td>{mutation.position ?? "-"}</td>
+                                  <td className="sample-detail-base">{mutation.refBase ?? "-"}</td>
+                                  <td className="sample-detail-base">{mutation.queryBase ?? "-"}</td>
+                                  <td>{mutationType(mutation.type)}</td>
+                                  <td>{mutation.effect || "-"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        ) : (
+                          <div className="sample-detail-empty">{t(language, "table.noMutation")}</div>
+                        )}
+                      </div>
+
+                      <div className="sample-detail-section">
+                        <div className="sample-detail-section-head"><h4>{t(language, "table.alignment")}</h4></div>
+                        <div className="sample-detail-aa-code">
+                          <div><strong>REF:</strong> {(sample.aligned_ref_g || sample.ref_sequence || "").slice(0, 600)}</div>
+                          <div><strong>QRY:</strong> {(sample.aligned_query_g || sample.query_sequence || "").slice(0, 600)}</div>
                         </div>
-                      )}
-                    </div>
+                      </div>
+
+                      <div className="sample-detail-section">
+                        <div className="sample-detail-section-head"><h4>{t(language, "table.chromatogram")}</h4></div>
+                        {chromatogram ? (
+                          <Suspense fallback={<div className="sample-detail-empty">{t(language, "table.loadingChromatogram")}</div>}>
+                            <ChromatogramCanvas data={chromatogram} startPosition={1} endPosition={chromatogram.baseCalls.length} mutations={muts} />
+                          </Suspense>
+                        ) : (
+                          <div className="sample-detail-empty">
+                            <div>{t(language, "table.noChromatogram")}</div>
+                            <div>{t(language, "table.noChromatogramReason", { reason: noChromReason })}</div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ) : null}
                 </div>
               );
             })}
-
-            {pendingSkeletonCount > 0 ? (
-              <div className="sample-skeleton-group" aria-live="polite">
-                {Array.from({ length: pendingSkeletonCount }, (_, idx) => (
-                  <div key={`skeleton-${idx}`} className="sample-skeleton-card" aria-hidden="true">
-                    <div className="sample-skeleton-line long" />
-                    <div className="sample-skeleton-line short" />
-                  </div>
-                ))}
-                <div className="sample-skeleton-hint">{t(language, "table.loadingSamples")}</div>
-              </div>
-            ) : null}
-          </>
+          </div>
         )}
       </div>
 
       {samples.length > 0 ? (
         <div className="sample-list-footnote">
-          {t(language, "table.showing", { visible: progressivelyRenderedSamples.length, total: samples.length })}
+          {t(language, "table.showing", { visible: Math.min(samples.length, virtualItems.length || samples.length), total: samples.length })}
         </div>
       ) : null}
     </section>

@@ -177,6 +177,25 @@ const zh: Dict = {
   "shortcut.focusChat": "Ctrl+L 聚焦输入",
   "shortcut.settings": "Ctrl+, 设置",
   "app.offline": "网络连接已断开，LLM 功能不可用。",
+
+  "summary.scope.label": "汇总范围",
+  "summary.scope.filtered": "筛选后",
+  "summary.scope.all": "全部",
+  "export.menu": "导出",
+  "export.count": "导出 {count} 条",
+  "export.csv": "CSV",
+  "export.json": "JSON",
+  "export.pdf": "PDF 报告",
+  "export.empty": "无数据可导出",
+  "export.error": "导出失败: {message}",
+  "export.warn.bigBatch": "PDF 概要模式（{count} 条，超过明细上限）",
+  "export.pdf.title": "BioAgent 分析报告",
+  "export.pdf.dataset": "数据集",
+  "export.pdf.exportedAt": "导出时间",
+  "export.pdf.filters": "筛选条件",
+  "export.pdf.summaryOnly": "样本数超过 200，仅生成概要报告。请使用 CSV/JSON 获取完整明细。",
+  "wb.empty.filtered": "无匹配结果",
+  "wb.empty.clear": "清除筛选",
 };
 
 const en: Dict = {
@@ -354,6 +373,25 @@ const en: Dict = {
   "shortcut.focusChat": "Ctrl+L Focus input",
   "shortcut.settings": "Ctrl+, Settings",
   "app.offline": "Network disconnected. LLM features unavailable.",
+
+  "summary.scope.label": "Summary scope",
+  "summary.scope.filtered": "Filtered",
+  "summary.scope.all": "All",
+  "export.menu": "Export",
+  "export.count": "Export {count} rows",
+  "export.csv": "CSV",
+  "export.json": "JSON",
+  "export.pdf": "PDF report",
+  "export.empty": "Nothing to export",
+  "export.error": "Export failed: {message}",
+  "export.warn.bigBatch": "PDF summary mode ({count} rows; exceeds detail threshold)",
+  "export.pdf.title": "BioAgent Analysis Report",
+  "export.pdf.dataset": "Dataset",
+  "export.pdf.exportedAt": "Exported at",
+  "export.pdf.filters": "Filters",
+  "export.pdf.summaryOnly": "Sample count exceeds 200; summary only. Use CSV/JSON for full detail.",
+  "wb.empty.filtered": "No matching results",
+  "wb.empty.clear": "Clear filters",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

@@ -1059,3 +1059,33 @@
 }
 
 
+
+.summary-scope-toggle {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+  align-self: flex-start;
+}
+
+.summary-scope-toggle button {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--results-panel-border);
+  background: var(--results-panel-subtle);
+  color: var(--results-panel-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.summary-scope-toggle button:hover {
+  border-color: var(--results-primary);
+  color: var(--results-primary);
+}
+
+.summary-scope-toggle button.is-active {
+  background: var(--results-primary);
+  color: #fff;
+  border-color: transparent;
+}
