@@ -29,18 +29,26 @@
  ┌─────────────────────────────────────────────────────────┐
  │ App.tsx  (global keydown: Ctrl+K, ?)                    │
  │   │                                                      │
- │   ├── CommandPalette  ──► commandRegistry               │
- │   │        (portal modal)        │                       │
- │   │                              ├── builtin (navigation│
- │   │                              │   /workbench/appear  │
- │   │                              │   /examples/log)     │
+ │   ├── CommandPalette  ──► commandRegistry (module-level)│
+ │   │        (portal modal)        ▲                       │
+ │   │                              │                       │
+ │   │    各 owner 组件 mount 时自注册命令：                  │
+ │   │     - App           → nav + appearance + log + examples│
+ │   │     - ResultsWorkbench → workbench (export/clear)  │
+ │   │                                                      │
  │   ├── OnboardingCoach ──► useOnboarding (localStorage)  │
  │   ├── ShortcutsOverlay ──► shortcuts.ts (single source) │
- │   └── existing panels                                    │
+ │   └── 已有面板                                            │
  └─────────────────────────────────────────────────────────┘
 ```
 
-三个子系统共享 App 层注入的 `ActionContext`（切换 tab、打开设置、聚焦/预填 chat、执行导出、切换主题/语言、导出日志）。注册表是**模块级单例**，App mount 时调用 `registerBuiltinCommands(ctx)` 填入命令；卸载时 `clearCommands()`。
+### 注册所有权原则
+为避免 App 层成为跨所有状态的胖组件，**命令由拥有相关状态的组件自注册**：
+
+- `App.tsx` 负责：导航（focus-chat / open-settings / tab 切换）、外观（theme / lang）、示例 prompt、导出调试日志
+- `ResultsWorkbench.tsx` 负责：导出 CSV/JSON/PDF、clear-filters（这些命令需要访问 hook 内的 visibleSamples / filters，与 hook 共居一处最自然）
+
+每个 owner 在 `useEffect` 里调用 `registerCommand` 返回的 unregister 函数，卸载时清理；若同 id 重复注册，后者覆盖前者（reload 场景下安全）。
 
 ---
 
@@ -56,7 +64,7 @@
 | `src/lib/commands/fuzzy.d.ts` | |
 | `src/lib/commands/builtin.ts` | `registerBuiltinCommands(ctx: ActionContext)` 返回 unregister 函数 |
 | `src/lib/commands/shortcuts.ts` | 快捷键清单（UI 层单一来源） |
-| `src/lib/exporters/runExport.ts` | 抽出 ExportMenu 的 exportAs 逻辑供命令面板复用 |
+| `src/lib/exporters/runExport.ts` | 抽出 ExportMenu 的 exportAs 逻辑供命令面板复用。签名：`runExport(fmt, { samples, filters, dataset, language, onWarn })` 返回 `Promise<void>`，失败抛异常；调用者（ExportMenu 或命令注册处）负责把异常转 toast。保留现有 onWarn 回调语义 |
 | `src/components/CommandPalette.tsx` | Portal 模态 + 搜索 + 键盘驱动 |
 | `src/components/CommandPalette.css` | |
 | `src/hooks/useOnboarding.ts` | 读写 `bioagent-onboarding-v1`，状态枚举：`active \| skipped \| done` |
@@ -136,12 +144,12 @@ export interface Command {
 
 ## 引导规格
 
-### 状态机
-- `bioagent-onboarding-v1` localStorage：`"active" | "skipped" | "done"` 或不存在（首次）
-- 首次加载：不存在 → 初始化为 `"active"`
-- 完成第 3 步"完成"按钮 → `"done"`
-- 任意步骤 "跳过" / 关闭 / Esc → `"skipped"`
-- `"skipped"` 与 `"done"` 都不再显示。提供未公开的 reset（仅开发工具）：在 devtools 里 `localStorage.removeItem(...)` 可重置。
+### 状态
+- localStorage key: `bioagent-onboarding-v1`
+- 值为 `"complete"` 或缺失（未完成）
+- 进入"完成"状态有两种路径：用户走完 3 步点"完成"，或任一步骤 "跳过" / Esc / 关闭
+- 两种路径都写入 `"complete"` — 用户意图明确（不想继续引导），没必要区分 skipped 与 done
+- 开发者可通过 devtools `localStorage.removeItem("bioagent-onboarding-v1")` 手动重置
 
 ### UI
 - 右下角浮层卡片（z-index 45，低于命令面板 50）
@@ -211,12 +219,14 @@ export const SHORTCUTS = [
 
 | 场景 | 处理 |
 |---|---|
-| localStorage 读写失败（隐私模式） | onboarding 默认 `active`；不持久化；console.warn 一次 |
+| localStorage 读写失败（隐私模式） | onboarding 视为未完成但**不重复弹出**：用 `sessionStorage` 内存 fallback；console.warn 一次 |
 | `Ctrl+K` 在命令面板已打开时按下 | 关闭面板（toggle 行为） |
+| `Ctrl+K` 在 SettingsModal / ConfirmationDialog / OnboardingCoach 打开时按下 | 忽略（不劫持用户正在交互的模态）。实现：App 维护 `isAnyModalOpen` 标志 |
 | 命令 `run` 抛异常 | `console.error` + 通过 `ctx.showToast(message)` 显示；面板仍关闭 |
 | 引导卡片出现时用户打开设置 | 引导保持当前步骤不自动推进；下次返回再显示；不阻塞设置操作 |
 | 搜索为空且所有命令 `when` 均 false | 显示"暂无可用命令" |
 | `?` 键按下时焦点在输入框 | 不响应（允许用户输入问号） |
+| `?` 键按下时任何模态已打开 | 不响应 |
 
 ---
 
