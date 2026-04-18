@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type { WorkbenchSample } from "./types";
 import { ResultsCharts } from "./ResultsCharts";
 import { ResultsSummary } from "./ResultsSummary";
@@ -6,6 +6,8 @@ import { ResultsTable } from "./ResultsTable";
 import { ExportMenu } from "./ExportMenu";
 import { buildResultsView, bucketSampleStatus } from "./utils";
 import { useWorkbenchControls } from "../../hooks/useWorkbenchControls";
+import { registerCommand } from "../../lib/commands/registry";
+import { runExport } from "../../lib/exporters/runExport";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
 import "./ResultsWorkbench.css";
@@ -51,6 +53,50 @@ export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenc
     { key: "untested", label: t(language, "wb.status.untested") },
     { key: "ok", label: t(language, "wb.status.ok") },
   ] as const;
+
+  useEffect(() => {
+    const args = {
+      samples: visibleSamples,
+      filters: { statusFilter, searchQuery, sortKey },
+      dataset,
+      language,
+    };
+    const offs: Array<() => void> = [
+      registerCommand({
+        id: "workbench.export-csv",
+        title: t(language, "palette.cmd.exportCsv"),
+        group: "workbench",
+        keywords: ["export", "csv", "导出"],
+        when: () => visibleSamples.length > 0,
+        run: () => runExport("csv", args),
+      }),
+      registerCommand({
+        id: "workbench.export-json",
+        title: t(language, "palette.cmd.exportJson"),
+        group: "workbench",
+        keywords: ["export", "json", "导出"],
+        when: () => visibleSamples.length > 0,
+        run: () => runExport("json", args),
+      }),
+      registerCommand({
+        id: "workbench.export-pdf",
+        title: t(language, "palette.cmd.exportPdf"),
+        group: "workbench",
+        keywords: ["export", "pdf", "报告", "导出"],
+        when: () => visibleSamples.length > 0,
+        run: () => runExport("pdf", args),
+      }),
+      registerCommand({
+        id: "workbench.clear-filters",
+        title: t(language, "palette.cmd.clearFilters"),
+        group: "workbench",
+        keywords: ["clear", "reset", "清除"],
+        when: () => hasActiveControls,
+        run: reset,
+      }),
+    ];
+    return () => { offs.forEach((off) => off()); };
+  }, [visibleSamples, statusFilter, searchQuery, sortKey, language, dataset, hasActiveControls, reset]);
 
   return (
     <section className="results-workbench-shell" aria-label={t(language, "wb.aria")}>

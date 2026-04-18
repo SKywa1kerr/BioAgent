@@ -2,10 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { WorkbenchSample } from "./types";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
-import { samplesToCsv } from "../../lib/exporters/csv";
-import { samplesToJson } from "../../lib/exporters/json";
-import { buildExportFilename } from "../../lib/exporters/filename";
-import { saveFile } from "../../lib/exporters/saveFile";
+import { runExport, type ExportFormat } from "../../lib/exporters/runExport";
 import "./ExportMenu.css";
 
 interface ExportMenuProps {
@@ -15,7 +12,7 @@ interface ExportMenuProps {
   language: AppLanguage;
 }
 
-type Format = "csv" | "json" | "pdf";
+type Format = ExportFormat;
 
 export function ExportMenu({ samples, filters, dataset, language }: ExportMenuProps) {
   const [open, setOpen] = useState(false);
@@ -48,28 +45,13 @@ export function ExportMenu({ samples, filters, dataset, language }: ExportMenuPr
       setMessage(null);
       setBusy(fmt);
       try {
-        if (fmt === "csv") {
-          await saveFile({
-            filename: buildExportFilename({ dataset, ext: "csv" }),
-            mime: "text/csv;charset=utf-8",
-            data: samplesToCsv(samples),
-          });
-        } else if (fmt === "json") {
-          await saveFile({
-            filename: buildExportFilename({ dataset, ext: "json" }),
-            mime: "application/json;charset=utf-8",
-            data: samplesToJson(samples, { filters }),
-          });
-        } else if (fmt === "pdf") {
-          const { exportPdf } = await import("../../lib/exporters/pdf");
-          await exportPdf({
-            samples,
-            filters,
-            dataset,
-            language,
-            onWarn: (text) => setMessage({ tone: "info", text }),
-          });
-        }
+        await runExport(fmt, {
+          samples,
+          filters,
+          dataset,
+          language,
+          onWarn: (text) => setMessage({ tone: "info", text }),
+        });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setMessage({ tone: "error", text: t(language, "export.error", { message: msg }) });
