@@ -54,3 +54,18 @@ test("clearCommands empties the registry", () => {
   clearCommands();
   assert.equal(getCommands().length, 0);
 });
+
+test("filterCommands ranks better matches first", () => {
+  clearCommands();
+  registerCommand(makeCmd("a", { title: "export csv" }));
+  registerCommand(makeCmd("b", { title: "toggle theme" }));
+  const ids = filterCommands("export").map((c) => c.id);
+  assert.deepEqual(ids, ["a"]);
+});
+
+test("filterCommands searches keywords", () => {
+  clearCommands();
+  registerCommand(makeCmd("a", { title: "导出 CSV", keywords: ["export", "csv"] }));
+  const ids = filterCommands("export").map((c) => c.id);
+  assert.deepEqual(ids, ["a"]);
+});
