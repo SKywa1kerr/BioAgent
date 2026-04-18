@@ -27,9 +27,24 @@ export type ProgressState = {
   label: string;
 };
 
+type AgentResult = Record<string, unknown>;
+
+export type AgentEvent =
+  | { type: "lifecycle"; phase?: "init" | "ready" | "run" | "error" | string; message?: string }
+  | { type: "thinking" }
+  | { type: "tool_calls_start" }
+  | { type: "tool_call"; tool?: string }
+  | { type: "tool_result"; tool?: string; result?: AgentResult }
+  | { type: "reply"; content?: string; uiAction?: "show_trends" | "show_suggestions" | "show_analysis" | string; result?: AgentResult }
+  | { type: "busy"; message?: string }
+  | { type: "error"; message?: string }
+  | { type: "confirm"; message?: string };
+
+type PanelResolution = { panelType: PanelType; panelPayload: unknown; confirmMessage?: string };
+
 /* ── Module-level pure utilities ─────────────────────────────────────── */
 
-function resolvePanelFromEvent(payload: any): { panelType: PanelType; panelPayload: any; confirmMessage?: string } | null {
+function resolvePanelFromEvent(payload: AgentEvent): PanelResolution | null {
   if (payload.type === "confirm") {
     return {
       panelType: "confirmation",
@@ -111,13 +126,13 @@ export function useAgentHarness(language: AppLanguage) {
   const [initialized, setInitialized] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [panelType, setPanelType] = useState<PanelType>("text");
-  const [panelPayload, setPanelPayload] = useState<any>(null);
+  const [panelPayload, setPanelPayload] = useState<unknown>(null);
   const [confirmMessage, setConfirmMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState(t(language, "app.status.needInit"));
   const [progress, setProgress] = useState<ProgressState>({ phase: "idle", progress: 0, label: t(language, "app.progress.idle") });
 
   /* ── Refs ───────────────────────────────────────────────────────────── */
-  const latestEventRef = useRef<any>(null);
+  const latestEventRef = useRef<AgentEvent | null>(null);
   const assistantMessageCountRef = useRef(0);
   const panelTypeRef = useRef<PanelType>("text");
   const languageRef = useRef<AppLanguage>(language);
@@ -149,24 +164,27 @@ export function useAgentHarness(language: AppLanguage) {
   }
 
   function updateAnalysisPayload(analysisId: string, patch: Record<string, unknown>) {
-    setPanelPayload((current: any) => {
-      if (!current || current.analysis_id !== analysisId) return current;
-      return { ...current, ...patch };
+    setPanelPayload((current: unknown) => {
+      const obj = current as Record<string, unknown> | null;
+      if (!obj || obj.analysis_id !== analysisId) return current;
+      return { ...obj, ...patch };
     });
   }
 
-  async function hydrateAnalysisResult(result: any, runToken: number) {
+  async function hydrateAnalysisResult(result: AgentResult | undefined, runToken: number) {
     const analysisId = result?.analysis_id;
     if (!analysisId || typeof analysisId !== "string") return;
     if (runTokenRef.current !== runToken) return;
 
-    if (result?.detail && Array.isArray(result.detail.samples)) {
-      setPanelPayload((current: any) => {
-        const base = current && current.analysis_id === analysisId ? current : result;
+    const detail = result?.detail as { samples?: unknown[] } | undefined;
+    if (detail && Array.isArray(detail.samples)) {
+      setPanelPayload((current: unknown) => {
+        const obj = current as Record<string, unknown> | null;
+        const base = obj && obj.analysis_id === analysisId ? obj : (result as Record<string, unknown>);
         return {
           ...base,
-          detail: result.detail,
-          samples: result.detail.samples,
+          detail,
+          samples: detail.samples,
           __detailPending: false,
           __detailError: result?.detail_error,
         };
@@ -183,8 +201,9 @@ export function useAgentHarness(language: AppLanguage) {
         const detailResp = await window.electronAPI.invoke("agent-harness-get-analysis-detail", analysisId);
         if (runTokenRef.current !== runToken) return;
         if (detailResp?.ok && detailResp?.detail) {
-          setPanelPayload((current: any) => {
-            const base = current && current.analysis_id === analysisId ? current : result;
+          setPanelPayload((current: unknown) => {
+            const obj = current as Record<string, unknown> | null;
+            const base = obj && obj.analysis_id === analysisId ? obj : (result as Record<string, unknown>);
             return {
               ...base,
               detail: detailResp.detail,
@@ -212,7 +231,7 @@ export function useAgentHarness(language: AppLanguage) {
     });
   }
 
-  function applyAgentEvent(payload: any) {
+  function applyAgentEvent(payload: AgentEvent) {
     latestEventRef.current = payload;
     const lang = languageRef.current;
 
@@ -239,17 +258,22 @@ export function useAgentHarness(language: AppLanguage) {
     } else if (payload.type === "tool_result") {
       setProgressState("tool_result", 92, t(lang, "app.progress.done"));
       if (payload.tool === "analyze_sequences") {
-        const count = payload?.result?.sample_count;
-        const dataset = payload?.result?.dataset;
-        const analysisId = payload?.result?.analysis_id;
-        const resultPayload = payload?.result && typeof payload.result === "object" ? payload.result : {};
+        const result = payload.result as AgentResult | undefined;
+        const count = result?.sample_count as number | undefined;
+        const dataset = result?.dataset as string | undefined;
+        const analysisId = result?.analysis_id as string | undefined;
+        const resultPayload: AgentResult = result && typeof result === "object" ? result : {};
+        const detail = resultPayload.detail as { samples?: unknown[] } | undefined;
         setPanelType("analysis");
-        setPanelPayload((current: any) => ({
-          ...(current && current.analysis_id === analysisId ? current : {}),
-          ...resultPayload,
-          __detailPending: !(resultPayload.detail && Array.isArray(resultPayload.detail.samples)),
-          __detailError: resultPayload.detail_error,
-        }));
+        setPanelPayload((current: unknown) => {
+          const obj = current as Record<string, unknown> | null;
+          return {
+            ...(obj && obj.analysis_id === analysisId ? obj : {}),
+            ...resultPayload,
+            __detailPending: !(detail && Array.isArray(detail.samples)),
+            __detailError: resultPayload.detail_error,
+          };
+        });
         const suffix = typeof count === "number"
           ? t(lang, "app.analysisSuffix", {
             count,
@@ -258,7 +282,7 @@ export function useAgentHarness(language: AppLanguage) {
           })
           : "";
         pushAssistant(t(lang, "app.analysisFinished", { suffix }));
-        void hydrateAnalysisResult(payload.result, runTokenRef.current);
+        void hydrateAnalysisResult(result, runTokenRef.current);
       }
     } else if (payload.type === "reply") {
       setProgressState("reply", 100, t(lang, "app.progress.completed"));
@@ -269,7 +293,9 @@ export function useAgentHarness(language: AppLanguage) {
     }
 
     if (payload.type === "reply" || payload.type === "error" || payload.type === "busy") {
-      const text = payload.content || payload.message || JSON.stringify(payload);
+      const content = payload.type === "reply" ? payload.content : undefined;
+      const message = payload.type !== "reply" ? payload.message : undefined;
+      const text = content || message || JSON.stringify(payload);
       pushAssistant(text);
     }
 
@@ -286,16 +312,16 @@ export function useAgentHarness(language: AppLanguage) {
 
   /* ── IPC event subscription ────────────────────────────────────────── */
   useEffect(() => {
-    const unsubscribe = window.electronAPI.onAgentEvent((payload) => {
-      applyAgentEvent(payload);
+    const unsubscribe = window.electronAPI.onAgentEvent((payload: unknown) => {
+      applyAgentEvent(payload as AgentEvent);
     });
     return () => unsubscribe?.();
   }, []);
 
-  function applyTraceFallback(trace: any[] | undefined, eventCursor: any) {
+  function applyTraceFallback(trace: unknown[] | undefined, eventCursor: AgentEvent | null) {
     if (!Array.isArray(trace) || trace.length === 0) return;
     const ipcDelivered = latestEventRef.current !== eventCursor;
-    if (!ipcDelivered) trace.forEach((payload) => applyAgentEvent(payload));
+    if (!ipcDelivered) trace.forEach((payload) => applyAgentEvent(payload as AgentEvent));
   }
 
   /* ── Public actions ────────────────────────────────────────────────── */
@@ -381,7 +407,7 @@ export function useAgentHarness(language: AppLanguage) {
 
       if (Array.isArray(runResult?.events) && runResult.events.length > 0) {
         const ipcDelivered = latestEventRef.current !== eventCursor;
-        if (!ipcDelivered) runResult.events.forEach((payload: any) => applyAgentEvent(payload));
+        if (!ipcDelivered) runResult.events.forEach((payload: unknown) => applyAgentEvent(payload as AgentEvent));
       }
 
       if (assistantMessageCountRef.current === assistantCountBeforeRun) {

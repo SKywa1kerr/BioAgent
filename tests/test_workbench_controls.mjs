@@ -5,7 +5,7 @@ import {
   writeControls,
   DEFAULT_CONTROLS,
   CONTROLS_STORAGE_KEY,
-} from "../src/hooks/useWorkbenchControls.js";
+} from "../src/hooks/workbenchControlsStore.js";
 
 function makeStore() {
   const data = new Map();
