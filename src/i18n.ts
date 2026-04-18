@@ -222,6 +222,16 @@ const zh: Dict = {
   "palette.cmd.exportPdf": "导出当前结果为 PDF",
   "palette.cmd.clearFilters": "清除工作台筛选",
   "chat.openPalette": "打开命令面板 (Ctrl+K)",
+  "onboarding.step": "{current}/{total}",
+  "onboarding.skip": "跳过",
+  "onboarding.next": "下一步",
+  "onboarding.done": "完成",
+  "onboarding.step1.title": "配置智能体",
+  "onboarding.step1.body": "点击齿轮图标填写 API key。支持 OpenAI 兼容接口。",
+  "onboarding.step2.title": "输入分析请求",
+  "onboarding.step2.body": "在左侧聊天框输入请求，例如：分析 pro 数据集。",
+  "onboarding.step3.title": "查看与导出结果",
+  "onboarding.step3.body": "结果在右侧工作台；按 Ctrl+K 打开命令面板可一键导出 CSV/JSON/PDF。",
 };
 
 const en: Dict = {
@@ -444,6 +454,16 @@ const en: Dict = {
   "palette.cmd.exportPdf": "Export current results as PDF",
   "palette.cmd.clearFilters": "Clear workbench filters",
   "chat.openPalette": "Open command palette (Ctrl+K)",
+  "onboarding.step": "{current}/{total}",
+  "onboarding.skip": "Skip",
+  "onboarding.next": "Next",
+  "onboarding.done": "Done",
+  "onboarding.step1.title": "Configure the agent",
+  "onboarding.step1.body": "Click the gear icon to enter your API key. Any OpenAI-compatible endpoint works.",
+  "onboarding.step2.title": "Send an analysis request",
+  "onboarding.step2.body": "Type a request in the chat on the left, e.g. \"analyze pro dataset\".",
+  "onboarding.step3.title": "Review and export results",
+  "onboarding.step3.body": "Results appear on the right; press Ctrl+K to open the command palette and export CSV/JSON/PDF.",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

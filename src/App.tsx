@@ -4,11 +4,13 @@ import { ChatPanel } from "./components/ChatPanel";
 import { SettingsModal } from "./components/SettingsModal";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
+import { OnboardingCoach } from "./components/OnboardingCoach";
 import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
 import { useAgentHarness } from "./hooks/useAgentHarness";
+import { useOnboarding } from "./hooks/useOnboarding";
 import { registerCommand } from "./lib/commands/registry";
 import { loadSettings, saveSettings, type AgentSettings } from "./lib/settingsStorage";
 import { t, type AppLanguage } from "./i18n";
@@ -33,6 +35,7 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [prefillText, setPrefillText] = useState<string | null>(null);
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const onboarding = useOnboarding();
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -385,6 +388,10 @@ export function App() {
         onClose={() => setPaletteOpen(false)}
         language={language}
       />
+
+      {!onboarding.complete && !settingsOpen && !paletteOpen ? (
+        <OnboardingCoach language={language} onDismiss={onboarding.finish} />
+      ) : null}
     </div>
   );
 }
