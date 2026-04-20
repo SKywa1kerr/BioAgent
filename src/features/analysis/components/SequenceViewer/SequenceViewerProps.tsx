@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useCallback } from "react";
-import { ChromatogramData } from "../../types";
+import { ChromatogramData } from "../../../../shared/types";
 import { ChromatogramWorkerView } from "../Chromatogram/ChromatogramWorkerView";
 import { buildCoordinateMap, buildHighlights, findMismatchPositions } from "../../utils/coordinates";
 import "./SequenceViewer.css";

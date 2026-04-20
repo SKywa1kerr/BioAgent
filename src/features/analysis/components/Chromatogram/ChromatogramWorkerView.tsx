@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, memo } from "react";
-import { ChromatogramData } from "../../types";
+import { ChromatogramData } from "../../../../shared/types";
 
 interface ChromatogramWorkerViewProps {
   data: ChromatogramData;

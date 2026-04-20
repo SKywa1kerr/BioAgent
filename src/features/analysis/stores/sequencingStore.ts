@@ -6,12 +6,12 @@ import {
   SequencingAnalysis,
   Alignment,
   Mutation,
+  CoordinateMap,
 } from "../types/sequencing";
 import { buildCoordinateMap } from "../utils/coordinates";
-import type { CoordinateMap } from "../types/sequencing";
 
 // Legacy Sample type for migration
-import { Sample } from "../types";
+import type { Sample } from "../../../shared/types";
 
 interface SequencingState {
   // Entities (normalized)
