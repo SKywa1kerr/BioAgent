@@ -83,7 +83,7 @@ export const useSequencingStore = create<SequencingState>()(
         const run: SequencingRun = {
           id: sample.id,
           name: sample.name,
-          ab1Path: sample.ab1Path,
+          ab1Path: sample.ab1Path || "",
           clone: sample.clone,
           raw: {
             traces: {
