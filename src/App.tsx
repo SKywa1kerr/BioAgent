@@ -9,14 +9,13 @@ import {
   Sample,
   type DatasetImportState,
 } from "./types";
-import { t } from "./i18n";
-import { TabLayout } from "./components/TabLayout";
-import { AgentPanel } from "./components/AgentPanel";
-import { HistoryPage } from "./components/HistoryPage";
-import { SettingsPage } from "./components/SettingsPage";
+import { t, TabLayout } from "./features/settings";
+import { AgentPanel } from "./features/agent";
+import { HistoryPage } from "./features/history";
+import { SettingsPage } from "./features/settings";
 import { ResultsWorkbench } from "./components/ResultsWorkbench";
-import { resolveDatasetPaths } from "./utils/datasetImport";
-import { DEFAULT_ANALYSIS_DECISION_MODE, isAiReviewEnabled, validateAiReviewSettings } from "./utils/analysisPreferences";
+import { resolveDatasetPaths } from "./features/settings/utils/datasetImport";
+import { DEFAULT_ANALYSIS_DECISION_MODE, isAiReviewEnabled, validateAiReviewSettings } from "./features/settings/utils/analysisPreferences";
 import { getDefaultSelectedSampleId } from "./utils/resultSelection";
 import "./App.css";
 const { invoke, onAnalysisProgress } = window.electronAPI;
