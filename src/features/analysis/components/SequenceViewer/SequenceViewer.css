@@ -1,0 +1,371 @@
+.sequence-viewer.horizontal {
+  --base-width: 7.2px;
+  --gutter-width: 100px;
+  font-family: "Monaco", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  background: #ffffff;
+  color: #222;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0;
+  user-select: text;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Pre-formatted sequence text for performance */
+.sequence-text {
+  position: relative;
+}
+
+/* Force consistent character width across all sequence elements */
+.sequence-pre,
+.aa-pre,
+.match-pre,
+.position-pre,
+.tick-pre {
+  margin: 0;
+  padding: 0;
+  font-family: "Monaco", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+
+.sequence-pre {
+  color: #222;
+}
+
+.match-pre {
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.position-pre {
+  color: #999;
+  font-size: 9px;
+}
+
+.tick-pre {
+  color: #aaa;
+  font-size: 9px;
+  opacity: 0.5;
+}
+
+/* Navigate errors button - fixed at right edge of visible window */
+.navigate-errors-btn {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1000;
+  background: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.4);
+  white-space: nowrap;
+  height: 24px;
+  line-height: 16px;
+}
+
+.navigate-errors-btn:hover {
+  background: #b91c1c;
+}
+
+.navigate-errors-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.sequence-container {
+  position: relative;
+  padding: 20px 0;
+  min-height: 100%;
+}
+
+/* ─── Common row layout ─── */
+.strand-row,
+.aa-row,
+.position-row,
+.trace-row {
+  display: flex;
+  align-items: center;
+  line-height: 1.5;
+  white-space: pre;
+  min-height: 20px;
+}
+
+.row-content {
+  position: relative;
+  display: flex;
+  flex: 1;
+}
+
+.sticky-gutter {
+  position: sticky;
+  left: 0;
+  width: var(--gutter-width);
+  background: #f8f8f8;
+  z-index: 5;
+  flex-shrink: 0;
+  text-align: right;
+  padding-right: 10px;
+  color: #666;
+  font-size: 10px;
+  font-weight: bold;
+  border-right: 1px solid #ddd;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+}
+
+/* ─── Bases ─── */
+.base-char {
+  width: var(--base-width);
+  text-align: center;
+  font-weight: 400;
+  display: inline-block;
+}
+
+/* ─── Tick marks ─── */
+.tick-row {
+  line-height: 1.0;
+  opacity: 0.5;
+  min-height: 12px;
+}
+
+.tick-major,
+.tick-minor {
+  width: var(--base-width);
+  text-align: center;
+  color: #aaa;
+  font-size: 9px;
+}
+
+/* ─── Amino acids ─── */
+.aa-row {
+  margin-top: 8px;
+}
+
+.aa-bases {
+  min-height: 18px;
+  position: relative;
+}
+
+.aa-pre {
+  color: #555;
+}
+
+.aa-pre.mutation-highlight {
+  color: #e33;
+  font-weight: 700;
+}
+
+/* Highlight mutated amino acids with background color instead of font-weight change */
+.aa-mutation-highlight {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: rgba(254, 202, 202, 0.5);
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Position numbers ─── */
+.position-row {
+  min-height: 15px;
+}
+
+.pos-mark {
+  width: var(--base-width);
+  text-align: center;
+  font-size: 9px;
+  color: #999;
+  position: relative;
+}
+
+.pos-spacer {
+  width: var(--base-width);
+}
+
+/* ─── Chromatogram trace ─── */
+.trace-row {
+  margin: 15px 0;
+  min-height: 120px;
+}
+
+.trace-canvas-full,
+.trace-canvas-worker {
+  display: block;
+  background: #fff;
+}
+
+/* ─── Alignment block (SnapGene style) ─── */
+.alignment-block {
+  margin: 15px 0;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ref-line {
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 6px 0;
+  line-height: 1.8;
+}
+
+.query-row {
+  background: #f0f9ff;
+  padding: 8px 0;
+  line-height: 1.8;
+}
+
+.cds-highlight-bg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background-color: rgba(254, 243, 199, 0.5); /* Light amber/yellow */
+  border-left: 1px solid #f59e0b;
+  border-right: 1px solid #f59e0b;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.base-char.in-cds {
+  position: relative;
+  z-index: 1;
+}
+
+.match-indicators {
+  height: 16px;
+  line-height: 16px;
+  background: #fff;
+  padding: 2px 0;
+}
+
+.match-char {
+  width: var(--base-width);
+  text-align: center;
+  display: inline-block;
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+/* Mismatch highlighting in Ref line */
+.base-char.mismatch-ref {
+  color: #dc2626 !important;
+  font-weight: 700;
+  background: #fee2e2;
+}
+
+.base-char.mutation-ref {
+  color: #991b1b !important;
+  font-weight: 800;
+  background: #fecaca;
+}
+
+/* Mismatch highlighting in Query line */
+.base-char.mismatch {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  border-radius: 2px;
+}
+
+.base-char.mutation {
+  background: #b91c1c !important;
+  color: #ffffff !important;
+  font-weight: 800;
+  border-radius: 2px;
+}
+
+/* Ensure gaps are visible and styled */
+.base-char[data-base="-"] {
+  color: #94a3b8 !important;
+  font-weight: bold;
+}
+
+.query-row .base-char[data-base="-"].mismatch {
+  background: #fca5a5 !important;
+  color: #7f1d1d !important;
+}
+
+/* DNA mutation highlighting - red text for bases within mutated codons */
+.sequence-pre .dna-mutation {
+  color: #dc2626 !important;
+  font-weight: 700;
+  background: #fee2e2;
+  border-radius: 2px;
+}
+
+/* ─── Hover Tooltip ─── */
+.hover-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: translateX(-50%);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.hover-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -5px;
+  border-width: 5px;
+  border-style: solid;
+  border-color: rgba(0, 0, 0, 0.85) transparent transparent transparent;
+}
+
+.tooltip-quality {
+  font-weight: bold;
+  color: #4ade80;
+}
+
+.tooltip-base {
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+/* ─── Scrollbar styling ─── */
+.sequence-viewer::-webkit-scrollbar {
+  height: 12px;
+}
+
+.sequence-viewer::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+
+.sequence-viewer::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 6px;
+  border: 3px solid #f0f0f0;
+}
+
+.sequence-viewer::-webkit-scrollbar-thumb:hover {
+  background: #aaa;
+}

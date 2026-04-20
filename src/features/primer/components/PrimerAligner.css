@@ -1,0 +1,341 @@
+.primer-aligner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.primer-aligner-modal {
+  background: #fff;
+  border-radius: 8px;
+  width: 95%;
+  max-width: 1400px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.primer-aligner-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.primer-aligner-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #111;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.close-btn:hover {
+  background: #f3f4f6;
+  color: #111;
+}
+
+.primer-aligner-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.primer-input-section {
+  margin-bottom: 24px;
+}
+
+.primer-input-section label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #374151;
+}
+
+.primer-input-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  align-items: flex-start;
+}
+
+.primer-name-input {
+  width: 120px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: monospace;
+}
+
+.primer-seq-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: monospace;
+  text-transform: uppercase;
+}
+
+.remove-primer-btn {
+  background: #fee2e2;
+  border: none;
+  color: #dc2626;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.remove-primer-btn:hover {
+  background: #fecaca;
+}
+
+.add-primer-btn {
+  background: #f3f4f6;
+  border: 1px dashed #d1d5db;
+  color: #374151;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.add-primer-btn:hover {
+  background: #e5e7eb;
+}
+
+.align-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 16px;
+}
+
+.align-btn:hover {
+  background: #1d4ed8;
+}
+
+.align-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Visualization Section */
+.primer-visualization {
+  margin-top: 24px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 24px;
+}
+
+.primer-visualization h4 {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  color: #111;
+}
+
+/* Sequence alignment display - similar to SequenceViewer */
+.alignment-display {
+  position: relative;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px;
+  overflow-x: auto;
+  font-family: "Monaco", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.alignment-row {
+  display: flex;
+  align-items: center;
+  white-space: pre;
+  min-height: 22px;
+}
+
+.alignment-label {
+  width: 100px;
+  text-align: right;
+  padding-right: 12px;
+  color: #666;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.alignment-sequence {
+  position: relative;
+  display: flex;
+  letter-spacing: 0;
+}
+
+.alignment-base {
+  width: 7.2px;
+  text-align: center;
+  display: inline-block;
+}
+
+/* Primer specific styling */
+.primer-row .alignment-label {
+  color: #7c3aed;
+}
+
+.primer-row.forward .alignment-label::after {
+  content: " →";
+  color: #dc2626;
+}
+
+.primer-row.reverse .alignment-label::after {
+  content: " ←";
+  color: #2563eb;
+}
+
+/* Mismatch highlighting */
+.alignment-base.mismatch {
+  color: #dc2626;
+  font-weight: 700;
+  background: rgba(254, 202, 202, 0.5);
+  border-radius: 2px;
+}
+
+/* Gene sequence styling */
+.gene-row .alignment-base {
+  color: #374151;
+}
+
+/* Position ruler */
+.position-row {
+  margin-top: 8px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 8px;
+}
+
+.position-row .alignment-label {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.position-row .alignment-base {
+  color: #9ca3af;
+  font-size: 10px;
+}
+
+.position-row .tick-major {
+  color: #6b7280;
+}
+
+/* Primer info box */
+.primer-info-box {
+  display: flex;
+  gap: 24px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.primer-info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.primer-info-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.primer-info-value {
+  color: #111;
+  font-weight: 600;
+}
+
+.primer-info-value.tm {
+  color: #7c3aed;
+  font-size: 14px;
+}
+
+.primer-info-value.direction-forward {
+  color: #dc2626;
+}
+
+.primer-info-value.direction-reverse {
+  color: #2563eb;
+}
+
+/* Error message */
+.error-message {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 12px;
+  border-radius: 4px;
+  margin-top: 16px;
+}
+
+/* No results message */
+.no-alignments {
+  text-align: center;
+  color: #6b7280;
+  padding: 40px;
+}
+
+/* Multiple primers spacing */
+.primer-alignment-block {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.primer-alignment-block:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.primer-alignment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.primer-alignment-header h5 {
+  margin: 0;
+  font-size: 14px;
+  color: #374151;
+}
+
+.primer-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #6b7280;
+}
