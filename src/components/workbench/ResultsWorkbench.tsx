@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { WorkbenchSample } from "./types";
 import { ResultsCharts } from "./ResultsCharts";
 import { ResultsSummary } from "./ResultsSummary";
 import { ResultsTable } from "./ResultsTable";
+import { DetailDrawer } from "./DetailDrawer";
 import { ExportMenu } from "./ExportMenu";
 import { buildResultsView, bucketSampleStatus } from "./utils";
 import { useWorkbenchControls } from "../../hooks/useWorkbenchControls";
@@ -22,10 +23,23 @@ export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenc
   const { controls, setStatusFilter, setSearchQuery, setSortKey, setSummaryScope, reset } = useWorkbenchControls();
   const { statusFilter, searchQuery, sortKey, summaryScope } = controls;
 
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [density, setDensity] = useState<"compact" | "detailed">("compact");
+
   const visibleSamples = useMemo(
     () => buildResultsView(samples, { statusFilter, searchQuery, sortKey }),
     [samples, statusFilter, searchQuery, sortKey],
   );
+
+  const selectedSample = selectedId
+    ? visibleSamples.find((s) => s.id === selectedId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedId && !visibleSamples.some((s) => s.id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [visibleSamples, selectedId]);
 
   const summarySource = summaryScope === "filtered" ? visibleSamples : samples;
 
@@ -165,14 +179,34 @@ export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenc
               {t(language, "wb.clear")}
             </button>
           ) : null}
+          <div className="results-density-toggle" role="group" aria-label={t(language, "wb.density.detailed")}>
+            {(["compact", "detailed"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`results-filter-chip${density === d ? " is-active" : ""}`}
+                onClick={() => setDensity(d)}
+              >
+                {t(language, `wb.density.${d}`)}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
       <ResultsTable
         samples={visibleSamples}
         language={language}
+        density={density}
+        selectedId={selectedId}
+        onSelect={setSelectedId}
         isFiltered={hasActiveControls}
         onClearFilters={reset}
+      />
+      <DetailDrawer
+        sample={selectedSample}
+        language={language}
+        onClose={() => setSelectedId(null)}
       />
     </section>
   );
