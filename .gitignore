@@ -5,5 +5,12 @@ outputs/
 data/
 node_modules/
 dist/
+dist-python/
 release/
 .claude/
+.superpowers/
+
+# Local scratch / archive — not part of the app
+.tmp_*.txt
+temp_assistant_tool/
+temp_assistant_tool.zip

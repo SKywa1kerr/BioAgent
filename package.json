@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"vite\" \"electron .\"",
     "electron:build": "npm run build && electron-builder",
-    "build:all": "npm run electron:build"
+    "build:all": "npm run electron:build",
+    "test:js": "node --test \"tests/test_*.mjs\"",
+    "test:py": "pytest tests",
+    "test": "npm run test:js && npm run test:py"
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.24",
