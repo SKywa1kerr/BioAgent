@@ -22,6 +22,10 @@ function compareText(a: string, b: string) {
 }
 
 export function bucketSampleStatus(sample: WorkbenchSample): WorkbenchStatus {
+  if (sample.bucket === "ok" || sample.bucket === "wrong"
+      || sample.bucket === "uncertain" || sample.bucket === "untested") {
+    return sample.bucket;
+  }
   if (sample.reason === UNTESTED_REASON) return "untested";
   if (sample.status === "ok" || sample.status === "wrong") return sample.status;
   return "uncertain";

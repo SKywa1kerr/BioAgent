@@ -40,6 +40,32 @@ def is_edge_ignored(pos, cds_start, cds_end) -> bool:
     return (pos - cds_start) < EDGE_IGNORE_BP or (cds_end - pos) < EDGE_IGNORE_BP
 
 
+def decide_bucket(cds_coverage: float,
+                  avg_qry_quality,
+                  frameshift: bool,
+                  aa_changes: list,
+                  mutations: list,
+                  has_single_read: bool,
+                  cds_start=None,
+                  cds_end=None) -> str:
+    q = avg_qry_quality if avg_qry_quality is not None else 0.0
+    if cds_coverage < COVERAGE_UNTESTED or q < QUALITY_UNTESTED:
+        return "untested"
+    if aa_changes or frameshift:
+        return "wrong"
+    if has_single_read or cds_coverage < COVERAGE_OK or q < QUALITY_UNCERTAIN:
+        return "uncertain"
+    hard_subs = [
+        m for m in mutations
+        if m.get("type") == "substitution"
+        and m.get("effect") not in ("synonymous", "single_read")
+        and not is_edge_ignored(m.get("position"), cds_start, cds_end)
+    ]
+    if len(hard_subs) >= 2:
+        return "wrong"
+    return "ok"
+
+
 # ── Utilities ────────────────────────────────────────────────────────────────
 
 def safe_write_csv(df: pd.DataFrame, path: Path) -> Path:
@@ -946,6 +972,16 @@ def analyze_dataset(dataset: str, data_dir: Path,
         if len(entries) == 1:
             best = dict(entries[0])
             best.pop("_cds_positions", None)
+            best["bucket"] = decide_bucket(
+                cds_coverage=best.get("cds_coverage") or 0.0,
+                avg_qry_quality=best.get("avg_qry_quality"),
+                frameshift=bool(best.get("frameshift")),
+                aa_changes=best.get("aa_changes") or [],
+                mutations=best.get("mutations") or [],
+                has_single_read=False,
+                cds_start=best.get("cds_start"),
+                cds_end=best.get("cds_end"),
+            )
             results.append(best)
         else:
             # Pick best by identity; record info about other reads
@@ -1000,7 +1036,20 @@ def analyze_dataset(dataset: str, data_dir: Path,
                         # Best read is incomplete; other reads provide new info
                         best["other_read_issues"] = other_issues
 
+            has_single_read = any(
+                m.get("effect") == "single_read" for m in best.get("mutations", [])
+            )
             best.pop("_cds_positions", None)
+            best["bucket"] = decide_bucket(
+                cds_coverage=best.get("cds_coverage") or 0.0,
+                avg_qry_quality=best.get("avg_qry_quality"),
+                frameshift=bool(best.get("frameshift")),
+                aa_changes=best.get("aa_changes") or [],
+                mutations=best.get("mutations") or [],
+                has_single_read=has_single_read,
+                cds_start=best.get("cds_start"),
+                cds_end=best.get("cds_end"),
+            )
             results.append(best)
 
     return results

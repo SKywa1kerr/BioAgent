@@ -2,6 +2,7 @@ from core.alignment import (
     is_edge_ignored,
     label_synonymous_mutations,
     apply_dual_read_consensus,
+    decide_bucket,
 )
 
 
@@ -116,3 +117,52 @@ def test_mutation_uncovered_by_other_read_not_demoted():
     }
     merged = apply_dual_read_consensus(best, [other])
     assert merged["mutations"][0]["effect"] == ""
+
+
+def test_bucket_untested_when_coverage_below_threshold():
+    assert decide_bucket(
+        cds_coverage=0.3, avg_qry_quality=30.0, frameshift=False,
+        aa_changes=[], mutations=[], has_single_read=False,
+    ) == "untested"
+
+
+def test_bucket_untested_when_avg_quality_very_low():
+    assert decide_bucket(
+        cds_coverage=0.9, avg_qry_quality=10.0, frameshift=False,
+        aa_changes=[], mutations=[], has_single_read=False,
+    ) == "untested"
+
+
+def test_bucket_wrong_when_aa_changes_present():
+    assert decide_bucket(
+        cds_coverage=0.95, avg_qry_quality=35.0, frameshift=False,
+        aa_changes=["K171M"], mutations=[], has_single_read=False,
+    ) == "wrong"
+
+
+def test_bucket_wrong_when_frameshift():
+    assert decide_bucket(
+        cds_coverage=0.95, avg_qry_quality=35.0, frameshift=True,
+        aa_changes=[], mutations=[], has_single_read=False,
+    ) == "wrong"
+
+
+def test_bucket_uncertain_when_single_read_mutations_present():
+    assert decide_bucket(
+        cds_coverage=0.95, avg_qry_quality=35.0, frameshift=False,
+        aa_changes=[], mutations=[], has_single_read=True,
+    ) == "uncertain"
+
+
+def test_bucket_uncertain_for_mid_coverage():
+    assert decide_bucket(
+        cds_coverage=0.6, avg_qry_quality=35.0, frameshift=False,
+        aa_changes=[], mutations=[], has_single_read=False,
+    ) == "uncertain"
+
+
+def test_bucket_ok_for_clean_sample():
+    assert decide_bucket(
+        cds_coverage=0.95, avg_qry_quality=35.0, frameshift=False,
+        aa_changes=[], mutations=[], has_single_read=False,
+    ) == "ok"

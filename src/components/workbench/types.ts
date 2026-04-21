@@ -60,6 +60,7 @@ export interface WorkbenchSample {
   quality?: number[];
   base_locations?: number[];
   mixed_peaks?: number[];
+  bucket?: "ok" | "wrong" | "uncertain" | "untested";
 }
 
 export type WorkbenchStatus = "ok" | "wrong" | "uncertain" | "untested";
