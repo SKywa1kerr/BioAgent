@@ -350,6 +350,53 @@ def translate_codon(codon: str):
     return STD_TABLE.forward_table.get(codon, "X")
 
 
+def label_synonymous_mutations(mutations: list[dict],
+                               ref_seq: str,
+                               cds_start,
+                               cds_end,
+                               cds_positions: dict) -> list[dict]:
+    """For each substitution inside CDS, translate ref and query codons and
+    tag effect='synonymous' when the AA does not change. Non-substitutions
+    and out-of-CDS subs pass through unchanged.
+
+    cds_positions: {ref_pos (1-based) -> query_base} built by
+                   compute_cds_covered_positions.
+    """
+    if cds_start is None or cds_end is None:
+        return mutations
+
+    out: list[dict] = []
+    for mut in mutations:
+        if mut.get("type") != "substitution":
+            out.append(mut)
+            continue
+        pos = mut.get("position")
+        if pos is None or pos < cds_start or pos > cds_end:
+            out.append(mut)
+            continue
+        codon_idx = (pos - cds_start) // 3
+        frame_start = cds_start + codon_idx * 3
+        if frame_start + 2 > cds_end:
+            out.append(mut)
+            continue
+        # ref_seq is 0-indexed; ref positions are 1-based
+        ref_codon = ref_seq[frame_start - 1:frame_start + 2]
+        qry_codon_chars = []
+        for p in range(frame_start, frame_start + 3):
+            if p == pos:
+                qry_codon_chars.append(mut.get("queryBase") or "N")
+            else:
+                qry_codon_chars.append(cds_positions.get(p, ref_seq[p - 1]))
+        qry_codon = "".join(qry_codon_chars)
+        ref_aa = translate_codon(ref_codon)
+        qry_aa = translate_codon(qry_codon)
+        mut_copy = dict(mut)
+        if ref_aa is not None and qry_aa is not None and ref_aa == qry_aa:
+            mut_copy["effect"] = "synonymous"
+        out.append(mut_copy)
+    return out
+
+
 def aa_changes_from_cds(ref_seq: str, ref_len: int,
                         cds_start: int, cds_end: int,
                         ref_g: str, qry_g: str,
@@ -704,6 +751,10 @@ def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
         }
         for row in mutation_rows
     ]
+    mutations = label_synonymous_mutations(
+        mutations, ref_seq=ref_seq, cds_start=cds_start, cds_end=cds_end,
+        cds_positions=cds_positions,
+    )
 
     if ref2_s < ref_len and ref2_e <= ref_len:
         padding_left = ref2_s
