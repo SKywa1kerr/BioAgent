@@ -112,3 +112,12 @@
   padding: 8px;
   font-size: 13px;
 }
+
+.detail-drawer-resize {
+  position: absolute;
+  left: -4px;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+}

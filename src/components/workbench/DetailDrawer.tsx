@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import type { WorkbenchSample } from "./types";
 import { bucketSampleStatus, formatPercent } from "./utils";
 import type { AppLanguage } from "../../i18n";
@@ -9,6 +9,17 @@ const ChromatogramCanvas = lazy(async () => {
   const mod = await import("./ChromatogramCanvas");
   return { default: mod.ChromatogramCanvas };
 });
+
+const STORAGE_KEY = "bioagent.drawer.width.v1";
+
+function loadWidth(): number {
+  try {
+    const v = parseInt(localStorage.getItem(STORAGE_KEY) || "", 10);
+    return Number.isFinite(v) && v >= 320 && v <= 900 ? v : 480;
+  } catch {
+    return 480;
+  }
+}
 
 interface Props {
   sample: WorkbenchSample | null;
@@ -53,6 +64,15 @@ function chromatogramFrom(sample: WorkbenchSample) {
 
 export function DetailDrawer({ sample, language, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const [width, setWidth] = useState<number>(loadWidth);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(width));
+    } catch {
+      // ignore quota / disabled storage
+    }
+  }, [width]);
 
   useEffect(() => {
     if (!sample) return;
@@ -64,6 +84,21 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [sample, onClose]);
 
+  function startDrag(e: React.MouseEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = width;
+    function onMove(ev: MouseEvent) {
+      setWidth(Math.max(320, Math.min(900, startW + (startX - ev.clientX))));
+    }
+    function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
   if (!sample) return null;
   const bucket = bucketSampleStatus(sample);
   const aa = parseAa(sample.aa_changes);
@@ -72,7 +107,8 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
   const avgQ = sample.avg_qry_quality ?? sample.avg_quality;
 
   return (
-    <aside className="detail-drawer" role="dialog" aria-modal="false" aria-label={sample.id}>
+    <aside className="detail-drawer" role="dialog" aria-modal="false" aria-label={sample.id} style={{ width }}>
+      <div className="detail-drawer-resize" onMouseDown={startDrag} aria-hidden="true" />
       <header className="detail-drawer-head">
         <span className="detail-drawer-sid">{sample.id}</span>
         <span className={`detail-drawer-status status-${bucket}`}>
