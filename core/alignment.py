@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 """
@@ -8,6 +8,7 @@ Merged and simplified from scripts/gb_ab1_mutations.py and scripts/gb_ab1_agent_
 """
 
 import re
+import sys
 from pathlib import Path
 from datetime import datetime
 
@@ -28,7 +29,7 @@ def safe_write_csv(df: pd.DataFrame, path: Path) -> Path:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         alt = path.with_name(path.stem + f"_{stamp}" + path.suffix)
         df.to_csv(alt, index=False)
-        print(f"[WARN] Permission denied writing {path.name}. Saved as {alt.name}.")
+        print(f"[WARN] Permission denied writing {path.name}. Saved as {alt.name}.", file=sys.stderr)
         return alt
 
 
@@ -101,34 +102,112 @@ def trim_ab1_by_quality(seq: str, qual: list[int], qmin=20, min_len=80):
     return seq, qual
 
 
-def read_ab1_sequence(ab1_path: Path, do_trim=True, qmin=20, min_len=80):
-    """Read AB1 file and return (trimmed_seq, trimmed_qual) tuple."""
+def _extract_ab1_traces(rec):
+    raw = rec.annotations.get("abif_raw", {})
+
+    def _as_list(tag):
+        return list(raw.get(tag, []))
+
+    fwo = raw.get("FWO_1", b"GATC")
+    if isinstance(fwo, bytes):
+        try:
+            fwo = fwo.decode("utf-8")
+        except Exception:
+            fwo = "GATC"
+
+    traces = {"A": [], "T": [], "G": [], "C": []}
+    for idx, base in enumerate(str(fwo)[:4]):
+        values = _as_list(f"DATA{idx + 1}")
+        if base.upper() in traces and values:
+            traces[base.upper()] = values
+
+    if not traces["A"] and raw.get("DATA9"):
+        traces = {
+            "G": _as_list("DATA9"),
+            "A": _as_list("DATA10"),
+            "T": _as_list("DATA11"),
+            "C": _as_list("DATA12"),
+        }
+
+    base_locations = list(raw.get("PLOC1", []))
+    return traces, base_locations
+
+
+def read_ab1_payload(ab1_path: Path, do_trim=True, qmin=20, min_len=80):
+    """Read AB1 and return trimmed sequence, quality and chromatogram payload."""
     rec = SeqIO.read(str(ab1_path), "abi")
     raw_seq = str(rec.seq).upper()
     raw_qual = list(rec.letter_annotations.get("phred_quality", []))
+    traces, raw_base_locations = _extract_ab1_traces(rec)
 
-    # Strip leading/trailing N from raw sequence, sync quality array
+    start = 0
+    end = len(raw_seq)
+
     lstrip = len(raw_seq) - len(raw_seq.lstrip("N"))
     rstrip = len(raw_seq) - len(raw_seq.rstrip("N"))
+    start += lstrip
     if rstrip > 0:
-        seq = raw_seq[lstrip:-rstrip]
-        qual = raw_qual[lstrip:-rstrip] if raw_qual else []
-    else:
-        seq = raw_seq[lstrip:]
-        qual = raw_qual[lstrip:] if raw_qual else []
+        end -= rstrip
 
-    if do_trim and qual:
-        seq, qual = trim_ab1_by_quality(seq, qual, qmin=qmin, min_len=min_len)
-        # Strip N again after trimming
+    seq = raw_seq[start:end]
+    qual = raw_qual[start:end] if raw_qual else []
+
+    if do_trim and qual and len(qual) == len(seq):
+        good = [1 if q >= qmin else 0 for q in qual]
+        best_l, best_r = 0, -1
+        cur_l = None
+        for i, g in enumerate(good):
+            if g and cur_l is None:
+                cur_l = i
+            if (not g or i == len(good) - 1) and cur_l is not None:
+                cur_r = i if g else i - 1
+                if cur_r - cur_l + 1 > best_r - best_l + 1:
+                    best_l, best_r = cur_l, cur_r
+                cur_l = None
+
+        if best_r >= best_l and (best_r - best_l + 1) >= min_len:
+            start += best_l
+            end = start + (best_r - best_l + 1)
+            seq = raw_seq[start:end]
+            qual = raw_qual[start:end]
+
         lstrip2 = len(seq) - len(seq.lstrip("N"))
         rstrip2 = len(seq) - len(seq.rstrip("N"))
-        if rstrip2 > 0:
-            seq = seq[lstrip2:-rstrip2]
-            qual = qual[lstrip2:-rstrip2]
-        else:
-            seq = seq[lstrip2:]
-            qual = qual[lstrip2:]
+        start += lstrip2
+        end = end - rstrip2 if rstrip2 > 0 else end
+        seq = raw_seq[start:end]
+        qual = raw_qual[start:end] if raw_qual else []
 
+    base_locations = raw_base_locations[start:end] if raw_base_locations else []
+
+    trace_start = 0
+    trace_end = len(traces.get("A", []))
+    if base_locations:
+        trace_start = max(0, min(base_locations) - 20)
+        trace_end = min(trace_end, max(base_locations) + 20)
+
+    def _slice_trace(values):
+        if not values:
+            return []
+        return values[trace_start:trace_end]
+
+    rel_base_locations = [loc - trace_start for loc in base_locations] if base_locations else []
+
+    chrom = {
+        "traces_a": _slice_trace(traces.get("A", [])),
+        "traces_t": _slice_trace(traces.get("T", [])),
+        "traces_g": _slice_trace(traces.get("G", [])),
+        "traces_c": _slice_trace(traces.get("C", [])),
+        "quality": qual,
+        "base_locations": rel_base_locations,
+        "mixed_peaks": [],
+    }
+
+    return seq, qual, chrom
+
+
+def read_ab1_sequence(ab1_path: Path, do_trim=True, qmin=20, min_len=80):
+    seq, qual, _chrom = read_ab1_payload(ab1_path, do_trim=do_trim, qmin=qmin, min_len=min_len)
     return seq, qual
 
 
@@ -565,14 +644,12 @@ def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
     ab1_name = ab1_path.name
     sid = sample_id_from_ab1name(clone, ab1_name)
 
-    qry_raw, qry_qual = read_ab1_sequence(ab1_path, do_trim=do_trim, qmin=qmin, min_len=min_len)
+    qry_raw, qry_qual, chrom = read_ab1_payload(ab1_path, do_trim=do_trim, qmin=qmin, min_len=min_len)
     if len(qry_raw) < 30:
         return None
 
-    orientation, best_aln, ref_g, qry_g, ref2_s, ref2_e, qry_used = \
-        pick_best_orientation(ref2, qry_raw, aligner)
+    orientation, best_aln, ref_g, qry_g, ref2_s, ref2_e, qry_used =         pick_best_orientation(ref2, qry_raw, aligner)
 
-    # For REVERSE orientation, the quality array must be reversed to match qry_used (RC)
     if orientation == "REVERSE" and qry_qual:
         qry_qual_used = list(reversed(qry_qual))
     else:
@@ -583,7 +660,6 @@ def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
     cds_cov = compute_cds_coverage(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end)
     frameshift = detect_frameshift(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end)
 
-    # Get query alignment start position from alignment coordinates
     qry_aln_start = int(best_aln.coordinates[1][0])
 
     ok, changes, has_indel, raw_aa_changes_n = aa_changes_from_cds(
@@ -593,15 +669,50 @@ def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
         qry_qual=qry_qual_used, qry_aln_start=qry_aln_start,
     )
 
-    # Compute quality metrics
     avg_qry_quality = round(sum(qry_qual) / len(qry_qual), 1) if qry_qual else None
+    cds_positions = compute_cds_covered_positions(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end)
 
-    # Compute CDS covered positions for multi-read merging
-    cds_positions = compute_cds_covered_positions(
-        ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end
-    )
+    mutation_rows = extract_mutations(ref_g, qry_g, ref2_s, ref_len)
+    mutations = [
+        {
+            "position": row.get("ref_pos"),
+            "refBase": row.get("ref_base"),
+            "queryBase": row.get("qry_base"),
+            "type": str(row.get("type", "")).lower(),
+            "effect": "",
+        }
+        for row in mutation_rows
+    ]
 
-    # HTML output
+    if ref2_s < ref_len and ref2_e <= ref_len:
+        padding_left = ref2_s
+        padding_right = ref_len - ref2_e
+        full_ref_g = ref_seq[:padding_left] + ref_g + ref_seq[ref2_e:]
+        full_qry_g = "-" * padding_left + qry_g + "-" * padding_right
+        match_flags = [True] * padding_left
+        for a, b in zip(ref_g, qry_g):
+            if a != "-" and b != "-":
+                match_flags.append(a.upper() == b.upper())
+            else:
+                match_flags.append(False)
+        match_flags.extend([True] * padding_right)
+    else:
+        full_ref_g = ref_g
+        full_qry_g = qry_g
+        match_flags = [a.upper() == b.upper() if a != "-" and b != "-" else False for a, b in zip(full_ref_g, full_qry_g)]
+
+    if orientation == "REVERSE":
+        for key in ("traces_a", "traces_t", "traces_g", "traces_c"):
+            chrom[key] = list(reversed(chrom.get(key, [])))
+        if chrom.get("base_locations"):
+            trace_len = len(chrom.get("traces_a", []))
+            chrom["base_locations"] = [trace_len - 1 - x for x in reversed(chrom["base_locations"])]
+        if chrom.get("quality"):
+            chrom["quality"] = list(reversed(chrom["quality"]))
+        if chrom.get("mixed_peaks"):
+            qlen = len(chrom.get("quality", []))
+            chrom["mixed_peaks"] = [qlen - 1 - x for x in reversed(chrom["mixed_peaks"]) if isinstance(x, int)]
+
     if out_html_dir is not None:
         out_html_dir.mkdir(parents=True, exist_ok=True)
         html_name = f"{clone}__{ab1_path.stem}__{orientation}.html"
@@ -611,11 +722,13 @@ def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
 
     return {
         "sid": sid,
+        "id": sid,
         "clone": clone,
         "ab1": ab1_name,
         "gb": gb_path.name,
         "orientation": orientation,
         "identity": round(identity, 6),
+        "coverage": round(cds_cov, 4),
         "cds_coverage": round(cds_cov, 4),
         "frameshift": frameshift,
         "aa_changes": changes,
@@ -625,33 +738,68 @@ def analyze_sample(gb_path: Path, ab1_path: Path, aligner,
         "sub": sub,
         "ins": ins,
         "del": dele,
+        "mutations": mutations,
         "seq_length": len(qry_used),
         "ref_length": ref_len,
         "cds_start": cds_start,
         "cds_end": cds_end,
         "avg_qry_quality": avg_qry_quality,
+        "avg_quality": avg_qry_quality,
+        "ref_sequence": ref_seq,
+        "query_sequence": qry_used,
+        "aligned_ref_g": full_ref_g,
+        "aligned_query_g": full_qry_g,
+        "aligned_query": qry_used,
+        "matches": match_flags,
         "_cds_positions": cds_positions,
+        **chrom,
     }
 
+# ── Dataset analysis ────────────────────────────────────────────────────────
 
-# ── Dataset analysis ─────────────────────────────────────────────────────────
-
-DATASET_MAP = {
-    "base": {"gb": "gb", "ab1": "ab1_files"},
-    "pro": {"gb": "gb_pro", "ab1": "ab1_files_pro"},
-    "promax": {"gb": "gb_promax", "ab1": "ab1_files_promax"},
+DATASET_LAYOUTS = {
+    "base": [
+        {"gb": "base/gb", "ab1": "base/ab1"},
+        {"gb": "gb", "ab1": "ab1_files"},
+    ],
+    "pro": [
+        {"gb": "pro/gb", "ab1": "pro/ab1"},
+        {"gb": "gb_pro", "ab1": "ab1_files_pro"},
+    ],
+    "promax": [
+        {"gb": "promax/gb", "ab1": "promax/ab1"},
+        {"gb": "gb_promax", "ab1": "ab1_files_promax"},
+    ],
 }
+
+
+def resolve_dataset_dirs(dataset: str, data_dir: Path) -> tuple[Path, Path]:
+    layouts = DATASET_LAYOUTS[dataset]
+    candidates: list[tuple[Path, Path]] = []
+
+    for layout in layouts:
+        gb_dir = data_dir / Path(layout["gb"])
+        ab1_dir = data_dir / Path(layout["ab1"])
+        candidates.append((gb_dir, ab1_dir))
+
+    for gb_dir, ab1_dir in candidates:
+        if gb_dir.exists() and ab1_dir.exists():
+            return gb_dir, ab1_dir
+
+    for gb_dir, ab1_dir in candidates:
+        if gb_dir.exists() or ab1_dir.exists():
+            return gb_dir, ab1_dir
+
+    return candidates[0]
 
 
 def analyze_dataset(dataset: str, data_dir: Path,
                     out_html_dir: Path | None = None) -> list[dict]:
     """Analyze all samples in a dataset. Returns list of structured dicts."""
-    if dataset not in DATASET_MAP:
-        raise ValueError(f"Unknown dataset: {dataset}. Choose from {list(DATASET_MAP.keys())}")
+    if dataset not in DATASET_LAYOUTS:
+        raise ValueError(f"Unknown dataset: {dataset}. Choose from {list(DATASET_LAYOUTS.keys())}")
 
-    dirs = DATASET_MAP[dataset]
-    gb_dir = data_dir / dirs["gb"]
-    ab1_dir = data_dir / dirs["ab1"]
+    gb_dir, ab1_dir = resolve_dataset_dirs(dataset, data_dir)
 
     if not gb_dir.exists():
         raise FileNotFoundError(f"GB directory not found: {gb_dir}")
@@ -672,7 +820,7 @@ def analyze_dataset(dataset: str, data_dir: Path,
             continue
 
         for ab1_path in ab1_list:
-            print(f"  Analyzing {ab1_path.name} ...", end=" ", flush=True)
+            print(f"  Analyzing {ab1_path.name} ...", end=" ", flush=True, file=sys.stderr)
             result = analyze_sample(
                 gb_path=gb_path,
                 ab1_path=ab1_path,
@@ -680,9 +828,9 @@ def analyze_dataset(dataset: str, data_dir: Path,
                 out_html_dir=out_html_dir,
             )
             if result is None:
-                print("SKIP (too short)")
+                print("SKIP (too short)", file=sys.stderr)
                 continue
-            print(f"id={result['identity']:.4f}  cds_cov={result['cds_coverage']:.3f}")
+            print(f"id={result['identity']:.4f}  cds_cov={result['cds_coverage']:.3f}", file=sys.stderr)
             all_results.append(result)
 
     # Group by SID: if multiple AB1 files exist for the same SID,

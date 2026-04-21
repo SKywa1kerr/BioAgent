@@ -9,6 +9,7 @@ Supports any OpenAI-compatible API (OpenRouter, DeepSeek, Anthropic proxies, etc
 
 import os
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -108,19 +109,19 @@ def call_llm(evidence_text: str,
             err_str = str(e)
             # Fallback: merge system prompt into user message
             if "Developer instruction" in err_str or "system" in err_str.lower():
-                print(f"\n  [INFO] Model does not support system prompt, merging into user message...")
+                print(f"\n  [INFO] Model does not support system prompt, merging into user message...", file=sys.stderr)
                 use_messages = messages_no_sys
                 continue
             if ("429" in err_str or "rate" in err_str.lower()) and attempt < max_retries - 1:
                 wait = 15 * (attempt + 1)
-                print(f"\n  [WARN] Rate limited, retrying in {wait}s (attempt {attempt+1}/{max_retries})...")
+                print(f"\n  [WARN] Rate limited, retrying in {wait}s (attempt {attempt+1}/{max_retries})...", file=sys.stderr)
                 time.sleep(wait)
             else:
                 raise
-    print('-' * 50)
-    print('LLM message start:')
-    print(result)
-    print('-' * 50)
+    print('-' * 50, file=sys.stderr)
+    print('LLM message start:', file=sys.stderr)
+    print(result, file=sys.stderr)
+    print('-' * 50, file=sys.stderr)
     return result
 
 
