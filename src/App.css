@@ -20,7 +20,15 @@
 
 .app-body.feature-body {
   justify-content: center;
-  align-items: center;
+  align-items: stretch;
+  padding: 16px 24px;
+}
+
+.app-body.feature-body > * {
+  flex: 1;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* Sidebar */

@@ -1,6 +1,10 @@
 import { useState, useCallback, useMemo } from "react";
 import type { Sample, ChromatogramData } from "./shared/types";
 import { SequenceViewer } from "./features/analysis";
+import { AgentPanel } from "./features/agent";
+import { HistoryPanel } from "./features/history";
+import { PrimerPanel } from "./features/primer";
+import { SettingsPanel } from "./features/settings";
 import { keysToCamelCase } from "./shared/utils/caseConverter";
 import "./App.css";
 
@@ -169,40 +173,28 @@ function App() {
       case "agent":
         return (
           <div className="app-body feature-body">
-            <div className="feature-placeholder">
-              <h2>AI Agent</h2>
-              <p>Agent panel coming soon...</p>
-            </div>
+            <AgentPanel samples={samples} selectedSampleId={selectedId} />
           </div>
         );
 
       case "history":
         return (
           <div className="app-body feature-body">
-            <div className="feature-placeholder">
-              <h2>Analysis History</h2>
-              <p>History view coming soon...</p>
-            </div>
+            <HistoryPanel />
           </div>
         );
 
       case "settings":
         return (
           <div className="app-body feature-body">
-            <div className="feature-placeholder">
-              <h2>Settings</h2>
-              <p>Settings panel coming soon...</p>
-            </div>
+            <SettingsPanel />
           </div>
         );
 
       case "primer":
         return (
           <div className="app-body feature-body">
-            <div className="feature-placeholder">
-              <h2>Primer Design</h2>
-              <p>Primer design tool coming soon...</p>
-            </div>
+            <PrimerPanel />
           </div>
         );
 
