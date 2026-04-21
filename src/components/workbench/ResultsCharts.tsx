@@ -23,12 +23,27 @@ import "./ResultsCharts.css";
 
 type StatusBucket = "ok" | "wrong" | "uncertain" | "untested";
 
-const STATUS_COLORS: Record<StatusBucket, string> = {
-  ok: "#16a34a",
-  wrong: "#dc2626",
-  uncertain: "#d97706",
-  untested: "#64748b",
+const FALLBACK_COLORS: Record<StatusBucket, string> = {
+  ok: "#1d9c7d",
+  wrong: "#d23f5c",
+  uncertain: "#d89a2c",
+  untested: "#6a7a93",
 };
+
+function readToken(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+function readPalette(): Record<StatusBucket, string> {
+  return {
+    ok: readToken("--status-ok", FALLBACK_COLORS.ok),
+    wrong: readToken("--status-wrong", FALLBACK_COLORS.wrong),
+    uncertain: readToken("--status-uncertain", FALLBACK_COLORS.uncertain),
+    untested: readToken("--status-untested", FALLBACK_COLORS.untested),
+  };
+}
 
 const BIN_COUNT = 10;
 
@@ -106,13 +121,13 @@ function buildScatterData(samples: WorkbenchSample[]): ScatterPoint[] {
     .filter((point): point is ScatterPoint => point !== null);
 }
 
-function buildStatusSlices(samples: WorkbenchSample[]) {
+function buildStatusSlices(samples: WorkbenchSample[], palette: Record<StatusBucket, string>) {
   const counts: Record<StatusBucket, number> = { ok: 0, wrong: 0, uncertain: 0, untested: 0 };
   for (const sample of samples) counts[bucketSampleStatus(sample)] += 1;
   return (Object.keys(counts) as StatusBucket[]).map((status) => ({
     name: status,
     value: counts[status],
-    fill: STATUS_COLORS[status],
+    fill: palette[status],
   }));
 }
 
@@ -127,10 +142,17 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
 
 export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[]; language: AppLanguage }) {
   const hasSamples = samples.length > 0;
+  const themeKey = typeof document !== "undefined" ? document.documentElement.dataset.theme || "light" : "light";
+  const palette = useMemo(
+    () => readPalette(),
+    // Re-read palette when theme changes (requires a reload or data-theme flip on <html>).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [themeKey],
+  );
   const identityBins = useMemo(() => buildBins(samples, getIdentityValue), [samples]);
   const coverageBins = useMemo(() => buildBins(samples, getCoverageValue), [samples]);
   const scatterData = useMemo(() => buildScatterData(samples), [samples]);
-  const statusSlices = useMemo(() => buildStatusSlices(samples), [samples]);
+  const statusSlices = useMemo(() => buildStatusSlices(samples, palette), [samples, palette]);
 
   return (
     <section className="results-charts-panel" aria-label={t(language, "charts.title")}>
@@ -146,10 +168,10 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
                 <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11 }} angle={-35} textAnchor="end" height={56} />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="ok" stackId="status" fill={STATUS_COLORS.ok} name={t(language, "wb.status.ok")} isAnimationActive={false} />
-                <Bar dataKey="wrong" stackId="status" fill={STATUS_COLORS.wrong} name={t(language, "wb.status.wrong")} isAnimationActive={false} />
-                <Bar dataKey="uncertain" stackId="status" fill={STATUS_COLORS.uncertain} name={t(language, "wb.status.uncertain")} isAnimationActive={false} />
-                <Bar dataKey="untested" stackId="status" fill={STATUS_COLORS.untested} name={t(language, "wb.status.untested")} isAnimationActive={false} />
+                <Bar dataKey="ok" stackId="status" fill={palette.ok} name={t(language, "wb.status.ok")} isAnimationActive={false} />
+                <Bar dataKey="wrong" stackId="status" fill={palette.wrong} name={t(language, "wb.status.wrong")} isAnimationActive={false} />
+                <Bar dataKey="uncertain" stackId="status" fill={palette.uncertain} name={t(language, "wb.status.uncertain")} isAnimationActive={false} />
+                <Bar dataKey="untested" stackId="status" fill={palette.untested} name={t(language, "wb.status.untested")} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           ) : <div className="results-chart-empty">{t(language, "charts.noData")}</div>}
@@ -163,10 +185,10 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
                 <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11 }} angle={-35} textAnchor="end" height={56} />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11 }} />
                 <Tooltip />
-                <Bar dataKey="ok" stackId="status" fill={STATUS_COLORS.ok} name={t(language, "wb.status.ok")} isAnimationActive={false} />
-                <Bar dataKey="wrong" stackId="status" fill={STATUS_COLORS.wrong} name={t(language, "wb.status.wrong")} isAnimationActive={false} />
-                <Bar dataKey="uncertain" stackId="status" fill={STATUS_COLORS.uncertain} name={t(language, "wb.status.uncertain")} isAnimationActive={false} />
-                <Bar dataKey="untested" stackId="status" fill={STATUS_COLORS.untested} name={t(language, "wb.status.untested")} isAnimationActive={false} />
+                <Bar dataKey="ok" stackId="status" fill={palette.ok} name={t(language, "wb.status.ok")} isAnimationActive={false} />
+                <Bar dataKey="wrong" stackId="status" fill={palette.wrong} name={t(language, "wb.status.wrong")} isAnimationActive={false} />
+                <Bar dataKey="uncertain" stackId="status" fill={palette.uncertain} name={t(language, "wb.status.uncertain")} isAnimationActive={false} />
+                <Bar dataKey="untested" stackId="status" fill={palette.untested} name={t(language, "wb.status.untested")} isAnimationActive={false} />
               </BarChart>
             </ResponsiveContainer>
           ) : <div className="results-chart-empty">{t(language, "charts.noData")}</div>}
@@ -182,7 +204,7 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
                 <ZAxis type="number" dataKey="size" range={[40, 220]} />
                 <Tooltip />
                 <Scatter data={scatterData} >
-                  {scatterData.map((point) => (<Cell key={point.id} fill={STATUS_COLORS[point.status]} />))}
+                  {scatterData.map((point) => (<Cell key={point.id} fill={palette[point.status]} />))}
                 </Scatter>
               </ScatterChart>
             </ResponsiveContainer>
