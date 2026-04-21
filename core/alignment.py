@@ -397,6 +397,33 @@ def label_synonymous_mutations(mutations: list[dict],
     return out
 
 
+def apply_dual_read_consensus(best: dict, others: list[dict]) -> dict:
+    """For each substitution in `best`, if the same ref position is covered
+    by at least one other read with the *reference* base, demote it to
+    single_read. Mutates nothing; returns a shallow copy of `best`."""
+    best_copy = dict(best)
+    mutations = list(best_copy.get("mutations", []))
+    new_muts: list[dict] = []
+    for mut in mutations:
+        if mut.get("type") != "substitution" or mut.get("effect"):
+            new_muts.append(mut)
+            continue
+        pos = mut.get("position")
+        ref_base = (mut.get("refBase") or "").upper()
+        demote = False
+        for other in others:
+            other_base = (other.get("_cds_positions") or {}).get(pos)
+            if other_base and other_base.upper() == ref_base:
+                demote = True
+                break
+        if demote:
+            mut = dict(mut)
+            mut["effect"] = "single_read"
+        new_muts.append(mut)
+    best_copy["mutations"] = new_muts
+    return best_copy
+
+
 def aa_changes_from_cds(ref_seq: str, ref_len: int,
                         cds_start: int, cds_end: int,
                         ref_g: str, qry_g: str,
@@ -924,6 +951,7 @@ def analyze_dataset(dataset: str, data_dir: Path,
             # Pick best by identity; record info about other reads
             entries_sorted = sorted(entries, key=lambda x: x["identity"], reverse=True)
             best = dict(entries_sorted[0])  # copy
+            best = apply_dual_read_consensus(best, entries_sorted[1:])
             other_ids = [f"{e['ab1']}(id={e['identity']:.4f},cov={e['cds_coverage']:.3f})" for e in entries_sorted[1:]]
             best["other_reads"] = other_ids
             best["dual_read"] = True

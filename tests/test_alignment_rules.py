@@ -1,4 +1,8 @@
-from core.alignment import is_edge_ignored, label_synonymous_mutations
+from core.alignment import (
+    is_edge_ignored,
+    label_synonymous_mutations,
+    apply_dual_read_consensus,
+)
 
 
 def test_substitution_within_edge_of_cds_end_is_ignored():
@@ -55,3 +59,60 @@ def test_indel_mutations_passthrough_unchanged():
         mutations, ref_seq="ATGGAATAA", cds_start=1, cds_end=9, cds_positions={},
     )
     assert all(m["effect"] == "" for m in result)
+
+
+def test_single_read_mutation_demoted_when_other_read_covers_with_ref_base():
+    best = {
+        "sid": "C123-1",
+        "mutations": [
+            {"position": 200, "refBase": "A", "queryBase": "T",
+             "type": "substitution", "effect": ""},
+        ],
+        "_cds_positions": {200: "T", 201: "G", 202: "C"},
+    }
+    other = {
+        "sid": "C123-1",
+        "mutations": [],
+        "_cds_positions": {200: "A", 199: "C"},  # same position, ref base
+    }
+    merged = apply_dual_read_consensus(best, [other])
+    assert merged["mutations"][0]["effect"] == "single_read"
+
+
+def test_consensus_mutation_keeps_effect_unchanged():
+    best = {
+        "sid": "C123-1",
+        "mutations": [
+            {"position": 200, "refBase": "A", "queryBase": "T",
+             "type": "substitution", "effect": ""},
+        ],
+        "_cds_positions": {200: "T"},
+    }
+    other = {
+        "sid": "C123-1",
+        "mutations": [
+            {"position": 200, "refBase": "A", "queryBase": "T",
+             "type": "substitution", "effect": ""},
+        ],
+        "_cds_positions": {200: "T"},
+    }
+    merged = apply_dual_read_consensus(best, [other])
+    assert merged["mutations"][0]["effect"] == ""
+
+
+def test_mutation_uncovered_by_other_read_not_demoted():
+    best = {
+        "sid": "C123-1",
+        "mutations": [
+            {"position": 500, "refBase": "A", "queryBase": "T",
+             "type": "substitution", "effect": ""},
+        ],
+        "_cds_positions": {500: "T"},
+    }
+    other = {
+        "sid": "C123-1",
+        "mutations": [],
+        "_cds_positions": {},  # other read never covers pos 500
+    }
+    merged = apply_dual_read_consensus(best, [other])
+    assert merged["mutations"][0]["effect"] == ""
