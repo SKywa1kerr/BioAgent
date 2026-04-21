@@ -28,6 +28,23 @@
   --chart-axis-color: #5f7ea3;
   --chart-grid-color: rgba(16, 36, 59, 0.14);
   --chart-primary-color: #4f7cff;
+
+  /* Status (applies to bucket of a sample) */
+  --status-ok: #1d9c7d;
+  --status-wrong: #d23f5c;
+  --status-uncertain: #d89a2c;
+  --status-untested: #6a7a93;
+
+  /* Mutation types */
+  --mutation-sub: #2c7fb8;
+  --mutation-ins: #6f42c1;
+  --mutation-del: #a04050;
+  --mutation-frameshift: #c5453e;
+  --mutation-synonymous: #8a93a6;
+
+  /* Accents */
+  --accent-primary: #2c7fb8;
+  --accent-secondary: #1f9d8d;
 }
 
 :root[data-theme="dark"] {
@@ -59,6 +76,18 @@
   --chart-axis-color: #9fb5ff;
   --chart-grid-color: rgba(255, 255, 255, 0.1);
   --chart-primary-color: #6f9bff;
+
+  --status-ok: #4fd4a7;
+  --status-wrong: #ff6b80;
+  --status-uncertain: #f0b84a;
+  --status-untested: #9eb1d8;
+  --mutation-sub: #6f9bff;
+  --mutation-ins: #a07bf5;
+  --mutation-del: #ff7688;
+  --mutation-frameshift: #ff8177;
+  --mutation-synonymous: #9eb1d8;
+  --accent-primary: #6f9bff;
+  --accent-secondary: #4fd4a7;
 }
 
 html,
@@ -803,3 +832,16 @@ button:focus-visible {
   outline-offset: 2px;
   border-radius: 4px;
 }
+
+.sample-detail-status.status-ok,
+.sample-compact-status.status-ok { color: var(--status-ok); }
+.sample-detail-status.status-wrong,
+.sample-compact-status.status-wrong { color: var(--status-wrong); }
+.sample-detail-status.status-uncertain,
+.sample-compact-status.status-uncertain { color: var(--status-uncertain); }
+.sample-detail-status.status-untested,
+.sample-compact-status.status-untested { color: var(--status-untested); }
+.detail-drawer-status.status-ok { color: var(--status-ok); }
+.detail-drawer-status.status-wrong { color: var(--status-wrong); }
+.detail-drawer-status.status-uncertain { color: var(--status-uncertain); }
+.detail-drawer-status.status-untested { color: var(--status-untested); }
