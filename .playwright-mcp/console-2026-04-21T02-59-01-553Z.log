@@ -1,0 +1,8 @@
+[      23ms] [INFO] %cDownload the React DevTools for a better development experience: https://reactjs.org/link/react-devtools font-weight:bold @ http://127.0.0.1:1420/node_modules/.vite/deps/chunk-TYILIMWK.js?v=a2b5f1d0:21550
+[  163587ms] [LOG] [Chromatogram] Rendering: chrom-sample-1-41-7.2-140 @ http://127.0.0.1:1420/src/features/analysis/components/Chromatogram/ChromatogramWorkerView.tsx:66
+[  163587ms] [LOG] [Chromatogram] Rendering: chrom-sample-1-41-7.2-140 @ http://127.0.0.1:1420/src/features/analysis/components/Chromatogram/ChromatogramWorkerView.tsx:66
+[  310298ms] [LOG] [Chromatogram] Rendering: chrom-sample-2-41-7.2-140 @ http://127.0.0.1:1420/src/features/analysis/components/Chromatogram/ChromatogramWorkerView.tsx:66
+[  312398ms] [LOG] [Chromatogram] Cache hit: chrom-sample-1-41-7.2-140 @ http://127.0.0.1:1420/src/features/analysis/components/Chromatogram/ChromatogramWorkerView.tsx:63
+[  312952ms] [LOG] [Chromatogram] Cache hit: chrom-sample-2-41-7.2-140 @ http://127.0.0.1:1420/src/features/analysis/components/Chromatogram/ChromatogramWorkerView.tsx:63
+[  313542ms] [LOG] [Chromatogram] Cache hit: chrom-sample-1-41-7.2-140 @ http://127.0.0.1:1420/src/features/analysis/components/Chromatogram/ChromatogramWorkerView.tsx:63
+[  313973ms] [LOG] [Chromatogram] Cache hit: chrom-sample-2-41-7.2-140 @ http://127.0.0.1:1420/src/features/analysis/components/Chromatogram/ChromatogramWorkerView.tsx:63

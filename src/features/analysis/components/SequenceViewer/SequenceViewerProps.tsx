@@ -29,7 +29,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
   refSequence = "",
   alignedRefG = "",
   alignedQueryG = "",
-  alignedQuery,
+  alignedQuery = "",
   matches = [],
   chromatogramData,
   cdsStart,

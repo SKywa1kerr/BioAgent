@@ -10,7 +10,7 @@
     "build": "tsc && vite build",
     "test:dataset-import": "node tests/test_dataset_import.mjs",
     "preview": "vite preview",
-    "electron:dev": "concurrently -k \"vite\" \"powershell -NoProfile -Command \\\"while (-not (Test-NetConnection -ComputerName 127.0.0.1 -Port 1420 -InformationLevel Quiet)) { Start-Sleep -Milliseconds 300 }; electron .\\\"\"",
+    "electron:dev": "concurrently -k \"vite\" \"sleep 2 && electron .\"",
     "build:python": "cd src-python && python -m PyInstaller .\\bioagent.spec --distpath ..\\dist-python --workpath ..\\build-python",
     "build:all": "npm run build:python && npm run build && npm run electron:build",
     "electron:build": "npm run build && electron-builder"

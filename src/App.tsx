@@ -3,7 +3,60 @@ import type { Sample, ChromatogramData } from "./shared/types";
 import { SequenceViewer } from "./features/analysis";
 import "./App.css";
 
-const { invoke } = window.electronAPI;
+// Handle both Electron and browser environments
+const electronAPI = (window as unknown as { electronAPI?: { invoke: (cmd: string, ...args: unknown[]) => Promise<unknown> } }).electronAPI;
+const isElectron = !!electronAPI;
+const invoke = electronAPI?.invoke || (() => Promise.reject("Electron API not available"));
+
+// Mock data for browser development
+const mockSamples: Sample[] = [
+  {
+    id: "sample-1",
+    name: "Test Sample 1",
+    refSequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    querySequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    alignedRefG: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    alignedQueryG: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    alignedQuery: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    matches: Array(41).fill(true),
+    cdsStart: 1,
+    cdsEnd: 41,
+    status: "ok",
+    identity: 1.0,
+    coverage: 1.0,
+    mutations: [],
+    tracesA: Array(500).fill(0).map(() => Math.random() * 100),
+    tracesT: Array(500).fill(0).map(() => Math.random() * 100),
+    tracesG: Array(500).fill(0).map(() => Math.random() * 100),
+    tracesC: Array(500).fill(0).map(() => Math.random() * 100),
+    quality: Array(41).fill(0).map(() => Math.floor(Math.random() * 40 + 10)),
+    baseLocations: Array(41).fill(0).map((_, i) => i * 12),
+    mixedPeaks: [],
+  },
+  {
+    id: "sample-2",
+    name: "Test Sample 2 (with mutation)",
+    refSequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    querySequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    alignedRefG: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    alignedQueryG: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    alignedQuery: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
+    matches: Array(41).fill(true).map((_, i) => i !== 10),
+    cdsStart: 1,
+    cdsEnd: 41,
+    status: "wrong",
+    identity: 0.98,
+    coverage: 1.0,
+    mutations: [{ position: 10, type: "substitution", ref: "A", query: "G" }],
+    tracesA: Array(500).fill(0).map(() => Math.random() * 100),
+    tracesT: Array(500).fill(0).map(() => Math.random() * 100),
+    tracesG: Array(500).fill(0).map(() => Math.random() * 100),
+    tracesC: Array(500).fill(0).map(() => Math.random() * 100),
+    quality: Array(41).fill(0).map(() => Math.floor(Math.random() * 40 + 10)),
+    baseLocations: Array(41).fill(0).map((_, i) => i * 12),
+    mixedPeaks: [],
+  },
+];
 
 /**
  * Minimal App focused on Analysis feature
@@ -46,22 +99,29 @@ function App() {
   }, [selectedSample]);
 
   const runAnalysis = useCallback(async () => {
-    if (!ab1Dir) {
+    if (!ab1Dir && isElectron) {
       alert("Please select an AB1 folder first");
       return;
     }
 
     setIsAnalyzing(true);
     try {
-      const result = (await invoke("run-analysis", ab1Dir, genesDir, {
-        useLLM: false,
-      })) as string;
+      if (!isElectron) {
+        // Mock mode for browser development
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setSamples(mockSamples);
+        setSelectedId(mockSamples[0].id);
+      } else {
+        const result = (await invoke("run-analysis", ab1Dir, genesDir, {
+          useLLM: false,
+        })) as string;
 
-      const data = JSON.parse(result);
-      setSamples(data.samples);
+        const data = JSON.parse(result);
+        setSamples(data.samples);
 
-      if (data.samples.length > 0) {
-        setSelectedId(data.samples[0].id);
+        if (data.samples.length > 0) {
+          setSelectedId(data.samples[0].id);
+        }
       }
     } catch (error) {
       console.error("Analysis failed:", error);
@@ -72,11 +132,19 @@ function App() {
   }, [ab1Dir, genesDir]);
 
   const handleSelectAb1Dir = async () => {
+    if (!isElectron) {
+      setAb1Dir("/mock/ab1/path");
+      return;
+    }
     const folder = (await invoke("open-folder-dialog")) as string | null;
     if (folder) setAb1Dir(folder);
   };
 
   const handleSelectGenesDir = async () => {
+    if (!isElectron) {
+      setGenesDir("/mock/genes/path");
+      return;
+    }
     const folder = (await invoke("open-folder-dialog")) as string | null;
     if (folder) setGenesDir(folder);
   };
@@ -99,7 +167,7 @@ function App() {
             <button
               className="btn-primary"
               onClick={runAnalysis}
-              disabled={isAnalyzing || !ab1Dir}
+              disabled={isAnalyzing || (isElectron && !ab1Dir)}
             >
               {isAnalyzing ? "Analyzing..." : "Run Analysis"}
             </button>
