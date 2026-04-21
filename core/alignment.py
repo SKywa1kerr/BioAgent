@@ -19,6 +19,27 @@ from Bio.Align import PairwiseAligner
 from Bio.Data import CodonTable
 
 
+# ── Rule tuning constants ────────────────────────────────────────────────────
+
+# Substitutions whose 1-based ref position is within this many bp of
+# cds_start or cds_end are demoted from wrong to ok for status purposes.
+# They are still recorded in the mutations list for display.
+EDGE_IGNORE_BP = 20
+
+COVERAGE_UNTESTED = 0.4
+COVERAGE_OK = 0.8
+QUALITY_UNTESTED = 15.0
+QUALITY_UNCERTAIN = 25.0
+
+
+def is_edge_ignored(pos, cds_start, cds_end) -> bool:
+    """True if this substitution position is close enough to either CDS boundary
+    that we should exclude it from the wrong decision."""
+    if pos is None or cds_start is None or cds_end is None:
+        return False
+    return (pos - cds_start) < EDGE_IGNORE_BP or (cds_end - pos) < EDGE_IGNORE_BP
+
+
 # ── Utilities ────────────────────────────────────────────────────────────────
 
 def safe_write_csv(df: pd.DataFrame, path: Path) -> Path:
