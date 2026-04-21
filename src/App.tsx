@@ -108,9 +108,9 @@ function App() {
                       key={sample.id}
                       className={`sample-item ${selectedId === sample.id ? "selected" : ""} ${sample.status}`}
                       onClick={() => setSelectedId(sample.id)}
-                      title={sample.name || "Unnamed"}
+                      title={sample.name || sample.clone || sample.id || "Unnamed"}
                     >
-                      <span className="sample-name">{sample.name || "Unnamed Sample"}</span>
+                      <span className="sample-name">{sample.name || sample.clone || sample.id || "Unnamed"}</span>
                       <span className={`sample-status status-${sample.status || "unknown"}`}>
                         {sample.status || "unknown"}
                       </span>
