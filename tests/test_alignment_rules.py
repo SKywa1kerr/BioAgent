@@ -154,9 +154,9 @@ def test_bucket_uncertain_when_single_read_mutations_present():
     ) == "uncertain"
 
 
-def test_bucket_uncertain_for_mid_coverage():
+def test_bucket_uncertain_for_mid_quality():
     assert decide_bucket(
-        cds_coverage=0.6, avg_qry_quality=35.0, frameshift=False,
+        cds_coverage=0.95, avg_qry_quality=20.0, frameshift=False,
         aa_changes=[], mutations=[], has_single_read=False,
     ) == "uncertain"
 
