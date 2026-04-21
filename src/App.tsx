@@ -3,73 +3,20 @@ import type { Sample, ChromatogramData } from "./shared/types";
 import { SequenceViewer } from "./features/analysis";
 import "./App.css";
 
-// Handle both Electron and browser environments
-const electronAPI = (window as unknown as { electronAPI?: { invoke: (cmd: string, ...args: unknown[]) => Promise<unknown> } }).electronAPI;
-const isElectron = !!electronAPI;
-const invoke = electronAPI?.invoke || (() => Promise.reject("Electron API not available"));
+const { invoke } = window.electronAPI;
 
-// Mock data for browser development
-const mockSamples: Sample[] = [
-  {
-    id: "sample-1",
-    name: "Test Sample 1",
-    refSequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    querySequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    alignedRefG: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    alignedQueryG: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    alignedQuery: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    matches: Array(41).fill(true),
-    cdsStart: 1,
-    cdsEnd: 41,
-    status: "ok",
-    identity: 1.0,
-    coverage: 1.0,
-    mutations: [],
-    tracesA: Array(500).fill(0).map(() => Math.random() * 100),
-    tracesT: Array(500).fill(0).map(() => Math.random() * 100),
-    tracesG: Array(500).fill(0).map(() => Math.random() * 100),
-    tracesC: Array(500).fill(0).map(() => Math.random() * 100),
-    quality: Array(41).fill(0).map(() => Math.floor(Math.random() * 40 + 10)),
-    baseLocations: Array(41).fill(0).map((_, i) => i * 12),
-    mixedPeaks: [],
-  },
-  {
-    id: "sample-2",
-    name: "Test Sample 2 (with mutation)",
-    refSequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    querySequence: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    alignedRefG: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    alignedQueryG: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    alignedQuery: "ATGCGATCGATCGATCGATCGATCGATCGATCGATCGATCG",
-    matches: Array(41).fill(true).map((_, i) => i !== 10),
-    cdsStart: 1,
-    cdsEnd: 41,
-    status: "wrong",
-    identity: 0.98,
-    coverage: 1.0,
-    mutations: [{ position: 10, type: "substitution", ref: "A", query: "G" }],
-    tracesA: Array(500).fill(0).map(() => Math.random() * 100),
-    tracesT: Array(500).fill(0).map(() => Math.random() * 100),
-    tracesG: Array(500).fill(0).map(() => Math.random() * 100),
-    tracesC: Array(500).fill(0).map(() => Math.random() * 100),
-    quality: Array(41).fill(0).map(() => Math.floor(Math.random() * 40 + 10)),
-    baseLocations: Array(41).fill(0).map((_, i) => i * 12),
-    mixedPeaks: [],
-  },
-];
+type NavFeature = "analysis" | "agent" | "history" | "settings" | "primer";
 
 /**
- * Minimal App focused on Analysis feature
- *
- * EXTENSION POINTS:
- * - Agent panel: Add to right sidebar
- * - History: Add tab or drawer
- * - Settings: Add modal or tab
- * - Primer design: Add toolbar button
+ * BioAgent Desktop App
+ * Modular architecture with feature navigation
  */
 
 function App() {
-  // Core state
+  // Navigation state
+  const [activeFeature, setActiveFeature] = useState<NavFeature>("analysis");
+
+  // Core analysis state
   const [samples, setSamples] = useState<Sample[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -99,29 +46,22 @@ function App() {
   }, [selectedSample]);
 
   const runAnalysis = useCallback(async () => {
-    if (!ab1Dir && isElectron) {
+    if (!ab1Dir) {
       alert("Please select an AB1 folder first");
       return;
     }
 
     setIsAnalyzing(true);
     try {
-      if (!isElectron) {
-        // Mock mode for browser development
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setSamples(mockSamples);
-        setSelectedId(mockSamples[0].id);
-      } else {
-        const result = (await invoke("run-analysis", ab1Dir, genesDir, {
-          useLLM: false,
-        })) as string;
+      const result = (await invoke("run-analysis", ab1Dir, genesDir, {
+        useLLM: false,
+      })) as string;
 
-        const data = JSON.parse(result);
-        setSamples(data.samples);
+      const data = JSON.parse(result);
+      setSamples(data.samples);
 
-        if (data.samples.length > 0) {
-          setSelectedId(data.samples[0].id);
-        }
+      if (data.samples.length > 0) {
+        setSelectedId(data.samples[0].id);
       }
     } catch (error) {
       console.error("Analysis failed:", error);
@@ -132,21 +72,132 @@ function App() {
   }, [ab1Dir, genesDir]);
 
   const handleSelectAb1Dir = async () => {
-    if (!isElectron) {
-      setAb1Dir("/mock/ab1/path");
-      return;
-    }
     const folder = (await invoke("open-folder-dialog")) as string | null;
     if (folder) setAb1Dir(folder);
   };
 
   const handleSelectGenesDir = async () => {
-    if (!isElectron) {
-      setGenesDir("/mock/genes/path");
-      return;
-    }
     const folder = (await invoke("open-folder-dialog")) as string | null;
     if (folder) setGenesDir(folder);
+  };
+
+  // Render feature content
+  const renderFeatureContent = () => {
+    switch (activeFeature) {
+      case "analysis":
+        return (
+          <div className="app-body">
+            {/* Sample List Sidebar */}
+            <aside className="sidebar">
+              <div className="sidebar-header">
+                <h3>Samples ({samples.length})</h3>
+              </div>
+              <div className="sample-list">
+                {samples.map((sample) => (
+                  <div
+                    key={sample.id}
+                    className={`sample-item ${selectedId === sample.id ? "selected" : ""} ${sample.status}`}
+                    onClick={() => setSelectedId(sample.id)}
+                    title={sample.name}
+                  >
+                    <span className="sample-name">{sample.name}</span>
+                    <span className={`sample-status status-${sample.status}`}>
+                      {sample.status}
+                    </span>
+                  </div>
+                ))}
+                {samples.length === 0 && (
+                  <div className="sample-list-empty">No samples loaded</div>
+                )}
+              </div>
+            </aside>
+
+            {/* Analysis View */}
+            <main className="main-content">
+              {selectedSample ? (
+                <div className="viewer">
+                  <div className="sequence-section">
+                    <SequenceViewer
+                      sampleId={selectedSample.id}
+                      refSequence={selectedSample.refSequence}
+                      alignedRefG={selectedSample.alignedRefG}
+                      alignedQueryG={selectedSample.alignedQueryG}
+                      alignedQuery={selectedSample.alignedQuery}
+                      matches={selectedSample.matches}
+                      chromatogramData={chromatogramData}
+                      showChromatogram={showChromatogram}
+                      cdsStart={selectedSample.cdsStart}
+                      cdsEnd={selectedSample.cdsEnd}
+                    />
+                  </div>
+
+                  {/* Mutation Summary */}
+                  <div className="details-section">
+                    <h4>Analysis Results</h4>
+                    <div className="metrics">
+                      <span>Identity: {((selectedSample.identity || 0) * 100).toFixed(1)}%</span>
+                      <span>Coverage: {((selectedSample.coverage || 0) * 100).toFixed(1)}%</span>
+                      <span>Mutations: {selectedSample.mutations?.length || 0}</span>
+                    </div>
+                    {selectedSample.frameshift && (
+                      <div className="alert error">Frameshift detected!</div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="empty-state">
+                  <div className="empty-state-content">
+                    <p>Select AB1 files and run analysis to begin</p>
+                  </div>
+                </div>
+              )}
+            </main>
+          </div>
+        );
+
+      case "agent":
+        return (
+          <div className="app-body feature-body">
+            <div className="feature-placeholder">
+              <h2>AI Agent</h2>
+              <p>Agent panel coming soon...</p>
+            </div>
+          </div>
+        );
+
+      case "history":
+        return (
+          <div className="app-body feature-body">
+            <div className="feature-placeholder">
+              <h2>Analysis History</h2>
+              <p>History view coming soon...</p>
+            </div>
+          </div>
+        );
+
+      case "settings":
+        return (
+          <div className="app-body feature-body">
+            <div className="feature-placeholder">
+              <h2>Settings</h2>
+              <p>Settings panel coming soon...</p>
+            </div>
+          </div>
+        );
+
+      case "primer":
+        return (
+          <div className="app-body feature-body">
+            <div className="feature-placeholder">
+              <h2>Primer Design</h2>
+              <p>Primer design tool coming soon...</p>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
@@ -154,98 +205,74 @@ function App() {
       {/* Header */}
       <header className="app-header">
         <div className="logo">BioAgent</div>
-        <div className="toolbar">
-          <div className="path-selectors">
-            <button onClick={handleSelectAb1Dir} title={ab1Dir || "Select AB1 Folder"}>
-              {ab1Dir ? `AB1: ...${ab1Dir.slice(-15)}` : "Select AB1"}
-            </button>
-            <button onClick={handleSelectGenesDir} title={genesDir || "Select Genes"}>
-              {genesDir ? `Genes: ...${genesDir.slice(-15)}` : "Select Genes"}
-            </button>
+
+        {/* Feature Navigation */}
+        <nav className="feature-nav">
+          <button
+            className={`nav-btn ${activeFeature === "analysis" ? "active" : ""}`}
+            onClick={() => setActiveFeature("analysis")}
+          >
+            Analysis
+          </button>
+          <button
+            className={`nav-btn ${activeFeature === "agent" ? "active" : ""}`}
+            onClick={() => setActiveFeature("agent")}
+          >
+            Agent
+          </button>
+          <button
+            className={`nav-btn ${activeFeature === "primer" ? "active" : ""}`}
+            onClick={() => setActiveFeature("primer")}
+          >
+            Primer
+          </button>
+          <button
+            className={`nav-btn ${activeFeature === "history" ? "active" : ""}`}
+            onClick={() => setActiveFeature("history")}
+          >
+            History
+          </button>
+          <button
+            className={`nav-btn ${activeFeature === "settings" ? "active" : ""}`}
+            onClick={() => setActiveFeature("settings")}
+          >
+            Settings
+          </button>
+        </nav>
+
+        {/* Analysis Toolbar (only show in analysis mode) */}
+        {activeFeature === "analysis" && (
+          <div className="toolbar">
+            <div className="path-selectors">
+              <button onClick={handleSelectAb1Dir} title={ab1Dir || "Select AB1 Folder"}>
+                {ab1Dir ? `AB1: ...${ab1Dir.slice(-20)}` : "Select AB1"}
+              </button>
+              <button onClick={handleSelectGenesDir} title={genesDir || "Select Genes"}>
+                {genesDir ? `Genes: ...${genesDir.slice(-20)}` : "Select Genes"}
+              </button>
+            </div>
+            <div className="action-buttons">
+              <button
+                className="btn-primary"
+                onClick={runAnalysis}
+                disabled={isAnalyzing || !ab1Dir}
+              >
+                {isAnalyzing ? "Analyzing..." : "Run Analysis"}
+              </button>
+              <button
+                className="btn-secondary"
+                onClick={() => setShowChromatogram(!showChromatogram)}
+                disabled={!selectedSample}
+              >
+                {showChromatogram ? "Hide Trace" : "Show Trace"}
+              </button>
+            </div>
           </div>
-          <div className="action-buttons">
-            <button
-              className="btn-primary"
-              onClick={runAnalysis}
-              disabled={isAnalyzing || (isElectron && !ab1Dir)}
-            >
-              {isAnalyzing ? "Analyzing..." : "Run Analysis"}
-            </button>
-            <button
-              className="btn-secondary"
-              onClick={() => setShowChromatogram(!showChromatogram)}
-            >
-              {showChromatogram ? "Hide Trace" : "Show Trace"}
-            </button>
-            {/* EXTENSION: Add Primer Design button here */}
-            {/* EXTENSION: Add Agent toggle here */}
-          </div>
-        </div>
+        )}
       </header>
 
-      {/* Main Content */}
-      <div className="app-body">
-        {/* Sample List Sidebar */}
-        <aside className="sidebar">
-          <div className="sample-list">
-            {samples.map((sample) => (
-              <div
-                key={sample.id}
-                className={`sample-item ${selectedId === sample.id ? "selected" : ""} ${sample.status}`}
-                onClick={() => setSelectedId(sample.id)}
-              >
-                <span className="sample-name">{sample.name}</span>
-                <span className="sample-status">{sample.status}</span>
-              </div>
-            ))}
-          </div>
-        </aside>
-
-        {/* Analysis View */}
-        <main className="main-content">
-          {selectedSample ? (
-            <div className="viewer">
-              <div className="sequence-section">
-                <SequenceViewer
-                  sampleId={selectedSample.id}
-                  refSequence={selectedSample.refSequence}
-                  alignedRefG={selectedSample.alignedRefG}
-                  alignedQueryG={selectedSample.alignedQueryG}
-                  alignedQuery={selectedSample.alignedQuery}
-                  matches={selectedSample.matches}
-                  chromatogramData={chromatogramData}
-                  showChromatogram={showChromatogram}
-                  cdsStart={selectedSample.cdsStart}
-                  cdsEnd={selectedSample.cdsEnd}
-                />
-              </div>
-
-              {/* Mutation Summary */}
-              <div className="details-section">
-                <h4>Analysis Results</h4>
-                <div className="metrics">
-                  <span>Identity: {((selectedSample.identity || 0) * 100).toFixed(1)}%</span>
-                  <span>Coverage: {((selectedSample.coverage || 0) * 100).toFixed(1)}%</span>
-                  <span>Mutations: {selectedSample.mutations?.length || 0}</span>
-                </div>
-                {selectedSample.frameshift && (
-                  <div className="alert error">Frameshift detected!</div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="empty-state">
-              <p>Select AB1 files and run analysis to begin</p>
-            </div>
-          )}
-        </main>
-
-        {/* EXTENSION: Agent Panel Sidebar */}
-        {/* <aside className="agent-sidebar">...</aside> */}
-      </div>
-
-      {/* EXTENSION: Settings Modal */}
-      {/* EXTENSION: History Drawer */}
+      {/* Feature Content */}
+      {renderFeatureContent()}
     </div>
   );
 }
