@@ -351,6 +351,28 @@
   margin-top: 2px;
 }
 
+/* ─── Empty State ─── */
+.sequence-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 48px;
+  color: #666;
+  text-align: center;
+}
+
+.sequence-empty-state p {
+  margin: 8px 0;
+}
+
+.sequence-empty-debug {
+  font-size: 11px;
+  color: #999;
+  font-family: monospace;
+}
+
 /* ─── Scrollbar styling ─── */
 .sequence-viewer::-webkit-scrollbar {
   height: 12px;

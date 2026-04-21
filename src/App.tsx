@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import type { Sample, ChromatogramData } from "./shared/types";
 import { SequenceViewer } from "./features/analysis";
+import { keysToCamelCase } from "./shared/utils/caseConverter";
 import "./App.css";
 
 const { invoke } = window.electronAPI;
@@ -58,7 +59,9 @@ function App() {
       })) as string;
 
       const data = JSON.parse(result);
-      setSamples(data.samples);
+      // Convert snake_case backend response to camelCase
+      const camelCaseData = keysToCamelCase<{ samples: Sample[] }>(data);
+      setSamples(camelCaseData.samples);
 
       if (data.samples.length > 0) {
         setSelectedId(data.samples[0].id);

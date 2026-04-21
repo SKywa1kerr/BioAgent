@@ -42,6 +42,19 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
   const displayQuery = alignedQueryG || alignedQuery;
   const totalBases = displayRef?.length || 0;
 
+  // Debug logging
+  console.log('[SequenceViewer] Props:', {
+    sampleId,
+    refSequence: refSequence?.slice(0, 50),
+    alignedRefG: alignedRefG?.slice(0, 50),
+    alignedQueryG: alignedQueryG?.slice(0, 50),
+    alignedQuery: alignedQuery?.slice(0, 50),
+    displayRef: displayRef?.slice(0, 50),
+    displayQuery: displayQuery?.slice(0, 50),
+    totalBases,
+    matchesLength: matches?.length,
+  });
+
   // Build coordinate map (memoized)
   const coordMap = useMemo(() => {
     return buildCoordinateMap({
@@ -115,6 +128,23 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
 
   // Chromatogram mapping
   const gappedToQueryIdx = coordMap.gappedToQuery;
+
+  // Early return if no data
+  if (!displayRef || !displayQuery || totalBases === 0) {
+    return (
+      <div className="sequence-viewer horizontal" ref={containerRef}>
+        <div className="sequence-empty-state">
+          <p>No sequence data available</p>
+          <p className="sequence-empty-debug">
+            refSequence: {refSequence ? "present" : "missing"},
+            alignedRefG: {alignedRefG ? "present" : "missing"},
+            alignedQuery: {alignedQuery ? "present" : "missing"},
+            alignedQueryG: {alignedQueryG ? "present" : "missing"}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="sequence-viewer horizontal" ref={containerRef}>
