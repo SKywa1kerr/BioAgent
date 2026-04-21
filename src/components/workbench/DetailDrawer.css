@@ -1,0 +1,114 @@
+.detail-drawer {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: var(--drawer-width, 480px);
+  max-width: calc(100vw - 32px);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  box-shadow: var(--panel-shadow);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+}
+
+.detail-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+.detail-drawer-sid {
+  font-weight: 700;
+}
+
+.detail-drawer-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+.detail-drawer-body {
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.detail-drawer-section {
+  margin-bottom: 20px;
+}
+
+.detail-drawer-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.detail-drawer-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.detail-drawer-metrics article {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+
+.detail-drawer-metrics article span {
+  color: var(--text-muted);
+  font-size: 12px;
+  display: block;
+}
+
+.detail-drawer-metrics article strong {
+  font-size: 14px;
+}
+
+.detail-drawer-aa {
+  font-family: Consolas, Menlo, monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.detail-drawer-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.detail-drawer-table th,
+.detail-drawer-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--panel-border);
+  text-align: left;
+}
+
+.detail-drawer-table tr.is-synonymous td {
+  color: var(--text-muted);
+}
+
+.detail-drawer-table tr.is-single-read td {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.detail-drawer-empty {
+  color: var(--text-muted);
+  padding: 8px;
+  font-size: 13px;
+}

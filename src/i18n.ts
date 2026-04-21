@@ -196,6 +196,9 @@ const zh: Dict = {
   "export.pdf.summaryOnly": "样本数超过 200，仅生成概要报告。请使用 CSV/JSON 获取完整明细。",
   "wb.empty.filtered": "无匹配结果",
   "wb.empty.clear": "清除筛选",
+  "wb.drawer.close": "关闭",
+  "wb.density.compact": "紧凑",
+  "wb.density.detailed": "详细",
 
   "palette.title": "命令面板",
   "palette.placeholder": "搜索命令...",
@@ -436,6 +439,9 @@ const en: Dict = {
   "export.pdf.summaryOnly": "Sample count exceeds 200; summary only. Use CSV/JSON for full detail.",
   "wb.empty.filtered": "No matching results",
   "wb.empty.clear": "Clear filters",
+  "wb.drawer.close": "Close",
+  "wb.density.compact": "Compact",
+  "wb.density.detailed": "Detailed",
 
   "palette.title": "Command palette",
   "palette.placeholder": "Search commands...",
