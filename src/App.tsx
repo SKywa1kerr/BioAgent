@@ -59,8 +59,13 @@ function App() {
       })) as string;
 
       const data = JSON.parse(result);
+      console.log('[App] Raw data from backend:', data);
+      console.log('[App] First sample raw:', data.samples?.[0]);
+
       // Convert snake_case backend response to camelCase
       const camelCaseData = keysToCamelCase<{ samples: Sample[] }>(data);
+      console.log('[App] Converted samples:', camelCaseData.samples);
+      console.log('[App] First sample converted:', camelCaseData.samples?.[0]);
       setSamples(camelCaseData.samples);
 
       if (data.samples.length > 0) {
@@ -96,19 +101,22 @@ function App() {
                 <h3>Samples ({samples.length})</h3>
               </div>
               <div className="sample-list">
-                {samples.map((sample) => (
-                  <div
-                    key={sample.id}
-                    className={`sample-item ${selectedId === sample.id ? "selected" : ""} ${sample.status}`}
-                    onClick={() => setSelectedId(sample.id)}
-                    title={sample.name}
-                  >
-                    <span className="sample-name">{sample.name}</span>
-                    <span className={`sample-status status-${sample.status}`}>
-                      {sample.status}
-                    </span>
-                  </div>
-                ))}
+                {samples.map((sample, idx) => {
+                  console.log(`[App] Rendering sample ${idx}:`, { id: sample.id, name: sample.name, status: sample.status });
+                  return (
+                    <div
+                      key={sample.id}
+                      className={`sample-item ${selectedId === sample.id ? "selected" : ""} ${sample.status}`}
+                      onClick={() => setSelectedId(sample.id)}
+                      title={sample.name || "Unnamed"}
+                    >
+                      <span className="sample-name">{sample.name || "Unnamed Sample"}</span>
+                      <span className={`sample-status status-${sample.status || "unknown"}`}>
+                        {sample.status || "unknown"}
+                      </span>
+                    </div>
+                  );
+                })}
                 {samples.length === 0 && (
                   <div className="sample-list-empty">No samples loaded</div>
                 )}
