@@ -1,12 +1,11 @@
-import { useState, useCallback } from "react";
-import type { Sample } from "./shared/types";
+import { useState, useCallback, useMemo } from "react";
+import type { Sample, ChromatogramData } from "./shared/types";
 import { SequenceViewer } from "./features/analysis";
 import { AgentPanel } from "./features/agent";
 import { HistoryPanel } from "./features/history";
 import { PrimerPanel } from "./features/primer";
 import { SettingsPanel } from "./features/settings";
 import { ReportPanel } from "./features/report";
-import { useSequencingStore, useSelectedRun, useAllRuns } from "./features/analysis/stores/sequencingStore";
 import { keysToCamelCase } from "./shared/utils/caseConverter";
 import "./App.css";
 
@@ -18,31 +17,43 @@ type NavFeature = "analysis" | "agent" | "history" | "settings" | "primer" | "re
  * BioAgent Desktop App
  *
  * ARCHITECTURE:
- * - Zustand store (sequencingStore) is the single source of truth
- * - importFromLegacy() normalizes API data into entities (runs/references/analyses)
- * - Components receive props, hooks derive data from store
- * - App.tsx is the container that coordinates data flow
+ * - Zustand store (sequencingStore) is available for child components
+ * - App.tsx uses local state to avoid subscription complexity
+ * - Components receive props (container/presenter pattern)
  */
 
 function App() {
-  // Navigation state (UI only, not domain data)
+  // Navigation state
   const [activeFeature, setActiveFeature] = useState<NavFeature>("analysis");
+
+  // Core analysis state
+  const [samples, setSamples] = useState<Sample[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showChromatogram, setShowChromatogram] = useState(true);
 
   // Directory selection
   const [ab1Dir, setAb1Dir] = useState<string | null>(null);
   const [genesDir, setGenesDir] = useState<string | null>(null);
 
-  // Zustand store actions
-  const importFromLegacy = useSequencingStore((s) => s.importFromLegacy);
-  const selectRun = useSequencingStore((s) => s.selectRun);
-  const setShowChromatogram = useSequencingStore((s) => s.setShowChromatogram);
-  const isAnalyzing = useSequencingStore((s) => s.isAnalyzing);
-  const showChromatogram = useSequencingStore((s) => s.showChromatogram);
+  const selectedSample = samples.find((s) => s.id === selectedId);
 
-  // Derived state from store
-  const runs = useAllRuns();
-  const selectedRun = useSelectedRun();
-  const selectedId = selectedRun?.id || null;
+  // Build chromatogram data from sample
+  const chromatogramData = useMemo<ChromatogramData | null>(() => {
+    if (!selectedSample?.tracesA) return null;
+    return {
+      traces: {
+        A: selectedSample.tracesA,
+        T: selectedSample.tracesT || [],
+        G: selectedSample.tracesG || [],
+        C: selectedSample.tracesC || [],
+      },
+      quality: selectedSample.quality || [],
+      baseCalls: selectedSample.querySequence,
+      baseLocations: selectedSample.baseLocations || [],
+      mixedPeaks: selectedSample.mixedPeaks || [],
+    };
+  }, [selectedSample]);
 
   const runAnalysis = useCallback(async () => {
     if (!ab1Dir) {
@@ -50,7 +61,7 @@ function App() {
       return;
     }
 
-    useSequencingStore.setState({ isAnalyzing: true });
+    setIsAnalyzing(true);
     try {
       const result = (await invoke("run-analysis", ab1Dir, genesDir, {
         useLLM: false,
@@ -59,15 +70,18 @@ function App() {
       const data = JSON.parse(result);
       // Convert snake_case backend response to camelCase
       const camelCaseData = keysToCamelCase<{ samples: Sample[] }>(data);
-      // Normalize into store entities
-      importFromLegacy(camelCaseData.samples);
+      setSamples(camelCaseData.samples);
+
+      if (camelCaseData.samples.length > 0) {
+        setSelectedId(camelCaseData.samples[0].id);
+      }
     } catch (error) {
       console.error("Analysis failed:", error);
       alert(`Analysis failed: ${error}`);
     } finally {
-      useSequencingStore.setState({ isAnalyzing: false });
+      setIsAnalyzing(false);
     }
-  }, [ab1Dir, genesDir, importFromLegacy]);
+  }, [ab1Dir, genesDir]);
 
   const handleSelectAb1Dir = async () => {
     const folder = (await invoke("open-folder-dialog")) as string | null;
@@ -78,39 +92,6 @@ function App() {
     const folder = (await invoke("open-folder-dialog")) as string | null;
     if (folder) setGenesDir(folder);
   };
-
-  const handleSelectSample = (id: string) => {
-    selectRun(id);
-  };
-
-  // Convert runs to Sample-like objects for child components
-  const samples: Sample[] = runs.map((run) => ({
-    id: run.id,
-    name: run.name,
-    clone: run.clone || "",
-    status: run.analysis?.metrics?.identity === 1 ? "ok" : run.uiState.error ? "error" : "wrong",
-    identity: run.analysis?.metrics?.identity || 0,
-    coverage: run.analysis?.metrics?.coverage || 0,
-    mutations: [],
-    refSequence: run.raw?.baseCalls || "",
-    querySequence: run.raw?.baseCalls || "",
-    alignedRefG: run.analysis?.alignment?.refGapped,
-    alignedQueryG: run.analysis?.alignment?.queryGapped,
-    alignedQuery: run.analysis?.alignment?.queryGapped || "",
-    matches: run.analysis?.alignment?.matches || [],
-    cdsStart: 0,
-    cdsEnd: 0,
-    frameshift: run.analysis?.metrics?.frameshift || false,
-    tracesA: run.raw?.traces?.A,
-    tracesT: run.raw?.traces?.T,
-    tracesG: run.raw?.traces?.G,
-    tracesC: run.raw?.traces?.C,
-    quality: run.raw?.quality,
-    baseLocations: run.raw?.baseLocations,
-    mixedPeaks: run.raw?.mixedPeaks,
-  }));
-
-  const selectedSample = samples.find((s) => s.id === selectedId);
 
   // Render feature content
   const renderFeatureContent = () => {
@@ -128,7 +109,7 @@ function App() {
                   <div
                     key={sample.id}
                     className={`sample-item ${selectedId === sample.id ? "selected" : ""} ${sample.status}`}
-                    onClick={() => handleSelectSample(sample.id)}
+                    onClick={() => setSelectedId(sample.id)}
                     title={sample.name || sample.clone || sample.id || "Unnamed"}
                   >
                     <span className="sample-name">{sample.name || sample.clone || sample.id || "Unnamed"}</span>
@@ -155,6 +136,7 @@ function App() {
                       alignedQueryG={selectedSample.alignedQueryG}
                       alignedQuery={selectedSample.alignedQuery}
                       matches={selectedSample.matches}
+                      chromatogramData={chromatogramData}
                       showChromatogram={showChromatogram}
                       cdsStart={selectedSample.cdsStart}
                       cdsEnd={selectedSample.cdsEnd}
