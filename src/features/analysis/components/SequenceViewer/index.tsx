@@ -1,1 +1,1 @@
-export { SequenceViewer } from "./SequenceViewerProps";
+export { SequenceViewer } from "./SequenceViewerNew";
