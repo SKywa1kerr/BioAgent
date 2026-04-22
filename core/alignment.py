@@ -26,6 +26,11 @@ from Bio.Data import CodonTable
 # They are still recorded in the mutations list for display.
 EDGE_IGNORE_BP = 20
 
+# Bucket thresholds. COVERAGE_UNTESTED and COVERAGE_OK are deliberately
+# set to the same value (0.4) — the pro dataset's partial-CDS reads sit
+# around cds_coverage≈0.5 and need to bypass the uncertain band to reach
+# ok/wrong. Quality-based uncertainty (QUALITY_UNCERTAIN) and
+# has_single_read still route samples through uncertain.
 COVERAGE_UNTESTED = 0.4
 COVERAGE_OK = 0.4
 QUALITY_UNTESTED = 15.0

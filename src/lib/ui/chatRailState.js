@@ -23,5 +23,9 @@ export function loadRailState(store) {
 
 export function saveRailState(state, store) {
   const s = resolveStore(store);
-  s.setItem(STORAGE_KEY, state);
+  try {
+    s.setItem(STORAGE_KEY, state);
+  } catch {
+    // ignore quota / disabled storage
+  }
 }
