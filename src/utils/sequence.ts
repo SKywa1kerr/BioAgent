@@ -41,6 +41,17 @@ export interface AminoAcid {
   position: number; // 0-based position in the sequence
 }
 
+/**
+ * Translate a single codon to amino acid
+ */
+export function translateCodon(codon: string): string {
+  const upper = codon.toUpperCase();
+  if (upper.length !== 3 || upper.includes("-") || upper.includes("N")) {
+    return "?";
+  }
+  return CODON_TABLE[upper] || "?";
+}
+
 export function translateDNA(seq: string, startPos: number = 0): AminoAcid[] {
   const result: AminoAcid[] = [];
   const upper = seq.toUpperCase();
