@@ -41,6 +41,17 @@ export interface AminoAcid {
   position: number; // 0-based position in the sequence
 }
 
+/**
+ * Translate a single codon to amino acid
+ */
+export function translateCodon(codon: string): string {
+  const upper = codon.toUpperCase();
+  if (upper.length !== 3 || upper.includes("-") || upper.includes("N")) {
+    return "?";
+  }
+  return CODON_TABLE[upper] || "?";
+}
+
 export function translateDNA(seq: string, startPos: number = 0): AminoAcid[] {
   const result: AminoAcid[] = [];
   const upper = seq.toUpperCase();
@@ -145,4 +156,117 @@ export function baseColor(base: string): string {
     case "C": return "#0000aa";
     default: return "#888888";
   }
+}
+
+/**
+ * Translate a gapped DNA sequence to amino acids.
+ * Returns an array where each position corresponds to the input gapped sequence.
+ * Amino acids are displayed centered over their codons (positions 0,1,2 of codon show "A"," "," ").
+ * Gaps are preserved as spaces.
+ */
+export function translateGappedSequence(
+  gappedSeq: string,
+  cdsStart: number = 0 // CDS start in gapped coordinates
+): { char: string; isTranslated: boolean }[] {
+  const result: { char: string; isTranslated: boolean }[] = new Array(gappedSeq.length).fill({ char: " ", isTranslated: false });
+  const upper = gappedSeq.toUpperCase();
+
+  // Build ungapped sequence and track mapping from ungapped to gapped positions
+  const ungappedToGapped: number[] = [];
+  let ungappedSeq = "";
+
+  for (let i = 0; i < upper.length; i++) {
+    if (upper[i] !== "-") {
+      ungappedToGapped.push(i);
+      ungappedSeq += upper[i];
+    }
+  }
+
+  // Find the ungapped position corresponding to CDS start
+  // cdsStart is in gapped coordinates, find which ungapped base it corresponds to
+  let cdsUngappedStart = 0;
+  for (let i = 0; i < ungappedToGapped.length; i++) {
+    if (ungappedToGapped[i] >= cdsStart) {
+      cdsUngappedStart = i;
+      break;
+    }
+  }
+
+  // Translate in triplets starting from CDS start
+  for (let i = cdsUngappedStart; i + 2 < ungappedSeq.length; i += 3) {
+    const codon = ungappedSeq.slice(i, i + 3);
+    const aa = translateCodon(codon);
+
+    // Place amino acid at the first position of the codon
+    const gappedPos = ungappedToGapped[i];
+    result[gappedPos] = { char: aa, isTranslated: true };
+  }
+
+  return result;
+}
+
+/**
+ * Error region - groups consecutive errors into a single region
+ */
+export interface ErrorRegion {
+  start: number; // gapped position
+  end: number; // exclusive
+  length: number;
+  errorCount: number;
+}
+
+/**
+ * Group consecutive error positions into regions.
+ * Errors within `maxGap` bases are considered part of the same region.
+ */
+export function groupErrorsIntoRegions(
+  errorPositions: number[],
+  maxGap: number = 5
+): ErrorRegion[] {
+  if (errorPositions.length === 0) return [];
+
+  const sorted = [...errorPositions].sort((a, b) => a - b);
+  const regions: ErrorRegion[] = [];
+
+  let currentStart = sorted[0];
+  let currentEnd = sorted[0] + 1;
+  let currentCount = 1;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const pos = sorted[i];
+
+    if (pos - currentEnd <= maxGap) {
+      // Extend current region
+      currentEnd = pos + 1;
+      currentCount++;
+    } else {
+      // Start new region
+      regions.push({
+        start: currentStart,
+        end: currentEnd,
+        length: currentEnd - currentStart,
+        errorCount: currentCount,
+      });
+      currentStart = pos;
+      currentEnd = pos + 1;
+      currentCount = 1;
+    }
+  }
+
+  // Don't forget the last region
+  regions.push({
+    start: currentStart,
+    end: currentEnd,
+    length: currentEnd - currentStart,
+    errorCount: currentCount,
+  });
+
+  return regions;
+}
+
+/**
+ * Count error regions instead of individual errors
+ */
+export function countErrorRegions(errorPositions: number[], maxGap: number = 5): number {
+  return groupErrorsIntoRegions(errorPositions, maxGap).length;
 }
