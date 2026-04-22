@@ -160,58 +160,46 @@ export function baseColor(base: string): string {
 
 /**
  * Translate a gapped DNA sequence to amino acids.
- * Gaps are preserved in the output (shown as spaces).
- * Only translates complete codons (3 consecutive non-gap bases).
+ * Returns an array where each position corresponds to the input gapped sequence.
+ * Amino acids are displayed centered over their codons (positions 0,1,2 of codon show "A"," "," ").
+ * Gaps are preserved as spaces.
  */
 export function translateGappedSequence(
   gappedSeq: string,
-  startOffset: number = 0
+  cdsStart: number = 0 // CDS start in gapped coordinates
 ): { char: string; isTranslated: boolean }[] {
-  const result: { char: string; isTranslated: boolean }[] = [];
+  const result: { char: string; isTranslated: boolean }[] = new Array(gappedSeq.length).fill({ char: " ", isTranslated: false });
   const upper = gappedSeq.toUpperCase();
 
-  // Track position in ungapped sequence for translation frame
-  let ungappedPos = 0;
+  // Build ungapped sequence and track mapping from ungapped to gapped positions
+  const ungappedToGapped: number[] = [];
+  let ungappedSeq = "";
 
   for (let i = 0; i < upper.length; i++) {
-    const base = upper[i];
-
-    if (base === "-") {
-      result.push({ char: " ", isTranslated: false });
-      continue;
+    if (upper[i] !== "-") {
+      ungappedToGapped.push(i);
+      ungappedSeq += upper[i];
     }
+  }
 
-    // Check if this base starts a complete codon
-    const codonStart = ungappedPos - ((ungappedPos + startOffset) % 3);
-    const codonPos = ungappedPos - codonStart;
-
-    if (codonPos === 0) {
-      // First base of codon - try to read complete codon
-      let codon = "";
-      let j = i;
-      let ungappedCount = 0;
-
-      while (j < upper.length && ungappedCount < 3) {
-        if (upper[j] !== "-") {
-          codon += upper[j];
-          ungappedCount++;
-        }
-        j++;
-      }
-
-      if (ungappedCount === 3) {
-        const aa = translateCodon(codon);
-        // Mark all three positions
-        result.push({ char: aa, isTranslated: true });
-      } else {
-        result.push({ char: " ", isTranslated: false });
-      }
-    } else {
-      // Middle of codon - already handled above
-      result.push({ char: " ", isTranslated: false });
+  // Find the ungapped position corresponding to CDS start
+  // cdsStart is in gapped coordinates, find which ungapped base it corresponds to
+  let cdsUngappedStart = 0;
+  for (let i = 0; i < ungappedToGapped.length; i++) {
+    if (ungappedToGapped[i] >= cdsStart) {
+      cdsUngappedStart = i;
+      break;
     }
+  }
 
-    ungappedPos++;
+  // Translate in triplets starting from CDS start
+  for (let i = cdsUngappedStart; i + 2 < ungappedSeq.length; i += 3) {
+    const codon = ungappedSeq.slice(i, i + 3);
+    const aa = translateCodon(codon);
+
+    // Place amino acid at the first position of the codon
+    const gappedPos = ungappedToGapped[i];
+    result[gappedPos] = { char: aa, isTranslated: true };
   }
 
   return result;

@@ -96,14 +96,16 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
     return groupErrorsIntoRegions(mismatchPositions, 5); // 5 base gap threshold
   }, [mismatchPositions]);
 
-  // CDS Translation
+  // CDS Translation - use CDS start position for correct reading frame
   const refTranslation = useMemo(() => {
     if (!cdsHighlight) return null;
+    // Pass CDS start in gapped coordinates so translation starts at correct reading frame
     return translateGappedSequence(displayRef, cdsHighlight.start);
   }, [displayRef, cdsHighlight]);
 
   const queryTranslation = useMemo(() => {
     if (!cdsHighlight) return null;
+    // Pass CDS start in gapped coordinates so translation starts at correct reading frame
     return translateGappedSequence(displayQuery, cdsHighlight.start);
   }, [displayQuery, cdsHighlight]);
 

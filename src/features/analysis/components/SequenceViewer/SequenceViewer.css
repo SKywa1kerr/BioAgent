@@ -176,14 +176,20 @@
 
 .aa-pre {
   color: #555;
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: "Monaco", "Consolas", "Courier New", monospace;
+  white-space: pre;
+  margin: 0;
+  padding: 0;
 }
 
 .aa-pre .aa-char {
   display: inline-block;
   width: var(--base-width);
   text-align: center;
+  font-weight: 600;
+  color: #333;
 }
 
 .aa-pre .aa-gap {
