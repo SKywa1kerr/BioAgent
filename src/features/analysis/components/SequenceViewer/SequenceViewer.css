@@ -154,7 +154,19 @@
 
 /* ─── Amino acids ─── */
 .aa-row {
-  margin-top: 8px;
+  margin-top: 4px;
+  padding: 4px 0;
+  background: #fafafa;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.aa-row.ref-aa-row {
+  background: #f9fafb;
+}
+
+.aa-row.query-aa-row {
+  background: #f0f9ff;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .aa-bases {
@@ -164,6 +176,19 @@
 
 .aa-pre {
   color: #555;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.aa-pre .aa-char {
+  display: inline-block;
+  width: var(--base-width);
+  text-align: center;
+}
+
+.aa-pre .aa-gap {
+  display: inline-block;
+  width: var(--base-width);
 }
 
 .aa-pre.mutation-highlight {

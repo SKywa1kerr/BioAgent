@@ -256,6 +256,22 @@
   background: var(--bg-muted);
 }
 
+.btn-link {
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--brand-deep);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-link:hover {
+  color: var(--brand-accent);
+}
+
 .path-selectors {
   display: flex;
   gap: 8px;

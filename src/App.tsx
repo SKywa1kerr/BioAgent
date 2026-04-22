@@ -5,13 +5,14 @@ import { AgentPanel } from "./features/agent";
 import { HistoryPanel } from "./features/history";
 import { PrimerPanel } from "./features/primer";
 import { SettingsPanel } from "./features/settings";
+import { ReportPanel } from "./features/report";
 import { useSequencingStore, useSelectedRun, useAllRuns } from "./features/analysis/stores/sequencingStore";
 import { keysToCamelCase } from "./shared/utils/caseConverter";
 import "./App.css";
 
 const { invoke } = window.electronAPI;
 
-type NavFeature = "analysis" | "agent" | "history" | "settings" | "primer";
+type NavFeature = "analysis" | "agent" | "history" | "settings" | "primer" | "report";
 
 /**
  * BioAgent Desktop App
@@ -160,17 +161,20 @@ function App() {
                     />
                   </div>
 
-                  {/* Mutation Summary */}
+                  {/* Quick Stats - Link to full Report */}
                   <div className="details-section">
-                    <h4>Analysis Results</h4>
+                    <h4>Quick Stats</h4>
                     <div className="metrics">
                       <span>Identity: {((selectedSample.identity || 0) * 100).toFixed(1)}%</span>
                       <span>Coverage: {((selectedSample.coverage || 0) * 100).toFixed(1)}%</span>
-                      <span>Mutations: {selectedSample.mutations?.length || 0}</span>
+                      <span>Status: {selectedSample.status}</span>
                     </div>
-                    {selectedSample.frameshift && (
-                      <div className="alert error">Frameshift detected!</div>
-                    )}
+                    <button
+                      className="btn-link"
+                      onClick={() => setActiveFeature("report")}
+                    >
+                      View Full Report →
+                    </button>
                   </div>
                 </div>
               ) : (
@@ -212,6 +216,13 @@ function App() {
           </div>
         );
 
+      case "report":
+        return (
+          <div className="app-body feature-body">
+            <ReportPanel samples={samples} selectedSampleId={selectedId} />
+          </div>
+        );
+
       default:
         return null;
     }
@@ -242,6 +253,12 @@ function App() {
             onClick={() => setActiveFeature("primer")}
           >
             Primer
+          </button>
+          <button
+            className={`nav-btn ${activeFeature === "report" ? "active" : ""}`}
+            onClick={() => setActiveFeature("report")}
+          >
+            Report
           </button>
           <button
             className={`nav-btn ${activeFeature === "history" ? "active" : ""}`}
