@@ -101,7 +101,7 @@ def extract_mutations(
             ref2_cursor += 1
         else:
             refpos = last_refpos
-        
+
         if a == "-" and b != "-":
             muts.append(Mutation(position=refpos or 1, ref_base="-", query_base=b, type="insertion"))
         elif a != "-" and b == "-":
@@ -109,6 +109,150 @@ def extract_mutations(
         elif a != "-" and b != "-" and a.upper() != b.upper():
             muts.append(Mutation(position=refpos, ref_base=a, query_base=b, type="substitution"))
     return muts
+
+
+def extract_protein_mutations(
+    ref_g: str, qry_g: str, ref2_start: int, ref_len: int,
+    cds_start: int, cds_end: int, is_circular: bool = True
+) -> List[Mutation]:
+    """Extract protein-level mutations with formatted effect strings.
+
+    Effect format:
+    - Substitution: X->Y (e.g., A->V)
+    - Deletion: /X (e.g., /L)
+    - Insertion: |>X (e.g., |>A)
+    """
+    protein_muts = []
+    ref2_cursor = ref2_start
+    cds_offset = cds_start - 1  # 0-based offset into CDS
+
+    # Map gapped positions to CDS codon positions
+    codon_idx = 0  # Which codon we're in (0-based)
+    pos_in_codon = 0  # Position within codon (0, 1, 2)
+
+    # Track current codon state
+    current_ref_codon = ["", "", ""]
+    current_qry_codon = ["", "", ""]
+    current_codon_aa_pos = 0
+
+    # First pass: collect all codons in the CDS
+    codons = []  # List of (aa_pos, ref_codon, qry_codon)
+
+    for i, (a, b) in enumerate(zip(ref_g, qry_g)):
+        # Track reference position
+        refpos = None
+        if a != "-":
+            refpos = ref2pos_to_refpos(ref2_cursor, ref_len, is_circular)
+            ref2_cursor += 1
+
+        # Check if we're in the CDS
+        in_cds = refpos is not None and cds_start <= refpos <= cds_end
+
+        if in_cds:
+            # Calculate codon position
+            cds_pos = refpos - cds_start  # 0-based position in CDS
+            aa_pos = cds_pos // 3 + 1  # 1-based amino acid position
+            codon_pos = cds_pos % 3  # 0, 1, or 2
+
+            # Start new codon if needed
+            if codon_pos == 0:
+                if current_ref_codon[0] or current_ref_codon[1] or current_ref_codon[2]:
+                    # Save previous codon
+                    ref_c = "".join(current_ref_codon).replace("-", "")
+                    qry_c = "".join(current_qry_codon).replace("-", "")
+                    if len(ref_c) > 0:  # Only if we have reference data
+                        codons.append((current_codon_aa_pos, ref_c, qry_c))
+                # Reset for new codon
+                current_ref_codon = ["", "", ""]
+                current_qry_codon = ["", "", ""]
+                current_codon_aa_pos = aa_pos
+
+            # Store bases
+            current_ref_codon[codon_pos] = a if a != "-" else ""
+            current_qry_codon[codon_pos] = b if b != "-" else ""
+
+    # Don't forget the last codon
+    if current_ref_codon[0] or current_ref_codon[1] or current_ref_codon[2]:
+        ref_c = "".join(current_ref_codon).replace("-", "")
+        qry_c = "".join(current_qry_codon).replace("-", "")
+        if len(ref_c) > 0:
+            codons.append((current_codon_aa_pos, ref_c, qry_c))
+
+    # Second pass: compare codons and create protein mutations
+    seen_aa_positions = set()
+
+    for aa_pos, ref_codon, qry_codon in codons:
+        if len(ref_codon) != 3:
+            continue  # Skip incomplete codons
+
+        ref_aa = translate_codon(ref_codon)
+        qry_aa = translate_codon(qry_codon) if len(qry_codon) == 3 else None
+
+        if ref_aa is None:
+            continue
+
+        # Determine mutation type and effect
+        if qry_aa is None:
+            # Deletion (incomplete codon due to gap)
+            effect = f"/{ref_aa}"
+            protein_muts.append(Mutation(
+                position=aa_pos,
+                ref_base=ref_codon,
+                query_base=qry_codon,
+                type="deletion",
+                effect=effect,
+                ref_codon=ref_codon,
+                query_codon=qry_codon,
+                ref_aa=ref_aa,
+                query_aa="?",
+            ))
+        elif ref_aa == "*":
+            # Stop codon - only flag if query is NOT also a stop codon
+            # (if both are stop codons, it's not a mutation)
+            if qry_aa != "*":
+                effect = f"*{aa_pos}{qry_aa}"
+                protein_muts.append(Mutation(
+                    position=aa_pos,
+                    ref_base=ref_codon,
+                    query_base=qry_codon,
+                    type="substitution",
+                    effect=effect,
+                    ref_codon=ref_codon,
+                    query_codon=qry_codon,
+                    ref_aa=ref_aa,
+                    query_aa=qry_aa,
+                ))
+            # else: both are stop codons - not a mutation, skip
+        elif qry_aa == "*":
+            # Stop codon in query
+            effect = f"{ref_aa}{aa_pos}>*"
+            protein_muts.append(Mutation(
+                position=aa_pos,
+                ref_base=ref_codon,
+                query_base=qry_codon,
+                type="substitution",
+                effect=effect,
+                ref_codon=ref_codon,
+                query_codon=qry_codon,
+                ref_aa=ref_aa,
+                query_aa=qry_aa,
+            ))
+        elif ref_aa != qry_aa:
+            # This is a protein mutation
+            effect = f"{ref_aa}{aa_pos}{qry_aa}"
+            protein_muts.append(Mutation(
+                position=aa_pos,
+                ref_base=ref_codon,
+                query_base=qry_codon,
+                type="substitution",
+                effect=effect,
+                ref_codon=ref_codon,
+                query_codon=qry_codon,
+                ref_aa=ref_aa,
+                query_aa=qry_aa,
+            ))
+
+    return protein_muts
 
 
 STD_TABLE = CodonTable.unambiguous_dna_by_id[1]
@@ -299,7 +443,7 @@ def analyze_sample(
         is_circular=is_circular,
     )
 
-    mutations = extract_mutations(ref_g, qry_g, ref2_s, ref_len, is_circular=is_circular)
+    mutations = extract_protein_mutations(ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end, is_circular=is_circular)
     cds_positions = compute_cds_covered_positions(
         ref_g, qry_g, ref2_s, ref_len, cds_start, cds_end, is_circular=is_circular
     )

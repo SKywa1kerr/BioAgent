@@ -606,6 +606,10 @@ def analyze_folder(
                     "position": m.position,
                     "refBase": m.ref_base,
                     "queryBase": m.query_base,
+                    "refCodon": m.ref_codon,
+                    "queryCodon": m.query_codon,
+                    "refAA": m.ref_aa,
+                    "queryAA": m.query_aa,
                     "type": m.type,
                     "effect": m.effect,
                 }

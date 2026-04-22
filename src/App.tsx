@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo } from "react";
-import type { Sample, ChromatogramData } from "./shared/types";
-import { SequenceViewer } from "./features/analysis";
+import { useState, useCallback } from "react";
+import type { Sample } from "./shared/types";
+import { SequenceViewer } from "./features/analysis/components/SequenceViewer";
 import { AgentPanel } from "./features/agent";
 import { HistoryPanel } from "./features/history";
 import { PrimerPanel } from "./features/primer";
@@ -37,23 +37,6 @@ function App() {
   const [genesDir, setGenesDir] = useState<string | null>(null);
 
   const selectedSample = samples.find((s) => s.id === selectedId);
-
-  // Build chromatogram data from sample
-  const chromatogramData = useMemo<ChromatogramData | null>(() => {
-    if (!selectedSample?.tracesA) return null;
-    return {
-      traces: {
-        A: selectedSample.tracesA,
-        T: selectedSample.tracesT || [],
-        G: selectedSample.tracesG || [],
-        C: selectedSample.tracesC || [],
-      },
-      quality: selectedSample.quality || [],
-      baseCalls: selectedSample.querySequence,
-      baseLocations: selectedSample.baseLocations || [],
-      mixedPeaks: selectedSample.mixedPeaks || [],
-    };
-  }, [selectedSample]);
 
   const runAnalysis = useCallback(async () => {
     if (!ab1Dir) {
@@ -130,16 +113,28 @@ function App() {
                 <div className="viewer">
                   <div className="sequence-section">
                     <SequenceViewer
+                      key={selectedSample.id}
                       sampleId={selectedSample.id}
-                      refSequence={selectedSample.refSequence}
-                      alignedRefG={selectedSample.alignedRefG}
-                      alignedQueryG={selectedSample.alignedQueryG}
-                      alignedQuery={selectedSample.alignedQuery}
-                      matches={selectedSample.matches}
-                      chromatogramData={chromatogramData}
+                      refSequence={selectedSample.refSequence || ""}
+                      alignedRefG={selectedSample.alignedRefG || ""}
+                      alignedQueryG={selectedSample.alignedQueryG || ""}
+                      alignedQuery={selectedSample.alignedQuery || ""}
+                      matches={selectedSample.matches || []}
+                      chromatogramData={selectedSample.tracesA ? {
+                        traces: {
+                          A: selectedSample.tracesA || [],
+                          T: selectedSample.tracesT || [],
+                          G: selectedSample.tracesG || [],
+                          C: selectedSample.tracesC || [],
+                        },
+                        quality: selectedSample.quality || [],
+                        baseCalls: selectedSample.querySequence,
+                        baseLocations: selectedSample.baseLocations || [],
+                        mixedPeaks: selectedSample.mixedPeaks || [],
+                      } : null}
                       showChromatogram={showChromatogram}
-                      cdsStart={selectedSample.cdsStart}
-                      cdsEnd={selectedSample.cdsEnd}
+                      cdsStart={selectedSample.cdsStart || 0}
+                      cdsEnd={selectedSample.cdsEnd || 0}
                     />
                   </div>
 

@@ -1,8 +1,7 @@
 import React, { useMemo, useRef, useCallback } from "react";
-import { ChromatogramData } from "../../../../shared/types";
+import type { ChromatogramData } from "../../../../shared/types";
 import { ChromatogramWorkerView } from "../Chromatogram/ChromatogramWorkerView";
 import { buildCoordinateMap, buildHighlights, findMismatchPositions } from "../../utils/coordinates";
-import { translateGappedSequence, groupErrorsIntoRegions } from "../../../../utils/sequence";
 import "./SequenceViewer.css";
 
 const BASE_WIDTH = 7.2;
@@ -30,7 +29,7 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
   refSequence = "",
   alignedRefG = "",
   alignedQueryG = "",
-  alignedQuery = "",
+  alignedQuery,
   matches = [],
   chromatogramData,
   cdsStart,
@@ -42,19 +41,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
   const displayRef = alignedRefG || refSequence;
   const displayQuery = alignedQueryG || alignedQuery;
   const totalBases = displayRef?.length || 0;
-
-  // Debug logging
-  console.log('[SequenceViewer] Props:', {
-    sampleId,
-    refSequence: refSequence?.slice(0, 50),
-    alignedRefG: alignedRefG?.slice(0, 50),
-    alignedQueryG: alignedQueryG?.slice(0, 50),
-    alignedQuery: alignedQuery?.slice(0, 50),
-    displayRef: displayRef?.slice(0, 50),
-    displayQuery: displayQuery?.slice(0, 50),
-    totalBases,
-    matchesLength: matches?.length,
-  });
 
   // Build coordinate map (memoized)
   const coordMap = useMemo(() => {
@@ -91,47 +77,23 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
     return findMismatchPositions({ refGapped: displayRef, queryGapped: displayQuery, matches });
   }, [displayRef, displayQuery, matches]);
 
-  // Group errors into regions (regionalization)
-  const errorRegions = useMemo(() => {
-    return groupErrorsIntoRegions(mismatchPositions, 5); // 5 base gap threshold
-  }, [mismatchPositions]);
-
-  // CDS Translation - use CDS start position for correct reading frame
-  const refTranslation = useMemo(() => {
-    if (!cdsHighlight) return null;
-    // Pass CDS start in gapped coordinates so translation starts at correct reading frame
-    return translateGappedSequence(displayRef, cdsHighlight.start);
-  }, [displayRef, cdsHighlight]);
-
-  const queryTranslation = useMemo(() => {
-    if (!cdsHighlight) return null;
-    // Pass CDS start in gapped coordinates so translation starts at correct reading frame
-    return translateGappedSequence(displayQuery, cdsHighlight.start);
-  }, [displayQuery, cdsHighlight]);
-
-  // Navigation state - navigate by regions instead of individual errors
-  const [currentRegionIndex, setCurrentRegionIndex] = React.useState(0);
+  // Navigation state
+  const [currentErrorIndex, setCurrentErrorIndex] = React.useState(0);
 
   const navigateToNext = useCallback(() => {
-    if (errorRegions.length === 0) return;
-    const nextIndex = (currentRegionIndex + 1) % errorRegions.length;
-    setCurrentRegionIndex(nextIndex);
+    if (mismatchPositions.length === 0) return;
+    const nextIndex = (currentErrorIndex + 1) % mismatchPositions.length;
+    setCurrentErrorIndex(nextIndex);
 
-    const targetRegion = errorRegions[nextIndex];
+    const targetPosition = mismatchPositions[nextIndex];
     if (containerRef.current) {
-      const targetScrollLeft = targetRegion.start * BASE_WIDTH - containerRef.current.clientWidth / 2 + BASE_WIDTH / 2;
+      const targetScrollLeft = targetPosition * BASE_WIDTH - containerRef.current.clientWidth / 2 + BASE_WIDTH / 2;
       containerRef.current.scrollTo({
         left: Math.max(0, targetScrollLeft),
         behavior: "smooth"
       });
     }
-  }, [currentRegionIndex, errorRegions]);
-
-  // Check if position is a mismatch
-  const isMismatch = (pos: number) => !matches[pos];
-
-  // Chromatogram mapping
-  const gappedToQueryIdx = coordMap.gappedToQuery;
+  }, [currentErrorIndex, mismatchPositions]);
 
   // Build match string
   const matchString = useMemo(() =>
@@ -148,32 +110,21 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
     }).join('').slice(0, totalBases);
   }, [totalBases]);
 
-  // Early return if no data
-  if (!displayRef || !displayQuery || totalBases === 0) {
-    return (
-      <div className="sequence-viewer horizontal" ref={containerRef}>
-        <div className="sequence-empty-state">
-          <p>No sequence data available</p>
-          <p className="sequence-empty-debug">
-            refSequence: {refSequence ? "present" : "missing"},
-            alignedRefG: {alignedRefG ? "present" : "missing"},
-            alignedQuery: {alignedQuery ? "present" : "missing"},
-            alignedQueryG: {alignedQueryG ? "present" : "missing"}
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // Check if position is a mismatch
+  const isMismatch = (pos: number) => !matches[pos];
+
+  // Chromatogram mapping
+  const gappedToQueryIdx = coordMap.gappedToQuery;
 
   return (
     <div className="sequence-viewer horizontal" ref={containerRef}>
-      {errorRegions.length > 0 && (
+      {mismatchPositions.length > 0 && (
         <button
           className="navigate-errors-btn"
           onClick={navigateToNext}
-          title={`Next error region (${currentRegionIndex + 1}/${errorRegions.length})`}
+          title={`Next mutation (${currentErrorIndex + 1}/${mismatchPositions.length})`}
         >
-          ▶ Region ({currentRegionIndex + 1}/{errorRegions.length})
+          ▶ ({currentErrorIndex + 1}/{mismatchPositions.length})
         </button>
       )}
 
@@ -233,46 +184,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
               </pre>
             </div>
           </div>
-
-          {/* CDS Translation - Reference */}
-          {refTranslation && cdsHighlight && (
-            <div className="strand-row aa-row ref-aa-row">
-              <span className="row-gutter sticky-gutter">Ref AA</span>
-              <div className="row-content">
-                <pre className="aa-pre">
-                  {refTranslation.map((item, idx) => (
-                    <span
-                      key={idx}
-                      className={item.isTranslated ? "aa-char" : "aa-gap"}
-                      style={item.isTranslated ? { fontWeight: 'bold', color: '#555' } : {}}
-                    >
-                      {item.char}
-                    </span>
-                  ))}
-                </pre>
-              </div>
-            </div>
-          )}
-
-          {/* CDS Translation - Query */}
-          {queryTranslation && cdsHighlight && (
-            <div className="strand-row aa-row query-aa-row">
-              <span className="row-gutter sticky-gutter">Query AA</span>
-              <div className="row-content">
-                <pre className="aa-pre">
-                  {queryTranslation.map((item, idx) => (
-                    <span
-                      key={idx}
-                      className={item.isTranslated ? "aa-char" : "aa-gap"}
-                      style={item.isTranslated ? { fontWeight: 'bold', color: '#555' } : {}}
-                    >
-                      {item.char}
-                    </span>
-                  ))}
-                </pre>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Chromatogram */}
