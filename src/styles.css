@@ -114,6 +114,31 @@ body,
   padding: 16px;
 }
 
+.app-shell.rail-wide   { grid-template-columns: minmax(520px, 38%) 1fr; }
+.app-shell.rail-narrow { grid-template-columns: minmax(300px, 26%) 1fr; }
+.app-shell.rail-hidden { grid-template-columns: 40px 1fr; }
+
+.app-shell.rail-hidden .chat-panel > *:not(.chat-rail-toggle) { display: none; }
+.app-shell.rail-hidden .chat-panel {
+  align-items: center;
+  padding: 8px 0;
+  position: relative;
+}
+
+.chat-rail-toggle {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  color: var(--text-main);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  z-index: 3;
+}
+
 .chat-panel,
 .canvas-panel {
   background: var(--panel-bg);

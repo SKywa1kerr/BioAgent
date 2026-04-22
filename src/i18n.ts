@@ -199,6 +199,9 @@ const zh: Dict = {
   "wb.drawer.close": "关闭",
   "wb.density.compact": "紧凑",
   "wb.density.detailed": "详细",
+  "wb.chatRail.wide": "宽",
+  "wb.chatRail.narrow": "窄",
+  "wb.chatRail.hidden": "隐藏",
 
   "palette.title": "命令面板",
   "palette.placeholder": "搜索命令...",
@@ -442,6 +445,9 @@ const en: Dict = {
   "wb.drawer.close": "Close",
   "wb.density.compact": "Compact",
   "wb.density.detailed": "Detailed",
+  "wb.chatRail.wide": "Wide",
+  "wb.chatRail.narrow": "Narrow",
+  "wb.chatRail.hidden": "Hidden",
 
   "palette.title": "Command palette",
   "palette.placeholder": "Search commands...",

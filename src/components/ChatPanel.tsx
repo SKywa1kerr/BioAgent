@@ -24,6 +24,8 @@ interface ChatPanelProps {
   onPrefillConsumed?: () => void;
   inputRef?: React.RefObject<HTMLTextAreaElement>;
   onOpenPalette?: () => void;
+  onCycleRail?: () => void;
+  railLabel?: string;
 }
 
 function renderInlineRichText(text: string): ReactNode[] {
@@ -115,7 +117,7 @@ function formatTime(ts: number): string {
 export function ChatPanel({
   messages, isRunning, progress, language, initialized,
   onSend, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
-  prefillText, onPrefillConsumed, inputRef, onOpenPalette,
+  prefillText, onPrefillConsumed, inputRef, onOpenPalette, onCycleRail, railLabel,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [expandedMessageKeys, setExpandedMessageKeys] = useState<Set<string>>(new Set());
@@ -190,6 +192,17 @@ export function ChatPanel({
 
   return (
     <aside className="chat-panel" aria-label="Chat">
+      {onCycleRail ? (
+        <button
+          type="button"
+          className="chat-rail-toggle"
+          onClick={onCycleRail}
+          aria-label={railLabel}
+          title={railLabel}
+        >
+          {railLabel}
+        </button>
+      ) : null}
       <div className="panel-title panel-title-row">
         <span>{t(language, "app.title")}</span>
         <div className="panel-action-group">

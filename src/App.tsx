@@ -14,6 +14,7 @@ import { useAgentHarness } from "./hooks/useAgentHarness";
 import { useOnboarding } from "./hooks/useOnboarding";
 import { registerCommand } from "./lib/commands/registry";
 import { loadSettings, saveSettings, type AgentSettings } from "./lib/settingsStorage";
+import { loadRailState, nextRailState, saveRailState, type ChatRailState } from "./lib/ui/chatRailState";
 import { t, type AppLanguage } from "./i18n";
 
 /* ── Helpers ────────────────────────────────────────────────────────── */
@@ -36,8 +37,17 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [prefillText, setPrefillText] = useState<string | null>(null);
+  const [railState, setRailState] = useState<ChatRailState>(() => loadRailState());
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
   const onboarding = useOnboarding();
+
+  useEffect(() => {
+    saveRailState(railState);
+  }, [railState]);
+
+  const cycleRail = useCallback(() => {
+    setRailState((s) => nextRailState(s));
+  }, []);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -364,7 +374,7 @@ export function App() {
   /* ── Layout ───────────────────────────────────────────────────────── */
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell rail-${railState}`}>
       {!isOnline ? <div className="offline-banner">{t(language, "app.offline")}</div> : null}
       <ChatPanel
         messages={agent.messages}
@@ -383,6 +393,8 @@ export function App() {
         onPrefillConsumed={() => setPrefillText(null)}
         inputRef={chatInputRef}
         onOpenPalette={() => setPaletteOpen(true)}
+        onCycleRail={cycleRail}
+        railLabel={t(language, `wb.chatRail.${railState}`)}
       />
 
       <main className="canvas-panel" aria-label="Analysis canvas">
