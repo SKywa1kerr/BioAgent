@@ -131,21 +131,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
   // Chromatogram mapping
   const gappedToQueryIdx = coordMap.gappedToQuery;
 
-  const navigateToNext = useCallback(() => {
-    if (mismatchPositions.length === 0) return;
-    const nextIndex = (currentErrorIndex + 1) % mismatchPositions.length;
-    setCurrentErrorIndex(nextIndex);
-
-    const targetPosition = mismatchPositions[nextIndex];
-    if (containerRef.current) {
-      const targetScrollLeft = targetPosition * BASE_WIDTH - containerRef.current.clientWidth / 2 + BASE_WIDTH / 2;
-      containerRef.current.scrollTo({
-        left: Math.max(0, targetScrollLeft),
-        behavior: "smooth"
-      });
-    }
-  }, [currentErrorIndex, mismatchPositions]);
-
   // Build match string
   const matchString = useMemo(() =>
     matches.map(m => m ? "|" : " ").join(""),
@@ -160,12 +145,6 @@ export const SequenceViewer: React.FC<SequenceViewerProps> = React.memo(({
       return ' ';
     }).join('').slice(0, totalBases);
   }, [totalBases]);
-
-  // Check if position is a mismatch
-  const isMismatch = (pos: number) => !matches[pos];
-
-  // Chromatogram mapping
-  const gappedToQueryIdx = coordMap.gappedToQuery;
 
   // Early return if no data
   if (!displayRef || !displayQuery || totalBases === 0) {
