@@ -9,6 +9,7 @@ const LLM_TIMEOUT_MS = 45000;
 const MAX_HISTORY_NON_TOOL_MESSAGES = 6;
 const MAX_PROMPT_MESSAGES = 8;
 const MAX_TOOL_CONTENT_CHARS = 1800;
+const MAX_SUMMARY_SAMPLES = 5;
 
 const RETRY_MAX = 2;
 const RETRY_DELAYS_MS = [1000, 3000];
@@ -38,6 +39,70 @@ async function withRetry(fn, onRetry) {
     }
   }
   throw lastError;
+}
+
+function normalizeIntentText(input) {
+  return String(input || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function matchDatasetAnalysisIntent(input) {
+  const text = normalizeIntentText(input);
+  const match = text.match(/^(分析|analyze) (base|pro|promax) (数据集|dataset)$/i);
+  if (!match) return null;
+  return { dataset: match[2].toLowerCase() };
+}
+
+function pickAnalysisSamples(result) {
+  if (Array.isArray(result?.samples) && result.samples.length > 0) {
+    return result.samples;
+  }
+  if (Array.isArray(result?.detail?.samples) && result.detail.samples.length > 0) {
+    return result.detail.samples;
+  }
+  return [];
+}
+
+function buildAnalysisSummaryPrompt(result) {
+  const samples = pickAnalysisSamples(result).slice(0, MAX_SUMMARY_SAMPLES).map((sample) => ({
+    id: sample.id,
+    identity: sample.identity,
+    cds_coverage: sample.cds_coverage,
+    aa_changes: Array.isArray(sample.aa_changes) ? sample.aa_changes.slice(0, 8) : [],
+  }));
+
+  return [
+    "You are Ultimate BioAgent.",
+    "Summarize this dataset analysis for the user in 2-4 sentences.",
+    "Be concise, mention the dataset and any notable samples or quality risks.",
+    "If the result looks stable, say so plainly.",
+    JSON.stringify({
+      analysis_id: result?.analysis_id,
+      dataset: result?.dataset,
+      sample_count: result?.sample_count,
+      detail_error: result?.detail_error,
+      samples,
+    }),
+  ].join("\n");
+}
+
+async function createAnalysisSummary(client, model, timeout, result) {
+  const response = await withRetry(() => client.chat.completions.create({
+    model,
+    temperature: 0,
+    max_tokens: 400,
+    timeout,
+    messages: [
+      {
+        role: "user",
+        content: buildAnalysisSummaryPrompt(result),
+      },
+    ],
+  }));
+
+  return response?.choices?.[0]?.message?.content || "Analysis completed.";
 }
 
 export class AgentHarness extends EventEmitter {
@@ -228,6 +293,46 @@ export class AgentHarness extends EventEmitter {
     return text;
   }
 
+  async runExplicitDatasetAnalysis({ dataset }, onEvent) {
+    onEvent({ type: "thinking" });
+    onEvent({ type: "tool_calls_start", message: "Running tool steps..." });
+    onEvent({ type: "tool_call", tool: "analyze_sequences", args: { dataset } });
+
+    const result = await this.callMcpTool("analyze_sequences", { dataset, no_llm: true });
+    if (result && result.ok && result.analysis_id) {
+      const hasInlineSamples = pickAnalysisSamples(result).length > 0;
+      if (!hasInlineSamples) {
+        try {
+          const detail = await this.callMcpTool("get_analysis_detail", { analysis_id: result.analysis_id });
+          if (detail && detail.ok) {
+            result.detail = detail;
+            if (Array.isArray(detail.samples)) {
+              result.samples = detail.samples;
+            }
+          } else {
+            result.detail_error = (detail && detail.error) || "Failed to load analysis detail";
+          }
+        } catch (error) {
+          result.detail_error = error instanceof Error ? error.message : String(error);
+        }
+      }
+    }
+
+    onEvent({ type: "tool_result", tool: "analyze_sequences", result });
+    onEvent({ type: "summary_pending" });
+
+    const client = this.getClient();
+    const content = await createAnalysisSummary(
+      client,
+      this.settings.llmModel || DEFAULT_MODEL,
+      this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
+      result,
+    );
+
+    this.messages.push({ role: "assistant", content });
+    onEvent({ type: "summary_ready", content, uiAction: "show_analysis" });
+  }
+
   async runTurn(userMessage, onEvent) {
     if (this.isRunning) {
       onEvent({ type: "busy", message: "Agent is already processing another request. Please wait." });
@@ -241,6 +346,12 @@ export class AgentHarness extends EventEmitter {
     let replied = false;
 
     try {
+      const explicitIntent = matchDatasetAnalysisIntent(userMessage);
+      if (explicitIntent) {
+        await this.runExplicitDatasetAnalysis(explicitIntent, onEvent);
+        return;
+      }
+
       for (let turn = 0; turn < MAX_TURNS; turn += 1) {
         onEvent({ type: "thinking" });
 
