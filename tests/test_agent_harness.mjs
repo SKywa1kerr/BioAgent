@@ -495,3 +495,57 @@ test("runTurn fast-paths please analyze pro dataset as an explicit dataset comma
 
   assert.ok(events.some((event) => event.type === "tool_result" && event.tool === "analyze_sequences"));
 });
+
+test("stale background summaries are dropped after a newer turn supersedes them", async () => {
+  const harness = createHarness();
+  const events = [];
+  const firstSummaryDeferred = createDeferred();
+  let llmCalls = 0;
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => {
+          llmCalls += 1;
+          if (llmCalls === 1) {
+            await firstSummaryDeferred.promise;
+            return {
+              choices: [{ message: { content: "stale summary" } }],
+            };
+          }
+          return {
+            choices: [{ message: { content: "fresh summary" } }],
+          };
+        },
+      },
+    },
+  });
+
+  harness.callMcpTool = async (toolName, args) => ({
+    ok: true,
+    analysis_id: `${args.dataset}-analysis`,
+    dataset: args.dataset,
+    sample_count: 1,
+    samples: [{ id: `${args.dataset}-1` }],
+  });
+
+  await harness.runTurn("analyze pro dataset", (payload) => events.push({ turn: 1, ...payload }));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  await harness.runTurn("analyze base dataset", (payload) => events.push({ turn: 2, ...payload }));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  firstSummaryDeferred.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const staleReadyEvents = events.filter((event) => event.turn === 1 && event.type === "summary_ready");
+  const staleFailedEvents = events.filter((event) => event.turn === 1 && event.type === "summary_failed");
+  const freshReadyEvents = events.filter((event) => event.turn === 2 && event.type === "summary_ready");
+  const assistantMessages = harness.messages.filter((message) => message.role === "assistant").map((message) => message.content);
+
+  assert.equal(staleReadyEvents.length, 0);
+  assert.equal(staleFailedEvents.length, 0);
+  assert.equal(freshReadyEvents.length, 1);
+  assert.deepEqual(assistantMessages, ["fresh summary"]);
+});

@@ -117,6 +117,7 @@ export class AgentHarness extends EventEmitter {
     this.mcpRequestId = 0;
     this.mcpTools = [];
     this.isRunning = false;
+    this.currentTurnId = 0;
   }
 
   async initMcpServer() {
@@ -293,13 +294,18 @@ export class AgentHarness extends EventEmitter {
     return text;
   }
 
-  startAnalysisSummary(result, dataset, onEvent) {
+  isCurrentTurn(turnId) {
+    return this.currentTurnId === turnId;
+  }
+
+  startAnalysisSummary(result, dataset, onEvent, turnId) {
     const summaryMeta = {
       dataset: result.dataset || dataset,
       analysis_id: result.analysis_id,
     };
 
     Promise.resolve().then(async () => {
+      if (!this.isCurrentTurn(turnId)) return;
       onEvent({ type: "summary_pending", ...summaryMeta });
 
       try {
@@ -311,16 +317,18 @@ export class AgentHarness extends EventEmitter {
           result,
         );
 
+        if (!this.isCurrentTurn(turnId)) return;
         this.messages.push({ role: "assistant", content });
         onEvent({ type: "summary_ready", content, uiAction: "show_analysis", ...summaryMeta });
       } catch (error) {
+        if (!this.isCurrentTurn(turnId)) return;
         const message = error instanceof Error ? error.message : String(error);
         onEvent({ type: "summary_failed", message, ...summaryMeta });
       }
     });
   }
 
-  async runExplicitDatasetAnalysis({ dataset }, onEvent) {
+  async runExplicitDatasetAnalysis({ dataset }, onEvent, turnId) {
     const toolArgs = { dataset, no_llm: true };
     onEvent({ type: "thinking" });
     onEvent({ type: "tool_calls_start", message: "Running tool steps..." });
@@ -351,7 +359,7 @@ export class AgentHarness extends EventEmitter {
     }
 
     onEvent({ type: "tool_result", tool: "analyze_sequences", result });
-    this.startAnalysisSummary(result, dataset, onEvent);
+    this.startAnalysisSummary(result, dataset, onEvent, turnId);
   }
 
   async runTurn(userMessage, onEvent) {
@@ -361,6 +369,7 @@ export class AgentHarness extends EventEmitter {
     }
 
     this.isRunning = true;
+    const turnId = ++this.currentTurnId;
     this.compactHistoryForNewTurn();
     this.messages.push({ role: "user", content: userMessage });
 
@@ -369,7 +378,7 @@ export class AgentHarness extends EventEmitter {
     try {
       const explicitIntent = matchDatasetAnalysisIntent(userMessage);
       if (explicitIntent) {
-        await this.runExplicitDatasetAnalysis(explicitIntent, onEvent);
+        await this.runExplicitDatasetAnalysis(explicitIntent, onEvent, turnId);
         return;
       }
 
