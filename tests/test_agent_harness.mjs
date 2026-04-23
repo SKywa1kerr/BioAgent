@@ -173,6 +173,11 @@ test("runTurn fast-paths explicit dataset analysis without first LLM routing cal
   await harness.runTurn("分析 pro 数据集", (payload) => events.push(payload));
 
   assert.equal(llmCalls, 1);
+  assert.deepEqual(events.find((event) => event.type === "tool_call"), {
+    type: "tool_call",
+    tool: "analyze_sequences",
+    args: { dataset: "pro", no_llm: true },
+  });
   assert.ok(events.some((event) => event.type === "tool_result" && event.tool === "analyze_sequences"));
 });
 
@@ -209,10 +214,16 @@ test("fast-path analysis emits summary_pending and summary_ready after the tool 
   const toolIndex = events.findIndex((event) => event.type === "tool_result" && event.tool === "analyze_sequences");
   const pendingIndex = events.findIndex((event) => event.type === "summary_pending");
   const readyIndex = events.findIndex((event) => event.type === "summary_ready");
+  const pendingEvent = events[pendingIndex];
+  const readyEvent = events[readyIndex];
 
   assert.ok(toolIndex >= 0);
   assert.ok(pendingIndex > toolIndex);
   assert.ok(readyIndex > pendingIndex);
+  assert.equal(pendingEvent.dataset, "pro");
+  assert.equal(pendingEvent.analysis_id, "analysis-1");
+  assert.equal(readyEvent.dataset, "pro");
+  assert.equal(readyEvent.analysis_id, "analysis-1");
 });
 
 test("non-explicit requests still use the legacy LLM routing flow", async () => {
@@ -235,4 +246,128 @@ test("non-explicit requests still use the legacy LLM routing flow", async () => 
   await harness.runTurn("帮我看看 pro 这批数据有什么问题", () => {});
 
   assert.ok(llmCalls >= 1);
+});
+
+test("fast-path analyze_sequences failure short-circuits before tool_result and summary", async () => {
+  const harness = createHarness();
+  const events = [];
+  let llmCalls = 0;
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => {
+          llmCalls += 1;
+          return {
+            choices: [{ message: { content: "should not happen" } }],
+          };
+        },
+      },
+    },
+  });
+
+  harness.callMcpTool = async (toolName, args) => {
+    assert.equal(toolName, "analyze_sequences");
+    assert.deepEqual(args, { dataset: "pro", no_llm: true });
+    return { ok: false, error: "analysis failed" };
+  };
+
+  await harness.runTurn("analyze pro dataset", (payload) => events.push(payload));
+
+  assert.equal(llmCalls, 0);
+  assert.ok(events.some((event) => event.type === "error" && event.message === "analysis failed"));
+  assert.ok(events.some((event) => event.type === "reply" && event.content === "Run failed: analysis failed"));
+  assert.ok(!events.some((event) => event.type === "tool_result"));
+  assert.ok(!events.some((event) => event.type === "summary_pending"));
+  assert.ok(!events.some((event) => event.type === "summary_ready"));
+});
+
+test("summary generation failure is non-fatal after fast-path tool_result", async () => {
+  const harness = createHarness();
+  const events = [];
+  let llmCalls = 0;
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => {
+          llmCalls += 1;
+          throw new Error("summary service unavailable");
+        },
+      },
+    },
+  });
+
+  harness.callMcpTool = async () => ({
+    ok: true,
+    analysis_id: "analysis-2",
+    dataset: "base",
+    sample_count: 1,
+    samples: [{ id: "B1-1" }],
+  });
+
+  await harness.runTurn("analyze base dataset", (payload) => events.push(payload));
+
+  const toolIndex = events.findIndex((event) => event.type === "tool_result" && event.tool === "analyze_sequences");
+  const pendingIndex = events.findIndex((event) => event.type === "summary_pending");
+  const failedIndex = events.findIndex((event) => event.type === "summary_failed");
+
+  assert.equal(llmCalls, 1);
+  assert.ok(toolIndex >= 0);
+  assert.ok(pendingIndex > toolIndex);
+  assert.ok(failedIndex > pendingIndex);
+  assert.equal(events[failedIndex].dataset, "base");
+  assert.equal(events[failedIndex].analysis_id, "analysis-2");
+  assert.equal(events[failedIndex].message, "summary service unavailable");
+  assert.ok(!events.some((event) => event.type === "error"));
+  assert.ok(!events.some((event) => event.type === "reply"));
+});
+
+test("fast-path hydrates analysis detail when analyze_sequences omits inline samples", async () => {
+  const harness = createHarness();
+  const events = [];
+  const toolCalls = [];
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => ({
+          choices: [{ message: { content: "hydrated summary" } }],
+        }),
+      },
+    },
+  });
+
+  harness.callMcpTool = async (toolName, args) => {
+    toolCalls.push({ toolName, args });
+    if (toolName === "analyze_sequences") {
+      return {
+        ok: true,
+        analysis_id: "analysis-3",
+        dataset: "promax",
+        sample_count: 1,
+      };
+    }
+    if (toolName === "get_analysis_detail") {
+      assert.deepEqual(args, { analysis_id: "analysis-3" });
+      return {
+        ok: true,
+        analysis_id: "analysis-3",
+        dataset: "promax",
+        sample_count: 1,
+        samples: [{ id: "P9-1", identity: 0.98 }],
+      };
+    }
+    throw new Error(`Unexpected tool ${toolName}`);
+  };
+
+  await harness.runTurn("分析 promax 数据集", (payload) => events.push(payload));
+
+  assert.deepEqual(toolCalls, [
+    { toolName: "analyze_sequences", args: { dataset: "promax", no_llm: true } },
+    { toolName: "get_analysis_detail", args: { analysis_id: "analysis-3" } },
+  ]);
+  const toolResult = events.find((event) => event.type === "tool_result" && event.tool === "analyze_sequences");
+  assert.deepEqual(toolResult.result.samples, [{ id: "P9-1", identity: 0.98 }]);
+  assert.equal(toolResult.result.detail.analysis_id, "analysis-3");
 });

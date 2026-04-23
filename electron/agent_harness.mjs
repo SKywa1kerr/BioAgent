@@ -89,7 +89,7 @@ function buildAnalysisSummaryPrompt(result) {
 }
 
 async function createAnalysisSummary(client, model, timeout, result) {
-  const response = await withRetry(() => client.chat.completions.create({
+  const response = await client.chat.completions.create({
     model,
     temperature: 0,
     max_tokens: 400,
@@ -100,7 +100,7 @@ async function createAnalysisSummary(client, model, timeout, result) {
         content: buildAnalysisSummaryPrompt(result),
       },
     ],
-  }));
+  });
 
   return response?.choices?.[0]?.message?.content || "Analysis completed.";
 }
@@ -294,12 +294,17 @@ export class AgentHarness extends EventEmitter {
   }
 
   async runExplicitDatasetAnalysis({ dataset }, onEvent) {
+    const toolArgs = { dataset, no_llm: true };
     onEvent({ type: "thinking" });
     onEvent({ type: "tool_calls_start", message: "Running tool steps..." });
-    onEvent({ type: "tool_call", tool: "analyze_sequences", args: { dataset } });
+    onEvent({ type: "tool_call", tool: "analyze_sequences", args: toolArgs });
 
-    const result = await this.callMcpTool("analyze_sequences", { dataset, no_llm: true });
-    if (result && result.ok && result.analysis_id) {
+    const result = await this.callMcpTool("analyze_sequences", toolArgs);
+    if (!result || !result.ok) {
+      throw new Error(result?.error || "Dataset analysis failed");
+    }
+
+    if (result.analysis_id) {
       const hasInlineSamples = pickAnalysisSamples(result).length > 0;
       if (!hasInlineSamples) {
         try {
@@ -319,18 +324,27 @@ export class AgentHarness extends EventEmitter {
     }
 
     onEvent({ type: "tool_result", tool: "analyze_sequences", result });
-    onEvent({ type: "summary_pending" });
+    const summaryMeta = {
+      dataset: result.dataset || dataset,
+      analysis_id: result.analysis_id,
+    };
+    onEvent({ type: "summary_pending", ...summaryMeta });
 
-    const client = this.getClient();
-    const content = await createAnalysisSummary(
-      client,
-      this.settings.llmModel || DEFAULT_MODEL,
-      this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
-      result,
-    );
+    try {
+      const client = this.getClient();
+      const content = await createAnalysisSummary(
+        client,
+        this.settings.llmModel || DEFAULT_MODEL,
+        this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
+        result,
+      );
 
-    this.messages.push({ role: "assistant", content });
-    onEvent({ type: "summary_ready", content, uiAction: "show_analysis" });
+      this.messages.push({ role: "assistant", content });
+      onEvent({ type: "summary_ready", content, uiAction: "show_analysis", ...summaryMeta });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      onEvent({ type: "summary_failed", message, ...summaryMeta });
+    }
   }
 
   async runTurn(userMessage, onEvent) {
