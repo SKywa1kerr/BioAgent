@@ -17,6 +17,16 @@ function createHarness() {
   });
 }
 
+function createDeferred() {
+  let resolve;
+  let reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
 test("_mcpCall rejects immediately when MCP emits an error event", async () => {
   const harness = createHarness();
   harness.mcpProcess = {
@@ -171,6 +181,7 @@ test("runTurn fast-paths explicit dataset analysis without first LLM routing cal
   };
 
   await harness.runTurn("分析 pro 数据集", (payload) => events.push(payload));
+  await new Promise((resolve) => setImmediate(resolve));
 
   assert.equal(llmCalls, 1);
   assert.deepEqual(events.find((event) => event.type === "tool_call"), {
@@ -210,6 +221,7 @@ test("fast-path analysis emits summary_pending and summary_ready after the tool 
   });
 
   await harness.runTurn("analyze pro dataset", (payload) => events.push(payload));
+  await new Promise((resolve) => setImmediate(resolve));
 
   const toolIndex = events.findIndex((event) => event.type === "tool_result" && event.tool === "analyze_sequences");
   const pendingIndex = events.findIndex((event) => event.type === "summary_pending");
@@ -307,6 +319,7 @@ test("summary generation failure is non-fatal after fast-path tool_result", asyn
   });
 
   await harness.runTurn("analyze base dataset", (payload) => events.push(payload));
+  await new Promise((resolve) => setImmediate(resolve));
 
   const toolIndex = events.findIndex((event) => event.type === "tool_result" && event.tool === "analyze_sequences");
   const pendingIndex = events.findIndex((event) => event.type === "summary_pending");
@@ -362,6 +375,7 @@ test("fast-path hydrates analysis detail when analyze_sequences omits inline sam
   };
 
   await harness.runTurn("分析 promax 数据集", (payload) => events.push(payload));
+  await new Promise((resolve) => setImmediate(resolve));
 
   assert.deepEqual(toolCalls, [
     { toolName: "analyze_sequences", args: { dataset: "promax", no_llm: true } },
@@ -370,4 +384,114 @@ test("fast-path hydrates analysis detail when analyze_sequences omits inline sam
   const toolResult = events.find((event) => event.type === "tool_result" && event.tool === "analyze_sequences");
   assert.deepEqual(toolResult.result.samples, [{ id: "P9-1", identity: 0.98 }]);
   assert.equal(toolResult.result.detail.analysis_id, "analysis-3");
+});
+
+test("fast-path returns after tool_result without waiting for summary completion", async () => {
+  const harness = createHarness();
+  const events = [];
+  const summaryDeferred = createDeferred();
+  let runSettled = false;
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => {
+          await summaryDeferred.promise;
+          return {
+            choices: [{ message: { content: "late summary" } }],
+          };
+        },
+      },
+    },
+  });
+
+  harness.callMcpTool = async () => ({
+    ok: true,
+    analysis_id: "analysis-4",
+    dataset: "pro",
+    sample_count: 1,
+    samples: [{ id: "C4-1" }],
+  });
+
+  const runPromise = harness.runTurn("analyze pro dataset", (payload) => events.push(payload));
+  runPromise.then(() => {
+    runSettled = true;
+  });
+
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.ok(events.some((event) => event.type === "tool_result" && event.tool === "analyze_sequences"));
+  assert.ok(events.some((event) => event.type === "summary_pending"));
+  assert.ok(runSettled);
+  assert.ok(!events.some((event) => event.type === "summary_ready"));
+
+  summaryDeferred.resolve();
+  await runPromise;
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.ok(events.some((event) => event.type === "summary_ready" && event.analysis_id === "analysis-4"));
+});
+
+test("runTurn fast-paths 请分析 pro 数据集 as an explicit dataset command", async () => {
+  const harness = createHarness();
+  const events = [];
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => ({
+          choices: [{ message: { content: "summary" } }],
+        }),
+      },
+    },
+  });
+
+  harness.callMcpTool = async (toolName, args) => {
+    assert.equal(toolName, "analyze_sequences");
+    assert.deepEqual(args, { dataset: "pro", no_llm: true });
+    return {
+      ok: true,
+      analysis_id: "analysis-5",
+      dataset: "pro",
+      sample_count: 1,
+      samples: [{ id: "C5-1" }],
+    };
+  };
+
+  await harness.runTurn("请分析 pro 数据集", (payload) => events.push(payload));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.ok(events.some((event) => event.type === "tool_result" && event.tool === "analyze_sequences"));
+});
+
+test("runTurn fast-paths please analyze pro dataset as an explicit dataset command", async () => {
+  const harness = createHarness();
+  const events = [];
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => ({
+          choices: [{ message: { content: "summary" } }],
+        }),
+      },
+    },
+  });
+
+  harness.callMcpTool = async (toolName, args) => {
+    assert.equal(toolName, "analyze_sequences");
+    assert.deepEqual(args, { dataset: "pro", no_llm: true });
+    return {
+      ok: true,
+      analysis_id: "analysis-6",
+      dataset: "pro",
+      sample_count: 1,
+      samples: [{ id: "C6-1" }],
+    };
+  };
+
+  await harness.runTurn("please analyze pro dataset", (payload) => events.push(payload));
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.ok(events.some((event) => event.type === "tool_result" && event.tool === "analyze_sequences"));
 });

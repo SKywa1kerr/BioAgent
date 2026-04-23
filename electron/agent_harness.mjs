@@ -50,9 +50,9 @@ function normalizeIntentText(input) {
 
 function matchDatasetAnalysisIntent(input) {
   const text = normalizeIntentText(input);
-  const match = text.match(/^(分析|analyze) (base|pro|promax) (数据集|dataset)$/i);
+  const match = text.match(/^(?:(?:请)?分析|(?:please )?analyze) (?<dataset>base|pro|promax) (?:数据集|dataset)$/i);
   if (!match) return null;
-  return { dataset: match[2].toLowerCase() };
+  return { dataset: match.groups.dataset.toLowerCase() };
 }
 
 function pickAnalysisSamples(result) {
@@ -293,6 +293,33 @@ export class AgentHarness extends EventEmitter {
     return text;
   }
 
+  startAnalysisSummary(result, dataset, onEvent) {
+    const summaryMeta = {
+      dataset: result.dataset || dataset,
+      analysis_id: result.analysis_id,
+    };
+
+    Promise.resolve().then(async () => {
+      onEvent({ type: "summary_pending", ...summaryMeta });
+
+      try {
+        const client = this.getClient();
+        const content = await createAnalysisSummary(
+          client,
+          this.settings.llmModel || DEFAULT_MODEL,
+          this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
+          result,
+        );
+
+        this.messages.push({ role: "assistant", content });
+        onEvent({ type: "summary_ready", content, uiAction: "show_analysis", ...summaryMeta });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        onEvent({ type: "summary_failed", message, ...summaryMeta });
+      }
+    });
+  }
+
   async runExplicitDatasetAnalysis({ dataset }, onEvent) {
     const toolArgs = { dataset, no_llm: true };
     onEvent({ type: "thinking" });
@@ -324,27 +351,7 @@ export class AgentHarness extends EventEmitter {
     }
 
     onEvent({ type: "tool_result", tool: "analyze_sequences", result });
-    const summaryMeta = {
-      dataset: result.dataset || dataset,
-      analysis_id: result.analysis_id,
-    };
-    onEvent({ type: "summary_pending", ...summaryMeta });
-
-    try {
-      const client = this.getClient();
-      const content = await createAnalysisSummary(
-        client,
-        this.settings.llmModel || DEFAULT_MODEL,
-        this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
-        result,
-      );
-
-      this.messages.push({ role: "assistant", content });
-      onEvent({ type: "summary_ready", content, uiAction: "show_analysis", ...summaryMeta });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      onEvent({ type: "summary_failed", message, ...summaryMeta });
-    }
+    this.startAnalysisSummary(result, dataset, onEvent);
   }
 
   async runTurn(userMessage, onEvent) {
