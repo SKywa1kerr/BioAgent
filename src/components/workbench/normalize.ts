@@ -18,6 +18,14 @@ function toArray<T = any>(value: T[] | undefined | null): T[] | undefined {
   return Array.isArray(value) ? value : undefined;
 }
 
+function getIdentity(item: any): number {
+  return toNumber(item?.identity) ?? 0;
+}
+
+function getCoverage(item: any): number {
+  return toNumber(firstDefined(item?.cds_coverage, item?.cdsCoverage, item?.coverage)) ?? 0;
+}
+
 export function normalizeMutation(item: any): WorkbenchMutation {
   return {
     position: toNumber(firstDefined(item?.position, item?.ref_pos, item?.refPos)),
@@ -29,8 +37,8 @@ export function normalizeMutation(item: any): WorkbenchMutation {
 }
 
 function deriveStatus(item: any, mutationCount: number): "ok" | "wrong" | "uncertain" {
-  const identity = typeof item?.identity === "number" ? item.identity : 0;
-  const coverage = typeof item?.cds_coverage === "number" ? item.cds_coverage : (typeof item?.coverage === "number" ? item.coverage : 0);
+  const identity = getIdentity(item);
+  const coverage = getCoverage(item);
   if (item?.frameshift) return "wrong";
   if (mutationCount > 0) return "wrong";
   if (identity >= 0.99 && coverage >= 0.8) return "ok";
@@ -38,8 +46,8 @@ function deriveStatus(item: any, mutationCount: number): "ok" | "wrong" | "uncer
 }
 
 function deriveReason(item: any, mutationCount: number, language: AppLanguage): string {
-  const identity = typeof item?.identity === "number" ? item.identity : 0;
-  const coverage = typeof item?.cds_coverage === "number" ? item.cds_coverage : (typeof item?.coverage === "number" ? item.coverage : 0);
+  const identity = getIdentity(item);
+  const coverage = getCoverage(item);
   if (item?.error) return String(item.error);
   if (item?.frameshift) return t(language, "analysis.reason.frameshift");
   if (mutationCount > 0) return t(language, "analysis.reason.detectedMut", { count: mutationCount });

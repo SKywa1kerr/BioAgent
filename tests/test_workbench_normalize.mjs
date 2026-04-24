@@ -53,6 +53,12 @@ test("normalizeSamples reads detail samples when direct samples are absent", () 
   assert.equal(samples[0].status, "ok");
 });
 
+test("normalizeSample derives status from camelCase coverage alias", () => {
+  const sample = normalizeSample({ id: "S2", identity: 1, cdsCoverage: 1 }, 0, "en");
+  assert.equal(sample.status, "ok");
+  assert.equal(sample.cds_coverage, 1);
+});
+
 test("buildChromatogramData returns null when required traces or query sequence are missing", () => {
   assert.equal(buildChromatogramData({ id: "S1", query_sequence: "AT" }), null);
 });

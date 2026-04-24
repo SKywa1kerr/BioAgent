@@ -25,6 +25,14 @@ function toArray(value) {
   return Array.isArray(value) ? value : undefined;
 }
 
+function getIdentity(item) {
+  return toNumber(item?.identity) ?? 0;
+}
+
+function getCoverage(item) {
+  return toNumber(firstDefined(item?.cds_coverage, item?.cdsCoverage, item?.coverage)) ?? 0;
+}
+
 export function normalizeMutation(item) {
   return {
     position: toNumber(firstDefined(item?.position, item?.ref_pos, item?.refPos)),
@@ -36,8 +44,8 @@ export function normalizeMutation(item) {
 }
 
 function deriveStatus(item, mutationCount) {
-  const identity = typeof item?.identity === "number" ? item.identity : 0;
-  const coverage = typeof item?.cds_coverage === "number" ? item.cds_coverage : (typeof item?.coverage === "number" ? item.coverage : 0);
+  const identity = getIdentity(item);
+  const coverage = getCoverage(item);
   if (item?.frameshift) return "wrong";
   if (mutationCount > 0) return "wrong";
   if (identity >= 0.99 && coverage >= 0.8) return "ok";
@@ -45,8 +53,8 @@ function deriveStatus(item, mutationCount) {
 }
 
 function deriveReason(item, mutationCount, language) {
-  const identity = typeof item?.identity === "number" ? item.identity : 0;
-  const coverage = typeof item?.cds_coverage === "number" ? item.cds_coverage : (typeof item?.coverage === "number" ? item.coverage : 0);
+  const identity = getIdentity(item);
+  const coverage = getCoverage(item);
   if (item?.error) return String(item.error);
   if (item?.frameshift) return reasonText(language, "analysis.reason.frameshift");
   if (mutationCount > 0) return reasonText(language, "analysis.reason.detectedMut", { count: mutationCount });
