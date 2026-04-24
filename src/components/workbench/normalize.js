@@ -1,11 +1,18 @@
-import type { ChromatogramData, WorkbenchMutation, WorkbenchSample } from "./types";
-import { t, type AppLanguage } from "../../i18n";
+function reasonText(language, key, params = {}) {
+  const messages = {
+    "analysis.reason.frameshift": "Frameshift detected",
+    "analysis.reason.detectedMut": `Detected ${params.count ?? 0} mutation${params.count === 1 ? "" : "s"}`,
+    "analysis.reason.highQuality": "High-quality match",
+    "analysis.reason.review": "Review recommended",
+  };
+  return messages[key] ?? key;
+}
 
-function firstDefined<T>(...values: T[]): T | undefined {
+function firstDefined(...values) {
   return values.find((value) => value !== undefined && value !== null);
 }
 
-function toNumber(value: any): number | undefined {
+function toNumber(value) {
   if (typeof value === "number") return value;
   if (typeof value === "string" && value.trim() !== "") {
     const parsed = Number(value);
@@ -14,11 +21,11 @@ function toNumber(value: any): number | undefined {
   return undefined;
 }
 
-function toArray<T = any>(value: T[] | undefined | null): T[] | undefined {
+function toArray(value) {
   return Array.isArray(value) ? value : undefined;
 }
 
-export function normalizeMutation(item: any): WorkbenchMutation {
+export function normalizeMutation(item) {
   return {
     position: toNumber(firstDefined(item?.position, item?.ref_pos, item?.refPos)),
     refBase: firstDefined(item?.refBase, item?.ref_base),
@@ -28,7 +35,7 @@ export function normalizeMutation(item: any): WorkbenchMutation {
   };
 }
 
-function deriveStatus(item: any, mutationCount: number): "ok" | "wrong" | "uncertain" {
+function deriveStatus(item, mutationCount) {
   const identity = typeof item?.identity === "number" ? item.identity : 0;
   const coverage = typeof item?.cds_coverage === "number" ? item.cds_coverage : (typeof item?.coverage === "number" ? item.coverage : 0);
   if (item?.frameshift) return "wrong";
@@ -37,17 +44,17 @@ function deriveStatus(item: any, mutationCount: number): "ok" | "wrong" | "uncer
   return "uncertain";
 }
 
-function deriveReason(item: any, mutationCount: number, language: AppLanguage): string {
+function deriveReason(item, mutationCount, language) {
   const identity = typeof item?.identity === "number" ? item.identity : 0;
   const coverage = typeof item?.cds_coverage === "number" ? item.cds_coverage : (typeof item?.coverage === "number" ? item.coverage : 0);
   if (item?.error) return String(item.error);
-  if (item?.frameshift) return t(language, "analysis.reason.frameshift");
-  if (mutationCount > 0) return t(language, "analysis.reason.detectedMut", { count: mutationCount });
-  if (identity >= 0.99 && coverage >= 0.8) return t(language, "analysis.reason.highQuality");
-  return t(language, "analysis.reason.review");
+  if (item?.frameshift) return reasonText(language, "analysis.reason.frameshift");
+  if (mutationCount > 0) return reasonText(language, "analysis.reason.detectedMut", { count: mutationCount });
+  if (identity >= 0.99 && coverage >= 0.8) return reasonText(language, "analysis.reason.highQuality");
+  return reasonText(language, "analysis.reason.review");
 }
 
-export function normalizeSample(item: any, idx: number, language: AppLanguage): WorkbenchSample {
+export function normalizeSample(item, idx, language) {
   const id = firstDefined(item?.id, item?.sid, item?.name, `sample-${idx + 1}`);
   const mutations = Array.isArray(item?.mutations) ? item.mutations.map(normalizeMutation) : [];
   const mutationCount =
@@ -55,7 +62,7 @@ export function normalizeSample(item: any, idx: number, language: AppLanguage): 
     (toNumber(firstDefined(item?.ins_count, item?.insCount, item?.ins)) ?? 0) +
     (toNumber(firstDefined(item?.del_count, item?.delCount, item?.dele, item?.del)) ?? 0) ||
     mutations.length;
-  const status = (item?.status as "ok" | "wrong" | "uncertain" | undefined) || deriveStatus(item, mutationCount);
+  const status = item?.status || deriveStatus(item, mutationCount);
   const reason = firstDefined(item?.reason, item?.review_reason, item?.reviewReason, item?.llm_reason, item?.llmReason, item?.auto_reason, item?.autoReason) || deriveReason(item, mutationCount, language);
 
   return {
@@ -89,25 +96,25 @@ export function normalizeSample(item: any, idx: number, language: AppLanguage): 
     aligned_ref_g: firstDefined(item?.aligned_ref_g, item?.alignedRefG),
     aligned_query_g: firstDefined(item?.aligned_query_g, item?.alignedQueryG),
     aligned_query: firstDefined(item?.aligned_query, item?.alignedQuery),
-    matches: toArray<boolean>(firstDefined(item?.matches, item?.matchMask)),
+    matches: toArray(firstDefined(item?.matches, item?.matchMask)),
     cds_start: toNumber(firstDefined(item?.cds_start, item?.cdsStart)),
     cds_end: toNumber(firstDefined(item?.cds_end, item?.cdsEnd)),
-    traces_a: toArray<number>(firstDefined(item?.traces_a, item?.tracesA)),
-    traces_t: toArray<number>(firstDefined(item?.traces_t, item?.tracesT)),
-    traces_g: toArray<number>(firstDefined(item?.traces_g, item?.tracesG)),
-    traces_c: toArray<number>(firstDefined(item?.traces_c, item?.tracesC)),
-    quality: toArray<number>(item?.quality),
-    base_locations: toArray<number>(firstDefined(item?.base_locations, item?.baseLocations)),
-    mixed_peaks: toArray<number>(firstDefined(item?.mixed_peaks, item?.mixedPeaks)),
+    traces_a: toArray(firstDefined(item?.traces_a, item?.tracesA)),
+    traces_t: toArray(firstDefined(item?.traces_t, item?.tracesT)),
+    traces_g: toArray(firstDefined(item?.traces_g, item?.tracesG)),
+    traces_c: toArray(firstDefined(item?.traces_c, item?.tracesC)),
+    quality: toArray(item?.quality),
+    base_locations: toArray(firstDefined(item?.base_locations, item?.baseLocations)),
+    mixed_peaks: toArray(firstDefined(item?.mixed_peaks, item?.mixedPeaks)),
   };
 }
 
-export function buildChromatogramData(sample: Partial<WorkbenchSample> | any): ChromatogramData | null {
+export function buildChromatogramData(sample) {
   const querySequence = firstDefined(sample?.query_sequence, sample?.querySequence);
-  const tracesA = toArray<number>(firstDefined(sample?.traces_a, sample?.tracesA));
-  const tracesT = toArray<number>(firstDefined(sample?.traces_t, sample?.tracesT));
-  const tracesG = toArray<number>(firstDefined(sample?.traces_g, sample?.tracesG));
-  const tracesC = toArray<number>(firstDefined(sample?.traces_c, sample?.tracesC));
+  const tracesA = toArray(firstDefined(sample?.traces_a, sample?.tracesA));
+  const tracesT = toArray(firstDefined(sample?.traces_t, sample?.tracesT));
+  const tracesG = toArray(firstDefined(sample?.traces_g, sample?.tracesG));
+  const tracesC = toArray(firstDefined(sample?.traces_c, sample?.tracesC));
 
   if (!querySequence || !tracesA || !tracesT || !tracesG || !tracesC) {
     return null;
@@ -115,19 +122,19 @@ export function buildChromatogramData(sample: Partial<WorkbenchSample> | any): C
 
   return {
     traces: { A: tracesA, T: tracesT, G: tracesG, C: tracesC },
-    quality: toArray<number>(sample?.quality) ?? [],
+    quality: toArray(sample?.quality) ?? [],
     baseCalls: String(querySequence),
-    base_locations: toArray<number>(firstDefined(sample?.base_locations, sample?.baseLocations)) ?? [],
-    mixed_peaks: toArray<number>(firstDefined(sample?.mixed_peaks, sample?.mixedPeaks)) ?? [],
+    base_locations: toArray(firstDefined(sample?.base_locations, sample?.baseLocations)) ?? [],
+    mixed_peaks: toArray(firstDefined(sample?.mixed_peaks, sample?.mixedPeaks)) ?? [],
   };
 }
 
-export function normalizeSamples(result: any, language: AppLanguage): WorkbenchSample[] {
+export function normalizeSamples(result, language) {
   const direct = Array.isArray(result?.samples) ? result.samples : [];
   const detailSamples = Array.isArray(result?.detail?.samples) ? result.detail.samples : [];
   const payload = direct.length > 0 ? direct : detailSamples;
 
   return payload
-    .filter((item: any) => item && typeof item === "object")
-    .map((item: any, idx: number) => normalizeSample(item, idx, language));
+    .filter((item) => item && typeof item === "object")
+    .map((item, idx) => normalizeSample(item, idx, language));
 }
