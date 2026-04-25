@@ -1,0 +1,97 @@
+.sequence-alignment-view {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sequence-alignment-view__aa {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sequence-alignment-view__aa-pill {
+  border: 1px solid color-mix(in srgb, var(--accent), transparent 62%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent), transparent 88%);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 5px 8px;
+}
+
+.sequence-alignment-view__scroller {
+  overflow-x: auto;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+}
+
+.sequence-alignment-view__alignment {
+  --alignment-label-width: 48px;
+  --alignment-font-size: 12px;
+  --alignment-line-height: 1.45;
+  display: grid;
+  gap: 2px;
+  min-width: calc(var(--alignment-label-width) + (var(--alignment-length) * 1ch) + 20px);
+  width: max-content;
+  padding: 10px;
+  font-family: Consolas, Menlo, monospace;
+  font-size: var(--alignment-font-size);
+  line-height: var(--alignment-line-height);
+}
+
+.sequence-alignment-view__track {
+  position: relative;
+  height: 14px;
+  margin-left: var(--alignment-label-width);
+  width: calc(var(--alignment-length) * 1ch);
+}
+
+.sequence-alignment-view__cds {
+  position: absolute;
+  top: 4px;
+  left: calc(var(--range-start) * 1ch);
+  width: calc(var(--range-size) * 1ch);
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent), transparent 72%);
+}
+
+.sequence-alignment-view__marker {
+  position: absolute;
+  top: 1px;
+  left: calc(var(--range-start) * 1ch);
+  width: max(2px, calc(var(--range-size) * 1ch));
+  height: 12px;
+  border-radius: 3px;
+  background: #d9480f;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #d9480f, transparent 35%);
+}
+
+.sequence-alignment-view__marker--synonymous {
+  background: #2f9e44;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #2f9e44, transparent 35%);
+}
+
+.sequence-alignment-view__marker--single_read {
+  background: #5c7cfa;
+  box-shadow: 0 0 0 1px color-mix(in srgb, #5c7cfa, transparent 35%);
+}
+
+.sequence-alignment-view__row {
+  display: grid;
+  grid-template-columns: var(--alignment-label-width) calc(var(--alignment-length) * 1ch);
+  align-items: baseline;
+}
+
+.sequence-alignment-view__label {
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.sequence-alignment-view__line {
+  white-space: pre;
+}

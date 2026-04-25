@@ -1,6 +1,9 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import type { WorkbenchSample } from "./types";
 import { bucketSampleStatus, formatPercent } from "./utils";
+import { buildAlignmentViewModel } from "./alignmentView";
+import { buildChromatogramData } from "./normalize";
+import { SequenceAlignmentView } from "./SequenceAlignmentView";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
 import "./DetailDrawer.css";
@@ -42,24 +45,6 @@ function parseAa(v: WorkbenchSample["aa_changes"]): string[] {
     }
   }
   return [];
-}
-
-function chromatogramFrom(sample: WorkbenchSample) {
-  if (!sample.traces_a || !sample.traces_t || !sample.traces_g || !sample.traces_c || !sample.query_sequence) {
-    return null;
-  }
-  return {
-    traces: {
-      A: sample.traces_a,
-      T: sample.traces_t,
-      G: sample.traces_g,
-      C: sample.traces_c,
-    },
-    quality: sample.quality || [],
-    baseCalls: sample.query_sequence,
-    base_locations: sample.base_locations || [],
-    mixed_peaks: sample.mixed_peaks || [],
-  };
 }
 
 export function DetailDrawer({ sample, language, onClose }: Props) {
@@ -105,7 +90,8 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
   if (!sample) return null;
   const bucket = bucketSampleStatus(sample);
   const aa = parseAa(sample.aa_changes);
-  const chrom = chromatogramFrom(sample);
+  const chrom = buildChromatogramData(sample);
+  const alignmentView = buildAlignmentViewModel(sample);
   const muts = Array.isArray(sample.mutations) ? sample.mutations : [];
   const avgQ = sample.avg_qry_quality ?? sample.avg_quality;
 
@@ -204,14 +190,11 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
 
         <section className="detail-drawer-section">
           <h4>{t(language, "table.alignment")}</h4>
-          <pre className="detail-drawer-aa">
-            <div>
-              <strong>REF:</strong> {sample.aligned_ref_g || sample.ref_sequence || ""}
-            </div>
-            <div>
-              <strong>QRY:</strong> {sample.aligned_query_g || sample.query_sequence || ""}
-            </div>
-          </pre>
+          {alignmentView ? (
+            <SequenceAlignmentView view={alignmentView} />
+          ) : (
+            <div className="detail-drawer-empty">{t(language, "table.noAlignment")}</div>
+          )}
         </section>
 
         <section className="detail-drawer-section">
