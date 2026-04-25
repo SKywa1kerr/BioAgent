@@ -60,6 +60,46 @@ test("buildChromatogramRenderModel downsamples traces when trace range exceeds c
   assert.equal(model.tracePoints.A.length <= 101, true);
 });
 
+test("buildChromatogramRenderModel preserves narrow off-stride peaks when downsampling", () => {
+  const aTrace = Array.from({ length: 1000 }, () => 1);
+  const flatTrace = Array.from({ length: 1000 }, () => 0);
+  aTrace[501] = 10000;
+
+  const model = buildChromatogramRenderModel({
+    traces: { A: aTrace, T: flatTrace, G: flatTrace, C: flatTrace },
+    quality: [],
+    baseCalls: "AT",
+    base_locations: [0, 999],
+    mixed_peaks: [],
+  }, {
+    startPosition: 1,
+    endPosition: 2,
+    width: 100,
+    height: 120,
+    maxPointsPerPixel: 1,
+  });
+
+  assert.equal(model.step > 1, true);
+  assert.equal(Math.max(...model.tracePoints.A.map((point) => point.value)), 10000);
+  assert.equal(model.maxVal > 1, true);
+});
+
+test("buildChromatogramRenderModel returns an empty model for non-finite ranges", () => {
+  for (const options of [
+    { startPosition: NaN, endPosition: 2 },
+    { startPosition: 1, endPosition: NaN },
+  ]) {
+    const model = buildChromatogramRenderModel(data, options);
+
+    assert.deepEqual(model.baseLabels, []);
+    assert.deepEqual(model.tracePoints, { A: [], T: [], G: [], C: [] });
+    assert.equal(model.visibleStartTrace, 0);
+    assert.equal(model.visibleEndTrace, 0);
+    assert.equal(model.step, 1);
+    assert.equal(model.maxVal, 1);
+  }
+});
+
 test("findNearestBaseIndex returns nearest base within visible labels", () => {
   const model = buildChromatogramRenderModel(data, {
     startPosition: 1,

@@ -70,6 +70,21 @@ function buildEmptyModel(width: number, height: number, padding: number): Chroma
   };
 }
 
+function findBucketPeak(trace: number[], start: number, end: number) {
+  let traceIndex = start;
+  let value = trace[start] ?? 0;
+
+  for (let i = start + 1; i < end; i += 1) {
+    const nextValue = trace[i] ?? 0;
+    if (Math.abs(nextValue) > Math.abs(value)) {
+      traceIndex = i;
+      value = nextValue;
+    }
+  }
+
+  return { traceIndex, value };
+}
+
 export function buildChromatogramRenderModel(
   data: ChromatogramData,
   options: ChromatogramRenderOptions,
@@ -79,7 +94,13 @@ export function buildChromatogramRenderModel(
   const padding = options.padding ?? DEFAULT_PADDING;
   const traceLength = data.traces.A?.length ?? 0;
 
-  if (!data.baseCalls || !data.base_locations?.length || traceLength <= 0) {
+  if (
+    !Number.isFinite(options.startPosition) ||
+    !Number.isFinite(options.endPosition) ||
+    !data.baseCalls ||
+    !data.base_locations?.length ||
+    traceLength <= 0
+  ) {
     return buildEmptyModel(width, height, padding);
   }
 
@@ -110,13 +131,15 @@ export function buildChromatogramRenderModel(
   for (const base of BASES) {
     const trace = data.traces[base] ?? [];
     for (let i = visibleStartTrace; i < visibleEndTrace; i += step) {
-      const value = trace[i] ?? 0;
+      const bucketEnd = step === 1 ? i + 1 : Math.min(i + step, visibleEndTrace);
+      const { value } = findBucketPeak(trace, i, bucketEnd);
       if (value > 0) visibleValues.push(value);
     }
   }
 
   const robustTop = percentile(visibleValues, 0.985);
-  const maxVal = robustTop > 0 ? robustTop : 1;
+  const absoluteTop = visibleValues.length > 0 ? Math.max(...visibleValues) : 0;
+  const maxVal = Math.max(robustTop, absoluteTop, 1);
   const xScale = (width - 2 * padding) / traceRange;
   const yScale = (height - 2 * padding) / (maxVal * 1.08);
   const tracePoints = emptyTracePoints();
@@ -125,11 +148,12 @@ export function buildChromatogramRenderModel(
     const trace = data.traces[base] ?? [];
     const points = tracePoints[base];
     for (let i = visibleStartTrace; i < visibleEndTrace; i += step) {
-      const value = trace[i] ?? 0;
+      const bucketEnd = step === 1 ? i + 1 : Math.min(i + step, visibleEndTrace);
+      const { traceIndex, value } = findBucketPeak(trace, i, bucketEnd);
       const clamped = Math.min(value, maxVal * 1.08);
       points.push({
-        traceIndex: i,
-        x: padding + (i - visibleStartTrace) * xScale,
+        traceIndex,
+        x: padding + (traceIndex - visibleStartTrace) * xScale,
         y: height - padding - clamped * yScale,
         value,
       });
