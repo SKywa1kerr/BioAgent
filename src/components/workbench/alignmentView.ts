@@ -97,11 +97,30 @@ function mapReferenceRange(start: number | undefined, end: number | undefined, m
   return { start: startBase, end: endBase + 1 };
 }
 
-function mapMutationRanges(sample: WorkbenchSample, map: CoordinateMap): MutationRange[] {
+function findInsertionGap(refLine: string, queryLine: string, anchor: number): number | undefined {
+  const isInsertionColumn = (index: number): boolean => refLine[index] === "-" && queryLine[index] !== "-";
+  const leftStart = Math.max(0, anchor - 2);
+
+  for (let index = anchor; index >= leftStart; index -= 1) {
+    if (isInsertionColumn(index)) return index;
+  }
+
+  for (let index = anchor + 1; index < refLine.length && refLine[index] === "-"; index += 1) {
+    if (isInsertionColumn(index)) return index;
+  }
+
+  return undefined;
+}
+
+function mapMutationRanges(sample: WorkbenchSample, map: CoordinateMap, refLine: string, queryLine: string): MutationRange[] {
   return (sample.mutations ?? []).flatMap((mutation) => {
     if (!mutation.position) return [];
 
-    const start = map.refToGapped[mutation.position - 1];
+    const mappedStart = map.refToGapped[mutation.position - 1];
+    if (mappedStart === undefined) return [];
+
+    const isInsertion = mutation.type === "insertion" || mutation.refBase === "-";
+    const start = isInsertion ? findInsertionGap(refLine, queryLine, mappedStart) ?? mappedStart : mappedStart;
     if (start === undefined) return [];
 
     return [{
@@ -133,7 +152,7 @@ export function buildAlignmentViewModel(sample: WorkbenchSample): AlignmentViewM
     tickLine: buildTickLine(length),
     coordinateMap,
     cdsRange: mapReferenceRange(sample.cds_start, sample.cds_end, coordinateMap),
-    mutationRanges: mapMutationRanges(sample, coordinateMap),
+    mutationRanges: mapMutationRanges(sample, coordinateMap, refLine, queryLine),
     aaChanges: parseAaChanges(sample.aa_changes),
   };
 }

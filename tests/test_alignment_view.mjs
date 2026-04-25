@@ -36,6 +36,17 @@ test("buildAlignmentViewModel maps one-based CDS and mutation positions into gap
   assert.deepEqual(view.aaChanges, ["S2L"]);
 });
 
+test("buildAlignmentViewModel maps insertion mutations to ref gap columns", () => {
+  const view = buildAlignmentViewModel({
+    id: "S1",
+    aligned_ref_g: "ATG-C",
+    aligned_query_g: "ATGTC",
+    mutations: [{ position: 4, refBase: "-", queryBase: "T", type: "insertion" }],
+  });
+
+  assert.deepEqual(view.mutationRanges, [{ start: 3, end: 4, label: "->T", type: "insertion", effect: undefined }]);
+});
+
 test("buildAlignmentViewModel returns null without usable alignment strings", () => {
   assert.equal(buildAlignmentViewModel({ id: "S1" }), null);
 });
