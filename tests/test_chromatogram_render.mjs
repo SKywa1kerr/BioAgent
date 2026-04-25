@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildChromatogramRenderModel,
+  drawChromatogram,
   findNearestBaseIndex,
   percentile,
 } from "../src/components/workbench/chromatogramRender.js";
@@ -108,4 +109,38 @@ test("findNearestBaseIndex returns nearest base within visible labels", () => {
     height: 120,
   });
   assert.equal(findNearestBaseIndex(model, model.baseLabels[1].x + 1), 1);
+});
+
+test("drawChromatogram renders traces, mixed peaks, and mutation markers", () => {
+  const model = buildChromatogramRenderModel(data, {
+    startPosition: 1,
+    endPosition: 3,
+    width: 300,
+    height: 120,
+  });
+  const calls = [];
+  const ctx = {
+    set fillStyle(value) { calls.push(["fillStyle", value]); },
+    set strokeStyle(value) { calls.push(["strokeStyle", value]); },
+    set lineWidth(value) { calls.push(["lineWidth", value]); },
+    set font(value) { calls.push(["font", value]); },
+    set textAlign(value) { calls.push(["textAlign", value]); },
+    fillRect: (...args) => calls.push(["fillRect", ...args]),
+    beginPath: () => calls.push(["beginPath"]),
+    moveTo: (...args) => calls.push(["moveTo", ...args]),
+    lineTo: (...args) => calls.push(["lineTo", ...args]),
+    stroke: () => calls.push(["stroke"]),
+    fillText: (...args) => calls.push(["fillText", ...args]),
+    arc: (...args) => calls.push(["arc", ...args]),
+    closePath: () => calls.push(["closePath"]),
+    fill: () => calls.push(["fill"]),
+  };
+
+  drawChromatogram(ctx, model, { dark: true, mutations: [{ position: 2 }] });
+
+  assert.deepEqual(calls[0], ["fillStyle", "#0f172a"]);
+  assert.deepEqual(calls[1], ["fillRect", 0, 0, 300, 120]);
+  assert.equal(calls.some((call) => call[0] === "fillText" && call[1] === "A"), true);
+  assert.equal(calls.some((call) => call[0] === "arc"), true);
+  assert.equal(calls.some((call) => call[0] === "fillStyle" && call[1] === "#f87171"), true);
 });

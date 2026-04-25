@@ -4,6 +4,20 @@ const DEFAULT_HEIGHT = 220;
 const DEFAULT_PADDING = 24;
 const TRACE_PADDING = 24;
 
+const DARK_TRACE_COLORS = {
+  A: "#4ade80",
+  T: "#f87171",
+  G: "#fbbf24",
+  C: "#60a5fa",
+};
+
+const LIGHT_TRACE_COLORS = {
+  A: "#16a34a",
+  T: "#dc2626",
+  G: "#b45309",
+  C: "#2563eb",
+};
+
 export function percentile(values, ratio) {
   if (values.length === 0) return 0;
   const sorted = [...values].sort((a, b) => a - b);
@@ -169,4 +183,83 @@ export function findNearestBaseIndex(model, x) {
   }
 
   return nearestBaseIndex;
+}
+
+export function drawChromatogram(ctx, model, options) {
+  const { width, height, padding } = model;
+  const traceColors = options.dark ? DARK_TRACE_COLORS : LIGHT_TRACE_COLORS;
+  const background = options.dark ? "#0f172a" : "#f8fbff";
+  const gridColor = options.dark ? "rgba(148, 163, 184, 0.12)" : "rgba(148, 163, 184, 0.22)";
+  const labelColor = options.dark ? "#dbe7f5" : "#334155";
+  const mixedPeakColor = options.dark ? "#fde047" : "#ca8a04";
+  const mutationColor = options.dark ? "#f87171" : "#dc2626";
+
+  ctx.fillStyle = background;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  for (let row = 1; row <= 4; row += 1) {
+    const y = padding + ((height - 2 * padding) / 4) * row;
+    ctx.beginPath();
+    ctx.moveTo(padding, y);
+    ctx.lineTo(width - padding, y);
+    ctx.stroke();
+  }
+
+  for (const base of BASES) {
+    const points = model.tracePoints[base];
+    if (points.length === 0) continue;
+
+    ctx.strokeStyle = traceColors[base];
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+
+    points.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y);
+      else ctx.lineTo(point.x, point.y);
+    });
+
+    ctx.stroke();
+  }
+
+  ctx.font = '11px "Consolas", monospace';
+  ctx.textAlign = "center";
+
+  for (const label of model.baseLabels) {
+    const x = label.x;
+
+    ctx.strokeStyle = gridColor;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, height - padding - 6);
+    ctx.lineTo(x, height - padding + 8);
+    ctx.stroke();
+
+    ctx.fillStyle = traceColors[label.base] || labelColor;
+    ctx.fillText(label.base, x, height - 8);
+
+    if (label.mixed) {
+      ctx.strokeStyle = mixedPeakColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(x, height - 19, 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  const labelsByPosition = new Map(model.baseLabels.map((label) => [label.baseIndex + 1, label]));
+  for (const mutation of options.mutations ?? []) {
+    if (typeof mutation.position !== "number") continue;
+    const label = labelsByPosition.get(mutation.position);
+    if (!label) continue;
+
+    ctx.fillStyle = mutationColor;
+    ctx.beginPath();
+    ctx.moveTo(label.x - 5, padding + 4);
+    ctx.lineTo(label.x + 5, padding + 4);
+    ctx.lineTo(label.x, padding + 12);
+    ctx.closePath();
+    ctx.fill();
+  }
 }
