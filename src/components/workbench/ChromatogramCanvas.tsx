@@ -16,6 +16,7 @@ interface Props {
 
 export function ChromatogramCanvas({ data, startPosition, endPosition, mutations }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const renderModelRef = useRef<ReturnType<typeof buildChromatogramRenderModel> | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [panOffset, setPanOffset] = useState(0);
@@ -26,11 +27,17 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
   const effectiveEnd = Math.min(endPosition, effectiveStart + visibleBases);
 
   useEffect(() => {
-    if (!data || !canvasRef.current) return;
+    if (!data || !canvasRef.current) {
+      renderModelRef.current = null;
+      return;
+    }
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) {
+      renderModelRef.current = null;
+      return;
+    }
 
     const isDarkTheme = document.documentElement.dataset.theme === "dark";
     const model = buildChromatogramRenderModel(data, {
@@ -39,22 +46,19 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
       width: canvas.width,
       height: canvas.height,
     });
+    renderModelRef.current = model;
 
     drawChromatogram(ctx, model, { dark: isDarkTheme, mutations });
   }, [data, effectiveStart, effectiveEnd, mutations]);
 
   function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
     if (!data || !canvasRef.current || !data.base_locations?.length) return;
+    const model = renderModelRef.current;
+    if (!model) return;
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const x = (event.clientX - rect.left) * (canvas.width / rect.width);
-    const model = buildChromatogramRenderModel(data, {
-      startPosition: effectiveStart,
-      endPosition: effectiveEnd,
-      width: canvas.width,
-      height: canvas.height,
-    });
     const closestBaseIdx = findNearestBaseIndex(model, x);
     if (closestBaseIdx < 0) return;
 
