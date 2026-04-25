@@ -64,3 +64,34 @@ export interface WorkbenchSample {
 }
 
 export type WorkbenchStatus = "ok" | "wrong" | "uncertain" | "untested";
+
+export interface CoordinateMap {
+  refToGapped: number[];
+  gappedToRef: Array<number | null>;
+  gappedToQuery: Array<number | null>;
+  queryToGapped: number[];
+}
+
+export interface AlignmentRange {
+  start: number;
+  end: number;
+}
+
+export interface MutationRange extends AlignmentRange {
+  label: string;
+  type?: string;
+  effect?: string;
+}
+
+export interface AlignmentViewModel {
+  sampleId: string;
+  refLine: string;
+  queryLine: string;
+  matchLine: string;
+  positionLine: string;
+  tickLine: string;
+  coordinateMap: CoordinateMap;
+  cdsRange: AlignmentRange | null;
+  mutationRanges: MutationRange[];
+  aaChanges: string[];
+}
