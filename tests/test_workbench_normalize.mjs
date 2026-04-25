@@ -56,6 +56,7 @@ test("normalizeSamples reads detail samples when direct samples are absent", () 
 test("normalizeSample derives status from camelCase coverage alias", () => {
   const sample = normalizeSample({ id: "S2", identity: 1, cdsCoverage: 1 }, 0, "en");
   assert.equal(sample.status, "ok");
+  assert.equal(sample.reason, "High-quality match");
   assert.equal(sample.cds_coverage, 1);
 });
 
