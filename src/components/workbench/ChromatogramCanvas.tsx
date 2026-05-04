@@ -21,12 +21,35 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [panOffset, setPanOffset] = useState(0);
+  // Logical (CSS-pixel) canvas size. Drives both the render model dimensions
+  // and the bitmap-vs-CSS scaling so that the chromatogram stays sharp on
+  // high-DPR screens and reflows when the drawer is resized.
+  const [size, setSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const theme = useTheme();
 
   const totalBases = endPosition - startPosition;
   const visibleBases = Math.max(10, Math.floor(totalBases / zoomLevel));
   const effectiveStart = Math.max(startPosition, startPosition + panOffset);
   const effectiveEnd = Math.min(endPosition, effectiveStart + visibleBases);
+
+  // Track the canvas's CSS-pixel size so the bitmap can be sized to
+  // displaySize × devicePixelRatio. ResizeObserver covers drawer resizes
+  // (the parent <aside> width is user-draggable) and zoom changes.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const target = canvas;
+    function read() {
+      const cssW = target.clientWidth || 0;
+      const cssH = target.clientHeight || 0;
+      setSize((prev) => (prev.width === cssW && prev.height === cssH ? prev : { width: cssW, height: cssH }));
+    }
+    read();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(read);
+    ro.observe(target);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!data || !canvasRef.current) {
@@ -41,17 +64,30 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
       return;
     }
 
+    const cssW = size.width;
+    const cssH = size.height;
+    if (cssW <= 0 || cssH <= 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const bitmapW = Math.max(1, Math.floor(cssW * dpr));
+    const bitmapH = Math.max(1, Math.floor(cssH * dpr));
+    if (canvas.width !== bitmapW) canvas.width = bitmapW;
+    if (canvas.height !== bitmapH) canvas.height = bitmapH;
+    // Anchor the drawing space to CSS pixels so render-model coordinates
+    // map 1:1 to layout pixels and findNearestBaseIndex stays correct.
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
     const isDarkTheme = theme === "dark";
     const model = buildChromatogramRenderModel(data, {
       startPosition: effectiveStart,
       endPosition: effectiveEnd,
-      width: canvas.width,
-      height: canvas.height,
+      width: cssW,
+      height: cssH,
     });
     renderModelRef.current = model;
 
     drawChromatogram(ctx, model, { dark: isDarkTheme, mutations });
-  }, [data, effectiveStart, effectiveEnd, mutations, theme]);
+  }, [data, effectiveStart, effectiveEnd, mutations, theme, size]);
 
   function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
     if (!data || !canvasRef.current || !data.base_locations?.length) return;
@@ -60,7 +96,9 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+    // The render model is in CSS-pixel space (see drawing effect), so the
+    // CSS-pixel offset is what findNearestBaseIndex expects.
+    const x = event.clientX - rect.left;
     const closestBaseIdx = findNearestBaseIndex(model, x);
     if (closestBaseIdx < 0) return;
 
@@ -90,8 +128,6 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
       </div>
       <canvas
         ref={canvasRef}
-        width={1200}
-        height={220}
         className="chromatogram-canvas"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setTooltip(null)}
