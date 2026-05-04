@@ -1,6 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { WorkbenchSample } from "./types";
+import type { WorkbenchSample, WorkbenchStatus } from "./types";
 import { bucketSampleStatus, formatPercent, countSampleMutations } from "./utils";
 import { compactRowView } from "../../lib/workbench/compactRow";
 import type { AppLanguage } from "../../i18n";
@@ -14,6 +14,16 @@ interface Props {
   onSelect(id: string): void;
   isFiltered?: boolean;
   onClearFilters?: () => void;
+}
+
+interface RowView {
+  status: WorkbenchStatus;
+  aaPills: string[];
+  aaOverflow: number;
+  identityPct: string;
+  coveragePct: string;
+  mutationCount: number;
+  reason: string;
 }
 
 const ROW_COMPACT = 64;
@@ -42,6 +52,34 @@ export function ResultsTable({
     virtualizer.measure();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [density, samples.length]);
+
+  // Precompute the per-row derived view once per samples array. Without this,
+  // every parent re-render (filter, sort, density, theme, scroll-induced state)
+  // re-parses aa_changes via JSON.parse and walks the mutation list for every
+  // visible row. samples reference is stable across unrelated re-renders
+  // because the parent memoises buildResultsView, so this map is rebuilt only
+  // when the user actually changes the result set.
+  const rowViews = useMemo<RowView[]>(
+    () =>
+      samples.map((sample) => {
+        const compact = compactRowView(sample);
+        return {
+          status: bucketSampleStatus(sample),
+          aaPills: compact.aaPills,
+          aaOverflow: compact.aaOverflow,
+          identityPct: formatPercent(sample.identity),
+          coveragePct: formatPercent(sample.cds_coverage ?? sample.coverage),
+          mutationCount: countSampleMutations(sample),
+          reason:
+            sample.reason ||
+            sample.review_reason ||
+            sample.auto_reason ||
+            sample.llm_reason ||
+            "",
+        };
+      }),
+    [samples],
+  );
 
   const items = virtualizer.getVirtualItems();
 
@@ -81,23 +119,16 @@ export function ResultsTable({
           <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
             {items.map((v) => {
               const sample = samples[v.index];
-              if (!sample) return null;
-              const status = bucketSampleStatus(sample);
-              const view = compactRowView(sample);
+              const row = rowViews[v.index];
+              if (!sample || !row) return null;
               const isSelected = selectedId === sample.id;
-              const reason =
-                sample.reason ||
-                sample.review_reason ||
-                sample.auto_reason ||
-                sample.llm_reason ||
-                "";
               return (
                 <button
                   key={v.key}
                   type="button"
                   data-index={v.index}
                   onClick={() => onSelect(sample.id)}
-                  className={`sample-compact-row status-${status}${isSelected ? " is-selected" : ""}`}
+                  className={`sample-compact-row status-${row.status}${isSelected ? " is-selected" : ""}`}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -108,30 +139,28 @@ export function ResultsTable({
                   }}
                 >
                   <span className="sample-compact-sid" title={sample.id}>{sample.id}</span>
-                  <span className={`sample-compact-status status-${status}`}>
-                    {t(language, `wb.status.${status}`)}
+                  <span className={`sample-compact-status status-${row.status}`}>
+                    {t(language, `wb.status.${row.status}`)}
                   </span>
                   <span className="sample-compact-aa">
-                    {view.aaPills.length === 0 ? (
+                    {row.aaPills.length === 0 ? (
                       <span className="sample-compact-aa-empty">-</span>
                     ) : (
-                      view.aaPills.map((p) => (
+                      row.aaPills.map((p) => (
                         <span key={p} className="sample-compact-aa-pill">{p}</span>
                       ))
                     )}
-                    {view.aaOverflow > 0 ? (
-                      <span className="sample-compact-aa-overflow">+{view.aaOverflow}</span>
+                    {row.aaOverflow > 0 ? (
+                      <span className="sample-compact-aa-overflow">+{row.aaOverflow}</span>
                     ) : null}
                   </span>
-                  <span className="sample-compact-metric">{formatPercent(sample.identity)}</span>
-                  <span className="sample-compact-metric">
-                    {formatPercent(sample.cds_coverage ?? sample.coverage)}
-                  </span>
-                  <span className="sample-compact-metric">{countSampleMutations(sample)}</span>
+                  <span className="sample-compact-metric">{row.identityPct}</span>
+                  <span className="sample-compact-metric">{row.coveragePct}</span>
+                  <span className="sample-compact-metric">{row.mutationCount}</span>
                   <span className="sample-compact-chevron" aria-hidden="true">›</span>
                   {density === "detailed" ? (
                     <span className="sample-compact-subline">
-                      {reason} · q{sample.avg_qry_quality ?? "-"} · {sample.orientation || "-"}
+                      {row.reason} · q{sample.avg_qry_quality ?? "-"} · {sample.orientation || "-"}
                     </span>
                   ) : null}
                 </button>
