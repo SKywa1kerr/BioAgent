@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import type { WorkbenchSample } from "./types";
 import { bucketSampleStatus, formatPercent } from "./utils";
 import { buildAlignmentViewModel, parseAaChanges } from "./alignmentView";
@@ -47,6 +47,22 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
     return () => window.removeEventListener("keydown", onKey);
   }, [sample, onClose]);
 
+  // Derived values are memoised so that re-renders triggered by drawer
+  // width drag or theme toggles do not rebuild the alignment coordinate
+  // map (O(n) over the gapped sequence) or re-parse aa_changes.
+  const aa = useMemo(
+    () => (sample ? parseAaChanges(sample.aa_changes) : []),
+    [sample],
+  );
+  const chrom = useMemo(
+    () => (sample ? buildChromatogramData(sample) : null),
+    [sample],
+  );
+  const alignmentView = useMemo(
+    () => (sample ? buildAlignmentViewModel(sample) : null),
+    [sample],
+  );
+
   function startDrag(e: React.MouseEvent<HTMLDivElement>) {
     e.preventDefault();
     const startX = e.clientX;
@@ -71,9 +87,6 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
 
   if (!sample) return null;
   const bucket = bucketSampleStatus(sample);
-  const aa = parseAaChanges(sample.aa_changes);
-  const chrom = buildChromatogramData(sample);
-  const alignmentView = buildAlignmentViewModel(sample);
   const muts = Array.isArray(sample.mutations) ? sample.mutations : [];
   const avgQ = sample.avg_qry_quality ?? sample.avg_quality;
 
