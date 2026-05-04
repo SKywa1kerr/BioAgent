@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import type { WorkbenchSample } from "./types";
 import { bucketSampleStatus, formatPercent } from "./utils";
-import { buildAlignmentViewModel } from "./alignmentView";
+import { buildAlignmentViewModel, parseAaChanges } from "./alignmentView";
 import { buildChromatogramData } from "./normalize";
 import { SequenceAlignmentView } from "./SequenceAlignmentView";
 import type { AppLanguage } from "../../i18n";
@@ -30,34 +30,9 @@ interface Props {
   onClose(): void;
 }
 
-function parseAa(v: WorkbenchSample["aa_changes"]): string[] {
-  if (Array.isArray(v)) {
-    return v.filter((x): x is string => typeof x === "string" && x.trim().length > 0);
-  }
-  if (typeof v === "string") {
-    try {
-      const p = JSON.parse(v);
-      if (Array.isArray(p)) {
-        return p.filter((x): x is string => typeof x === "string");
-      }
-    } catch {
-      return v.trim() ? [v.trim()] : [];
-    }
-  }
-  return [];
-}
-
 export function DetailDrawer({ sample, language, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [width, setWidth] = useState<number>(loadWidth);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(width));
-    } catch {
-      // ignore quota / disabled storage
-    }
-  }, [width]);
 
   useEffect(() => {
     if (!sample) return;
@@ -76,12 +51,19 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
     e.preventDefault();
     const startX = e.clientX;
     const startW = width;
+    let lastWidth = startW;
     function onMove(ev: MouseEvent) {
-      setWidth(Math.max(320, Math.min(900, startW + (startX - ev.clientX))));
+      lastWidth = Math.max(320, Math.min(900, startW + (startX - ev.clientX)));
+      setWidth(lastWidth);
     }
     function onUp() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      try {
+        localStorage.setItem(STORAGE_KEY, String(lastWidth));
+      } catch {
+        // ignore quota / disabled storage
+      }
     }
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -89,7 +71,7 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
 
   if (!sample) return null;
   const bucket = bucketSampleStatus(sample);
-  const aa = parseAa(sample.aa_changes);
+  const aa = parseAaChanges(sample.aa_changes);
   const chrom = buildChromatogramData(sample);
   const alignmentView = buildAlignmentViewModel(sample);
   const muts = Array.isArray(sample.mutations) ? sample.mutations : [];
