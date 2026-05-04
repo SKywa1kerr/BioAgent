@@ -5,6 +5,7 @@ import {
   drawChromatogram,
   findNearestBaseIndex,
 } from "./chromatogramRender";
+import { useTheme } from "../../hooks/useTheme";
 import "./ChromatogramCanvas.css";
 
 interface Props {
@@ -20,6 +21,7 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [panOffset, setPanOffset] = useState(0);
+  const theme = useTheme();
 
   const totalBases = endPosition - startPosition;
   const visibleBases = Math.max(10, Math.floor(totalBases / zoomLevel));
@@ -39,7 +41,7 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
       return;
     }
 
-    const isDarkTheme = document.documentElement.dataset.theme === "dark";
+    const isDarkTheme = theme === "dark";
     const model = buildChromatogramRenderModel(data, {
       startPosition: effectiveStart,
       endPosition: effectiveEnd,
@@ -49,7 +51,7 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
     renderModelRef.current = model;
 
     drawChromatogram(ctx, model, { dark: isDarkTheme, mutations });
-  }, [data, effectiveStart, effectiveEnd, mutations]);
+  }, [data, effectiveStart, effectiveEnd, mutations, theme]);
 
   function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
     if (!data || !canvasRef.current || !data.base_locations?.length) return;

@@ -17,6 +17,7 @@ import { useMemo } from "react";
 import type { ReactNode } from "react";
 import type { WorkbenchSample } from "./types";
 import { bucketSampleStatus, formatPercent } from "./utils";
+import { useTheme } from "../../hooks/useTheme";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
 import "./ResultsCharts.css";
@@ -142,10 +143,10 @@ function ChartCard({ title, children }: { title: string; children: ReactNode }) 
 
 export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[]; language: AppLanguage }) {
   const hasSamples = samples.length > 0;
-  const themeKey = typeof document !== "undefined" ? document.documentElement.dataset.theme || "light" : "light";
+  const themeKey = useTheme();
   const palette = useMemo(
     () => readPalette(),
-    // Re-read palette when theme changes (requires a reload or data-theme flip on <html>).
+    // Re-read CSS palette tokens whenever the active theme flips on <html>.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [themeKey],
   );
