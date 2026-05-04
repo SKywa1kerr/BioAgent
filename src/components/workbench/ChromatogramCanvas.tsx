@@ -190,6 +190,7 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
         role="img"
         aria-label={ariaLabel}
         tabIndex={0}
+        onMouseDown={(e) => e.currentTarget.focus()}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setTooltip(null)}
         onKeyDown={handleKeyDown}

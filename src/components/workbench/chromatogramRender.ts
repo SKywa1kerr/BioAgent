@@ -321,16 +321,31 @@ export function drawChromatogram(
     const cursorLabel = model.baseLabels.find((label) => label.baseIndex === options.keyboardCursor);
     if (cursorLabel) {
       const cursorColor = options.dark ? "#facc15" : "#0284c7";
+      const cursorBackdrop = options.dark
+        ? "rgba(250, 204, 21, 0.22)"
+        : "rgba(2, 132, 199, 0.18)";
+
+      // Translucent column highlight makes it obvious which base is selected
+      // even against a busy trace background.
+      ctx.fillStyle = cursorBackdrop;
+      ctx.fillRect(cursorLabel.x - 8, padding - 4, 16, height - 2 * padding + 8);
+
+      // Bright vertical line through the column centre.
       ctx.strokeStyle = cursorColor;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(cursorLabel.x, padding);
-      ctx.lineTo(cursorLabel.x, height - padding);
+      ctx.moveTo(cursorLabel.x, padding - 4);
+      ctx.lineTo(cursorLabel.x, height - padding + 4);
       ctx.stroke();
 
+      // Triangle marker at the top of the canvas pointing down at the column,
+      // sitting above the mutation markers so the two never collide.
       ctx.fillStyle = cursorColor;
       ctx.beginPath();
-      ctx.arc(cursorLabel.x, padding, 3, 0, Math.PI * 2);
+      ctx.moveTo(cursorLabel.x - 7, 2);
+      ctx.lineTo(cursorLabel.x + 7, 2);
+      ctx.lineTo(cursorLabel.x, 11);
+      ctx.closePath();
       ctx.fill();
     }
   }
