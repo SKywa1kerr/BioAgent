@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChromatogramData } from "./types";
 import {
   buildChromatogramRenderModel,
@@ -6,6 +6,8 @@ import {
   findNearestBaseIndex,
 } from "./chromatogramRender";
 import { useTheme } from "../../hooks/useTheme";
+import type { AppLanguage } from "../../i18n";
+import { t } from "../../i18n";
 import "./ChromatogramCanvas.css";
 
 interface Props {
@@ -13,9 +15,10 @@ interface Props {
   startPosition: number;
   endPosition: number;
   mutations?: Array<{ position?: number }>;
+  language: AppLanguage;
 }
 
-export function ChromatogramCanvas({ data, startPosition, endPosition, mutations }: Props) {
+export function ChromatogramCanvas({ data, startPosition, endPosition, mutations, language }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderModelRef = useRef<ReturnType<typeof buildChromatogramRenderModel> | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
@@ -25,6 +28,10 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
   // and the bitmap-vs-CSS scaling so that the chromatogram stays sharp on
   // high-DPR screens and reflows when the drawer is resized.
   const [size, setSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  // Keyboard navigation cursor (base index in the original baseCalls). Null
+  // means no keyboard focus; arrow keys move it, mouse interaction leaves it
+  // alone so the two modes coexist.
+  const [keyboardCursor, setKeyboardCursor] = useState<number | null>(null);
   const theme = useTheme();
 
   const totalBases = endPosition - startPosition;
@@ -86,8 +93,14 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
     });
     renderModelRef.current = model;
 
-    drawChromatogram(ctx, model, { dark: isDarkTheme, mutations });
-  }, [data, effectiveStart, effectiveEnd, mutations, theme, size]);
+    drawChromatogram(ctx, model, { dark: isDarkTheme, mutations, keyboardCursor });
+  }, [data, effectiveStart, effectiveEnd, mutations, theme, size, keyboardCursor]);
+
+  // When the user switches to a different sample, drop the keyboard cursor
+  // so we never announce a stale position from the previous read.
+  useEffect(() => {
+    setKeyboardCursor(null);
+  }, [data]);
 
   function handleMouseMove(event: React.MouseEvent<HTMLCanvasElement>) {
     if (!data || !canvasRef.current || !data.base_locations?.length) return;
@@ -112,6 +125,51 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
     });
   }
 
+  function handleKeyDown(event: React.KeyboardEvent<HTMLCanvasElement>) {
+    if (!data || !data.baseCalls.length) return;
+    const last = data.baseCalls.length - 1;
+    let next: number | null = null;
+    switch (event.key) {
+      case "ArrowLeft":
+        next = Math.max(0, (keyboardCursor ?? 0) - 1);
+        break;
+      case "ArrowRight":
+        next = Math.min(last, (keyboardCursor ?? -1) + 1);
+        break;
+      case "Home":
+        next = 0;
+        break;
+      case "End":
+        next = last;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    setKeyboardCursor(next);
+  }
+
+  // Live-region announcement; recomputed only when the cursor or data move so
+  // assistive tech does not re-announce on every unrelated re-render.
+  const liveText = useMemo(() => {
+    if (keyboardCursor === null || !data) return "";
+    const base = data.baseCalls[keyboardCursor] || "-";
+    const quality = data.quality?.[keyboardCursor];
+    const isMixed = data.mixed_peaks?.includes(keyboardCursor);
+    let text = t(language, "chrom.aria.position", { pos: keyboardCursor + 1, base });
+    if (typeof quality === "number") {
+      text += t(language, "chrom.aria.quality", { quality });
+    }
+    if (isMixed) {
+      text += t(language, "chrom.aria.mixed");
+    }
+    return text;
+  }, [keyboardCursor, data, language]);
+
+  const ariaLabel = data
+    ? t(language, "chrom.aria.label", { bases: data.baseCalls.length })
+    : t(language, "table.chromatogram");
+
   return (
     <div className="chromatogram-container">
       <div className="chromatogram-toolbar">
@@ -129,9 +187,14 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
       <canvas
         ref={canvasRef}
         className="chromatogram-canvas"
+        role="img"
+        aria-label={ariaLabel}
+        tabIndex={0}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setTooltip(null)}
+        onKeyDown={handleKeyDown}
       />
+      <div className="chromatogram-sr-only" role="status" aria-live="polite">{liveText}</div>
       {tooltip ? <div className="chromatogram-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>{tooltip.content}</div> : null}
     </div>
   );

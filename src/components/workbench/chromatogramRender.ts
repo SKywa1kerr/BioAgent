@@ -42,6 +42,7 @@ export interface ChromatogramRenderModel {
 export interface DrawChromatogramOptions {
   dark: boolean;
   mutations?: Array<{ position?: number }>;
+  keyboardCursor?: number | null;
 }
 
 const BASES: ChromatogramBase[] = ["A", "T", "G", "C"];
@@ -314,5 +315,23 @@ export function drawChromatogram(
     ctx.lineTo(label.x, padding + 12);
     ctx.closePath();
     ctx.fill();
+  }
+
+  if (typeof options.keyboardCursor === "number") {
+    const cursorLabel = model.baseLabels.find((label) => label.baseIndex === options.keyboardCursor);
+    if (cursorLabel) {
+      const cursorColor = options.dark ? "#facc15" : "#0284c7";
+      ctx.strokeStyle = cursorColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cursorLabel.x, padding);
+      ctx.lineTo(cursorLabel.x, height - padding);
+      ctx.stroke();
+
+      ctx.fillStyle = cursorColor;
+      ctx.beginPath();
+      ctx.arc(cursorLabel.x, padding, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }

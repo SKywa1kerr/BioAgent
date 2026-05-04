@@ -207,6 +207,7 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
                 startPosition={1}
                 endPosition={chrom.baseCalls.length}
                 mutations={muts}
+                language={language}
               />
             </Suspense>
           ) : (

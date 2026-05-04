@@ -21,6 +21,23 @@
   height: 220px;
 }
 
+.chromatogram-canvas:focus-visible {
+  outline: 2px solid var(--focus-ring, #0284c7);
+  outline-offset: -2px;
+}
+
+.chromatogram-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .chromatogram-tooltip {
   position: fixed;
   background: rgba(15, 23, 42, 0.96);
