@@ -45,7 +45,7 @@ function renderStructuredMessage(content: string): ReactNode[] {
   let i = 0;
 
   while (i < lines.length) {
-    const line = lines[i].trim();
+    const line = (lines[i] ?? "").trim();
     if (!line) {
       i += 1;
       continue;
@@ -61,8 +61,8 @@ function renderStructuredMessage(content: string): ReactNode[] {
     if (/^\d+\.\s+/.test(line)) {
       const items: ReactNode[] = [];
       let j = i;
-      while (j < lines.length && /^\d+\.\s+/.test(lines[j].trim())) {
-        const itemText = lines[j].trim().replace(/^\d+\.\s+/, "");
+      while (j < lines.length && /^\d+\.\s+/.test((lines[j] ?? "").trim())) {
+        const itemText = (lines[j] ?? "").trim().replace(/^\d+\.\s+/, "");
         items.push(<li key={`ol-${j}`}>{renderInlineRichText(itemText)}</li>);
         j += 1;
       }
@@ -75,7 +75,7 @@ function renderStructuredMessage(content: string): ReactNode[] {
       const items: ReactNode[] = [];
       let j = i;
       while (j < lines.length) {
-        const cur = lines[j].trim();
+        const cur = (lines[j] ?? "").trim();
         if (!(cur.startsWith("- ") || cur.startsWith("* "))) break;
         items.push(<li key={`ul-${j}`}>{renderInlineRichText(cur.slice(2).trim())}</li>);
         j += 1;
@@ -88,7 +88,7 @@ function renderStructuredMessage(content: string): ReactNode[] {
     const paragraph: string[] = [];
     let j = i;
     while (j < lines.length) {
-      const cur = lines[j].trim();
+      const cur = (lines[j] ?? "").trim();
       if (!cur || cur.startsWith("## ") || cur.startsWith("### ") || /^\d+\.\s+/.test(cur) || cur.startsWith("- ") || cur.startsWith("* ")) break;
       paragraph.push(cur);
       j += 1;
@@ -226,7 +226,7 @@ export function ChatPanel({
 
       <div className="message-list" ref={messageListRef} role="log" aria-live="polite" aria-label="Messages">
         {messages.map((message, index) => {
-          const stableId = stableIdsRef.current[index];
+          const stableId = stableIdsRef.current[index] ?? `msg-fallback-${index}`;
           const ts = timestampsRef.current.get(stableId);
           const isAssistant = message.role === "assistant";
           const isLong = isAssistant && isLongAssistantMessage(message.content);

@@ -46,6 +46,16 @@ function readPalette(): Record<StatusBucket, string> {
   };
 }
 
+const paletteCache = new Map<string, Record<StatusBucket, string>>();
+
+function getPalette(themeKey: string): Record<StatusBucket, string> {
+  const cached = paletteCache.get(themeKey);
+  if (cached) return cached;
+  const next = readPalette();
+  paletteCache.set(themeKey, next);
+  return next;
+}
+
 const BIN_COUNT = 10;
 
 interface DistributionBin {
@@ -98,7 +108,8 @@ function buildBins(samples: WorkbenchSample[], accessor: (sample: WorkbenchSampl
     const clamped = Math.min(100, Math.max(0, value));
     const index = Math.min(BIN_COUNT - 1, Math.floor(clamped / (100 / BIN_COUNT)));
     const status = bucketSampleStatus(sample);
-    bins[index][status] += 1;
+    const bin = bins[index];
+    if (bin) bin[status] += 1;
   }
 
   return bins;
@@ -145,9 +156,7 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
   const hasSamples = samples.length > 0;
   const themeKey = useTheme();
   const palette = useMemo(
-    () => readPalette(),
-    // Re-read CSS palette tokens whenever the active theme flips on <html>.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => getPalette(themeKey),
     [themeKey],
   );
   const identityBins = useMemo(() => buildBins(samples, getIdentityValue), [samples]);

@@ -159,7 +159,7 @@ export function buildChromatogramRenderModel(
 
   const robustTop = percentile(visibleValues, 0.985);
   const absoluteTop = visibleValues.length > 0 ? Math.max(...visibleValues) : 0;
-  const maxVal = Math.max(robustTop, absoluteTop, 1);
+  const maxVal = Math.max(robustTop ?? 0, absoluteTop, 1);
   const xScale = (width - 2 * padding) / traceRange;
   const yScale = (height - 2 * padding) / (maxVal * 1.08);
   const tracePoints = emptyTracePoints();
@@ -200,7 +200,7 @@ export function buildChromatogramRenderModel(
       traceIndex,
       x: padding + (traceIndex - visibleStartTrace) * xScale,
       base: base as ChromatogramBase,
-      quality: typeof data.quality?.[i] === "number" ? data.quality[i] : null,
+      quality: typeof data.quality?.[i] === "number" ? (data.quality[i] ?? null) : null,
       mixed: mixedPeaks.has(i),
     });
   }
