@@ -68,11 +68,21 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
     const startX = e.clientX;
     const startW = width;
     let lastWidth = startW;
-    function onMove(ev: MouseEvent) {
-      lastWidth = Math.max(320, Math.min(900, startW + (startX - ev.clientX)));
+    let pendingFrame: number | null = null;
+    function flush() {
+      pendingFrame = null;
       setWidth(lastWidth);
     }
+    function onMove(ev: MouseEvent) {
+      lastWidth = Math.max(320, Math.min(900, startW + (startX - ev.clientX)));
+      if (pendingFrame == null) pendingFrame = requestAnimationFrame(flush);
+    }
     function onUp() {
+      if (pendingFrame != null) {
+        cancelAnimationFrame(pendingFrame);
+        pendingFrame = null;
+        setWidth(lastWidth);
+      }
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       try {
