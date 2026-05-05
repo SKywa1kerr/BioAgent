@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
+import { Icon } from "./ui/Icon";
 
 interface ChatMessage {
   role: string;
@@ -206,20 +207,20 @@ export function ChatPanel({
       <div className="panel-title panel-title-row">
         <span>{t(language, "app.title")}</span>
         <div className="panel-action-group">
-          <button className="theme-toggle action-danger" onClick={onClear} title={t(language, "chat.clear")} aria-label={t(language, "chat.clear")}>
-            {t(language, "chat.clear")}
+          <button className="icon-button" onClick={onClear} title={t(language, "chat.clear")} aria-label={t(language, "chat.clear")}>
+            <Icon name="trash" size={16} />
           </button>
-          <button className="theme-toggle action-settings" onClick={onOpenSettings} title={t(language, "settings.title")} aria-label={t(language, "settings.title")}>
-            {"\u2699"}
+          <button className="icon-button" onClick={onOpenSettings} title={t(language, "settings.title")} aria-label={t(language, "settings.title")}>
+            <Icon name="settings" size={16} />
           </button>
-          <button className="theme-toggle" onClick={onToggleLanguage} aria-label={t(language, "app.lang")}>
-            {t(language, "app.lang")}
+          <button className="icon-button" onClick={onToggleLanguage} aria-label={t(language, "app.lang")} title={t(language, "app.lang")}>
+            <Icon name="language" size={16} />
           </button>
-          <button className="theme-toggle action-secondary" onClick={onExportDebug} aria-label={t(language, "app.action.exportDebug")}>
-            {t(language, "app.action.exportDebug")}
+          <button className="icon-button" onClick={onExportDebug} aria-label={t(language, "app.action.exportDebug")} title={t(language, "app.action.exportDebug")}>
+            <Icon name="download" size={16} />
           </button>
-          <button className="theme-toggle" onClick={onToggleTheme} aria-label={theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")}>
-            {theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")}
+          <button className="icon-button" onClick={onToggleTheme} aria-label={theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")} title={theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")}>
+            <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
           </button>
         </div>
       </div>

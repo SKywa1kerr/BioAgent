@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { WorkbenchSample, WorkbenchStatus } from "./types";
 import { bucketSampleStatus, formatPercent, countSampleMutations } from "./utils";
 import { compactRowView } from "../../lib/workbench/compactRow";
+import { Icon } from "../ui/Icon";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
 
@@ -157,7 +158,9 @@ export function ResultsTable({
                   <span className="sample-compact-metric">{row.identityPct}</span>
                   <span className="sample-compact-metric">{row.coveragePct}</span>
                   <span className="sample-compact-metric">{row.mutationCount}</span>
-                  <span className="sample-compact-chevron" aria-hidden="true">›</span>
+                  <span className="sample-compact-chevron" aria-hidden="true">
+                    <Icon name="chevron-right" size={14} />
+                  </span>
                   {density === "detailed" ? (
                     <span className="sample-compact-subline">
                       {row.reason} · q{sample.avg_qry_quality ?? "-"} · {sample.orientation || "-"}

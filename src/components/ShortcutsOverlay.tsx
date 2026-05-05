@@ -1,6 +1,7 @@
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
 import { SHORTCUTS } from "../lib/commands/shortcuts";
+import { Icon } from "./ui/Icon";
 import "./ShortcutsOverlay.css";
 
 interface Props {
@@ -23,7 +24,7 @@ export function ShortcutsOverlay({ open, onClose, language }: Props) {
         <header className="shortcuts-head">
           <h3>{t(language, "shortcuts.title")}</h3>
           <button type="button" className="shortcuts-close" onClick={onClose} aria-label="close">
-            ×
+            <Icon name="close" size={14} />
           </button>
         </header>
         <ul className="shortcuts-list">

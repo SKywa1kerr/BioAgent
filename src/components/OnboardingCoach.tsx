@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
+import { Icon } from "./ui/Icon";
 import "./OnboardingCoach.css";
 
 interface Props {
@@ -35,7 +36,7 @@ export function OnboardingCoach({ language, onDismiss }: Props) {
           {t(language, "onboarding.step", { current: step, total: TOTAL })}
         </span>
         <button type="button" className="onboarding-coach-close" aria-label="close" onClick={onDismiss}>
-          ×
+          <Icon name="close" size={14} />
         </button>
       </header>
       <h3 className="onboarding-coach-title">{t(language, titleKey)}</h3>

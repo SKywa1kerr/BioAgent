@@ -4,6 +4,7 @@ import { bucketSampleStatus, formatPercent } from "./utils";
 import { buildAlignmentViewModel, parseAaChanges } from "./alignmentView";
 import { buildChromatogramData } from "./normalize";
 import { SequenceAlignmentView } from "./SequenceAlignmentView";
+import { Icon } from "../ui/Icon";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
 import "./DetailDrawer.css";
@@ -114,7 +115,7 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
           onClick={onClose}
           aria-label={t(language, "wb.drawer.close")}
         >
-          ×
+          <Icon name="close" size={14} />
         </button>
       </header>
       <div className="detail-drawer-body">
