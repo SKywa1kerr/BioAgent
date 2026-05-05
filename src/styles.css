@@ -278,6 +278,32 @@ body,
   gap: 16px;
 }
 
+.analysis-panel-with-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  min-height: 0;
+}
+
+.analysis-summary-status {
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--card-border);
+  background: var(--card-bg);
+}
+
+.analysis-summary-status.is-pending {
+  border-color: var(--accent, #4a8cff);
+  color: var(--accent, #4a8cff);
+}
+
+.analysis-summary-status.is-failed {
+  border-color: var(--status-wrong, #d23f5c);
+  color: var(--status-wrong, #d23f5c);
+}
+
 .hero-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

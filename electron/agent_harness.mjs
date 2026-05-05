@@ -359,6 +359,13 @@ export class AgentHarness extends EventEmitter {
     }
 
     onEvent({ type: "tool_result", tool: "analyze_sequences", result });
+    onEvent({
+      type: "reply",
+      uiAction: "show_analysis",
+      analysis_id: result.analysis_id,
+      dataset: result.dataset || dataset,
+      result,
+    });
     this.startAnalysisSummary(result, dataset, onEvent, turnId);
   }
 

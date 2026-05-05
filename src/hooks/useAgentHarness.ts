@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { PanelType } from "../components/SmartCanvas";
 import type { AgentSettings } from "../lib/settingsStorage";
 import { t, type AppLanguage } from "../i18n";
+import { reduceSummaryEvent } from "./summaryEventReducer.js";
 
 declare global {
   interface Window {
@@ -38,7 +39,10 @@ export type AgentEvent =
   | { type: "reply"; content?: string; uiAction?: "show_trends" | "show_suggestions" | "show_analysis" | string; result?: AgentResult }
   | { type: "busy"; message?: string }
   | { type: "error"; message?: string }
-  | { type: "confirm"; message?: string };
+  | { type: "confirm"; message?: string }
+  | { type: "summary_pending"; analysis_id?: string; dataset?: string }
+  | { type: "summary_ready"; analysis_id?: string; dataset?: string; content?: string; uiAction?: string }
+  | { type: "summary_failed"; analysis_id?: string; dataset?: string; message?: string };
 
 type PanelResolution = { panelType: PanelType; panelPayload: unknown; confirmMessage?: string };
 
@@ -235,6 +239,20 @@ export function useAgentHarness(language: AppLanguage) {
     latestEventRef.current = payload;
     const lang = languageRef.current;
 
+    if (payload.type === "summary_pending" || payload.type === "summary_ready" || payload.type === "summary_failed") {
+      const reduced = reduceSummaryEvent(payload, { lang });
+      if (!reduced) return;
+      const analysisId = reduced.analysisId;
+      if (analysisId) {
+        updateAnalysisPayload(analysisId, {
+          __summaryPending: reduced.kind === "pending",
+          __summaryError: reduced.kind === "failed" ? (payload.type === "summary_failed" ? payload.message : undefined) : undefined,
+        });
+      }
+      if (reduced.assistantText) pushAssistant(reduced.assistantText);
+      return;
+    }
+
     if (payload.type === "lifecycle") {
       const text = payload.message || "lifecycle";
       const lowered = String(text).toLowerCase();
@@ -295,8 +313,8 @@ export function useAgentHarness(language: AppLanguage) {
     if (payload.type === "reply" || payload.type === "error" || payload.type === "busy") {
       const content = payload.type === "reply" ? payload.content : undefined;
       const message = payload.type !== "reply" ? payload.message : undefined;
-      const text = content || message || JSON.stringify(payload);
-      pushAssistant(text);
+      const text = content || message;
+      if (text) pushAssistant(text);
     }
 
     const resolved = resolvePanelFromEvent(payload);

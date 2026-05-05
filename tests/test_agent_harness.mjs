@@ -333,7 +333,9 @@ test("summary generation failure is non-fatal after fast-path tool_result", asyn
   assert.equal(events[failedIndex].analysis_id, "analysis-2");
   assert.equal(events[failedIndex].message, "summary service unavailable");
   assert.ok(!events.some((event) => event.type === "error"));
-  assert.ok(!events.some((event) => event.type === "reply"));
+  const replies = events.filter((event) => event.type === "reply");
+  assert.equal(replies.length, 1);
+  assert.equal(replies[0].uiAction, "show_analysis");
 });
 
 test("fast-path hydrates analysis detail when analyze_sequences omits inline samples", async () => {
@@ -548,4 +550,39 @@ test("stale background summaries are dropped after a newer turn supersedes them"
   assert.equal(staleFailedEvents.length, 0);
   assert.equal(freshReadyEvents.length, 1);
   assert.deepEqual(assistantMessages, ["fresh summary"]);
+});
+
+test("fast-path emits a synchronous reply event so progress can finish before summary returns", async () => {
+  const harness = createHarness();
+  const events = [];
+  const summaryDeferred = createDeferred();
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => {
+          await summaryDeferred.promise;
+          return { choices: [{ message: { content: "later" } }] };
+        },
+      },
+    },
+  });
+
+  harness.callMcpTool = async () => ({
+    ok: true,
+    analysis_id: "analysis-sync",
+    dataset: "pro",
+    sample_count: 1,
+    samples: [{ id: "S1" }],
+  });
+
+  await harness.runTurn("analyze pro dataset", (payload) => events.push(payload));
+
+  const replyIndex = events.findIndex((event) => event.type === "reply");
+  const toolResultIndex = events.findIndex((event) => event.type === "tool_result");
+  assert.ok(replyIndex > toolResultIndex, "reply must arrive after tool_result and before runTurn returns");
+  assert.equal(events[replyIndex].uiAction, "show_analysis");
+  assert.equal(events[replyIndex].analysis_id, "analysis-sync");
+
+  summaryDeferred.resolve();
 });

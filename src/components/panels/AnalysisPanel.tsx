@@ -28,6 +28,8 @@ function loadingCard(language: AppLanguage, sampleCount: number | string, messag
 export function AnalysisPanel({ result, language }: AnalysisPanelProps) {
   const samples = useMemo(() => normalizeSamples(result, language), [result, language]);
   const detailPending = Boolean(result?.__detailPending);
+  const summaryPending = Boolean(result?.__summaryPending);
+  const summaryError = typeof result?.__summaryError === "string" ? result.__summaryError : "";
   const detailError = typeof result?.__detailError === "string" ? result.__detailError : "";
   const sampleCount = result?.sample_count ?? result?.totalSamples ?? samples.length ?? 0;
   const displayCount = sampleCount > 0 ? sampleCount : (detailPending ? "..." : 0);
@@ -38,7 +40,19 @@ export function AnalysisPanel({ result, language }: AnalysisPanelProps) {
 
   return (
     <Suspense fallback={loadingCard(language, sampleCount, t(language, "analysis.loadingRows"))}>
-      <ResultsWorkbench samples={samples} language={language} />
+      <div className="analysis-panel-with-summary">
+        {summaryPending ? (
+          <div className="analysis-summary-status is-pending" role="status" aria-live="polite">
+            {t(language, "app.summary.pending")}
+          </div>
+        ) : null}
+        {summaryError ? (
+          <div className="analysis-summary-status is-failed" role="status" aria-live="polite">
+            {t(language, "app.summary.failed", { message: summaryError })}
+          </div>
+        ) : null}
+        <ResultsWorkbench samples={samples} language={language} />
+      </div>
     </Suspense>
   );
 }
