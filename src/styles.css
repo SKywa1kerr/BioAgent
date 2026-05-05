@@ -1,94 +1,5 @@
-:root {
-  color-scheme: light;
-  --font-ui: "Avenir Next", "Manrope", "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
-  --bg-app: radial-gradient(135% 135% at 100% 0%, #eef7f7 0%, #e7eef9 52%, #e2e9f5 100%);
-  --text-main: #10243b;
-  --text-muted: #5b6f86;
-  --panel-bg: linear-gradient(180deg, rgba(250, 253, 255, 0.96), rgba(241, 247, 255, 0.96));
-  --panel-border: rgba(16, 36, 59, 0.12);
-  --panel-shadow: 0 10px 30px rgba(10, 36, 68, 0.08);
-  --title-border: rgba(16, 36, 59, 0.1);
-  --message-user-bg: linear-gradient(135deg, #1f9d8d, #2c7fb8);
-  --message-user-text: #ffffff;
-  --message-assistant-bg: #f2f8ff;
-  --message-assistant-border: rgba(35, 99, 161, 0.18);
-  --message-assistant-text: #14314a;
-  --composer-bg: #ffffff;
-  --composer-border: rgba(16, 36, 59, 0.2);
-  --composer-text: #10243b;
-  --button-bg: linear-gradient(135deg, #1f9d8d, #2c7fb8);
-  --button-text: #ffffff;
-  --card-bg: #ffffff;
-  --card-border: rgba(16, 36, 59, 0.12);
-  --progress-track: rgba(16, 36, 59, 0.14);
-  --progress-fill: linear-gradient(90deg, #4f7cff, #6fb1ff);
-  --compact-bg: rgba(255, 255, 255, 0.92);
-  --compact-border: rgba(16, 36, 59, 0.1);
-  --compact-label: #2a425d;
-  --chart-axis-color: #5f7ea3;
-  --chart-grid-color: rgba(16, 36, 59, 0.14);
-  --chart-primary-color: #4f7cff;
-
-  /* Status (applies to bucket of a sample) */
-  --status-ok: #1d9c7d;
-  --status-wrong: #d23f5c;
-  --status-uncertain: #d89a2c;
-  --status-untested: #6a7a93;
-
-  /* Mutation types */
-  --mutation-sub: #2c7fb8;
-  --mutation-ins: #6f42c1;
-  --mutation-del: #a04050;
-  --mutation-frameshift: #c5453e;
-  --mutation-synonymous: #8a93a6;
-
-  /* Accents */
-  --accent-primary: #2c7fb8;
-  --accent-secondary: #1f9d8d;
-}
-
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --bg-app: radial-gradient(135% 135% at 100% 0%, #0d1e33 0%, #0b1628 58%, #091221 100%);
-  --text-main: #e8eefc;
-  --text-muted: #9eb1d8;
-  --panel-bg: linear-gradient(180deg, #141b34, #0f1529);
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --panel-shadow: 0 12px 32px rgba(2, 8, 22, 0.4);
-  --title-border: rgba(255, 255, 255, 0.08);
-  --message-user-bg: linear-gradient(135deg, #2a7be4, #2f9dbe);
-  --message-user-text: #ffffff;
-  --message-assistant-bg: #162640;
-  --message-assistant-border: rgba(111, 177, 255, 0.16);
-  --message-assistant-text: #e8eefc;
-  --composer-bg: #0c1224;
-  --composer-border: rgba(255, 255, 255, 0.14);
-  --composer-text: #e8eefc;
-  --button-bg: linear-gradient(135deg, #2c7be5, #2f9dbe);
-  --button-text: #ffffff;
-  --card-bg: rgba(255, 255, 255, 0.04);
-  --card-border: rgba(255, 255, 255, 0.08);
-  --progress-track: rgba(255, 255, 255, 0.1);
-  --progress-fill: linear-gradient(90deg, #5b80ff, #6fb1ff);
-  --compact-bg: rgba(15, 23, 42, 0.82);
-  --compact-border: rgba(148, 163, 184, 0.22);
-  --compact-label: #d7e4ff;
-  --chart-axis-color: #9fb5ff;
-  --chart-grid-color: rgba(255, 255, 255, 0.1);
-  --chart-primary-color: #6f9bff;
-
-  --status-ok: #4fd4a7;
-  --status-wrong: #ff6b80;
-  --status-uncertain: #f0b84a;
-  --status-untested: #9eb1d8;
-  --mutation-sub: #6f9bff;
-  --mutation-ins: #a07bf5;
-  --mutation-del: #ff7688;
-  --mutation-frameshift: #ff8177;
-  --mutation-synonymous: #9eb1d8;
-  --accent-primary: #6f9bff;
-  --accent-secondary: #4fd4a7;
-}
+/* Tokens are defined in src/styles/tokens.css. This file holds layout
+   and component styles that consume those tokens. */
 
 html,
 body,
@@ -100,6 +11,9 @@ body,
   font-family: var(--font-ui);
   background: var(--bg-app);
   color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01", "ss03";
 }
 
 * {
