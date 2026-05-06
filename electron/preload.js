@@ -8,3 +8,15 @@ contextBridge.exposeInMainWorld("electronAPI", {
     return () => ipcRenderer.removeListener("agent-event", listener);
   },
 });
+
+contextBridge.exposeInMainWorld("electronWindow", {
+  minimize: () => ipcRenderer.invoke("window-minimize"),
+  toggleMaximize: () => ipcRenderer.invoke("window-maximize-toggle"),
+  close: () => ipcRenderer.invoke("window-close"),
+  onStateChange: (callback) => {
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on("window-state", listener);
+    return () => ipcRenderer.removeListener("window-state", listener);
+  },
+  platform: process.platform,
+});

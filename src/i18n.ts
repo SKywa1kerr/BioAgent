@@ -292,6 +292,11 @@ const zh: Dict = {
   "compare.bar.two": "已选 2/2",
   "compare.diffHighlight": "差异高亮",
   "compare.diffSummary": "差异: 左侧独有 {left}，右侧独有 {right}，共有 {shared}",
+
+  "titlebar.minimize": "最小化",
+  "titlebar.maximize": "最大化",
+  "titlebar.restore": "还原",
+  "titlebar.close": "关闭",
 };
 
 const en: Dict = {
@@ -584,6 +589,11 @@ const en: Dict = {
   "compare.bar.two": "2/2 selected",
   "compare.diffHighlight": "Diff highlight",
   "compare.diffSummary": "Diff: {left} unique left, {right} unique right, {shared} shared",
+
+  "titlebar.minimize": "Minimize",
+  "titlebar.maximize": "Maximize",
+  "titlebar.restore": "Restore",
+  "titlebar.close": "Close",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

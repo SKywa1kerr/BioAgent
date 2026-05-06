@@ -39,6 +39,9 @@ import {
   History,
   Beaker,
   TrendingUp,
+  Minus,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 
 const ICONS = {
@@ -82,6 +85,9 @@ const ICONS = {
   history: History,
   lab: Beaker,
   trend: TrendingUp,
+  "window-minimize": Minus,
+  "window-maximize": Maximize2,
+  "window-restore": Minimize2,
 } as const;
 
 export type IconName = keyof typeof ICONS;

@@ -21,16 +21,23 @@ body,
 }
 
 .app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-shell-content {
   display: grid;
   grid-template-columns: minmax(520px, 38%) 1fr;
   gap: 16px;
-  height: 100%;
   padding: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
-.app-shell.rail-wide   { grid-template-columns: minmax(520px, 38%) 1fr; }
-.app-shell.rail-narrow { grid-template-columns: minmax(300px, 26%) 1fr; }
-.app-shell.rail-hidden { grid-template-columns: 40px 1fr; }
+.app-shell.rail-wide   .app-shell-content { grid-template-columns: minmax(520px, 38%) 1fr; }
+.app-shell.rail-narrow .app-shell-content { grid-template-columns: minmax(300px, 26%) 1fr; }
+.app-shell.rail-hidden .app-shell-content { grid-template-columns: 40px 1fr; }
 
 .app-shell.rail-hidden .chat-panel > *:not(.chat-rail-toggle) { display: none; }
 .app-shell.rail-hidden .chat-panel {
@@ -505,7 +512,7 @@ body,
 }
 
 .offline-banner {
-  grid-column: 1 / -1;
+  margin: 12px 16px 0;
   padding: 8px 16px;
   background: linear-gradient(90deg, rgba(220, 38, 38, 0.12), rgba(220, 38, 38, 0.06));
   border: 1px solid rgba(220, 38, 38, 0.2);
@@ -517,7 +524,7 @@ body,
 }
 
 @media (max-width: 1280px) {
-  .app-shell {
+  .app-shell-content {
     grid-template-columns: 1fr;
   }
 }

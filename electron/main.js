@@ -12,17 +12,34 @@ const debugEntries = [];
 let flushTimer = null;
 
 function createWindow() {
+  const isMac = process.platform === "darwin";
+  const chromeOptions = isMac
+    ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 16, y: 12 } }
+    : { frame: false };
+
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 920,
     minWidth: 1100,
     minHeight: 760,
+    ...chromeOptions,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  // Broadcast maximize state changes so the renderer can keep its
+  // titlebar maximize/restore icon in sync without polling.
+  const broadcastWindowState = () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send("window-state", {
+      isMaximized: mainWindow.isMaximized(),
+    });
+  };
+  mainWindow.on("maximize", broadcastWindowState);
+  mainWindow.on("unmaximize", broadcastWindowState);
 
   if (app.isPackaged) {
     mainWindow.loadFile(path.join(__dirname, "..", "dist", "index.html"));
@@ -164,6 +181,29 @@ app.whenReady().then(async () => {
       const message = error instanceof Error ? error.message : String(error);
       return { ok: false, error: message };
     }
+  });
+
+  ipcMain.handle("window-minimize", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.minimize();
+    return { ok: true };
+  });
+
+  ipcMain.handle("window-maximize-toggle", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win || win.isDestroyed()) return { isMaximized: false };
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+    return { isMaximized: win.isMaximized() };
+  });
+
+  ipcMain.handle("window-close", (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && !win.isDestroyed()) win.close();
+    return { ok: true };
   });
 
   ipcMain.handle("export-save-file", async (_event, payload) => {

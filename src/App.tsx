@@ -6,6 +6,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CommandPalette } from "./components/CommandPalette";
 import { OnboardingCoach } from "./components/OnboardingCoach";
 import { ShortcutsOverlay } from "./components/ShortcutsOverlay";
+import { TitleBar } from "./components/TitleBar";
 import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
@@ -466,53 +467,64 @@ export function App() {
 
   return (
     <div className={`app-shell rail-${railState}`}>
+      <TitleBar
+        title={t(language, "app.title")}
+        labels={{
+          minimize: t(language, "titlebar.minimize"),
+          maximize: t(language, "titlebar.maximize"),
+          restore: t(language, "titlebar.restore"),
+          close: t(language, "titlebar.close"),
+        }}
+      />
       {!isOnline ? <div className="offline-banner">{t(language, "app.offline")}</div> : null}
-      <div className="left-stack">
-        <ChatPanel
-          messages={agent.messages}
-          isRunning={agent.isRunning}
-          progress={agent.progress}
-          language={language}
-          initialized={agent.initialized}
-          onSend={handleSend}
-          onExportDebug={() => void agent.exportDebugLog()}
-          onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
-          onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
-          theme={theme}
-          prefillText={prefillText}
-          onPrefillConsumed={() => setPrefillText(null)}
-          inputRef={chatInputRef}
-          onOpenPalette={() => setPaletteOpen(true)}
-          onCycleRail={cycleRail}
-          railLabel={t(language, `wb.chatRail.${railState}`)}
-        />
-        {agent.initialized ? (
-          <RecentAnalysesRail
-            items={historyApi.items}
-            total={historyApi.total}
-            isLoading={historyApi.isLoading}
-            activeId={activeAnalysisId}
+      <div className="app-shell-content">
+        <div className="left-stack">
+          <ChatPanel
+            messages={agent.messages}
+            isRunning={agent.isRunning}
+            progress={agent.progress}
             language={language}
-            onSelect={(id) => void handleHistorySelect(id)}
-            onRefresh={() => void historyApi.refresh()}
+            initialized={agent.initialized}
+            onSend={handleSend}
+            onExportDebug={() => void agent.exportDebugLog()}
+            onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
+            onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
+            theme={theme}
+            prefillText={prefillText}
+            onPrefillConsumed={() => setPrefillText(null)}
+            inputRef={chatInputRef}
+            onOpenPalette={() => setPaletteOpen(true)}
+            onCycleRail={cycleRail}
+            railLabel={t(language, `wb.chatRail.${railState}`)}
           />
-        ) : null}
-      </div>
+          {agent.initialized ? (
+            <RecentAnalysesRail
+              items={historyApi.items}
+              total={historyApi.total}
+              isLoading={historyApi.isLoading}
+              activeId={activeAnalysisId}
+              language={language}
+              onSelect={(id) => void handleHistorySelect(id)}
+              onRefresh={() => void historyApi.refresh()}
+            />
+          ) : null}
+        </div>
 
-      <main className="canvas-panel" aria-label="Analysis canvas">
-        <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
-          {renderTabBar()}
-          {renderCompactProgress()}
-          <ErrorBoundary
-            fallbackTitle={t(language, "app.ready.title")}
-            retryLabel={language === "zh" ? "重试" : "Retry"}
-          >
-            {renderPanel()}
-          </ErrorBoundary>
-        </SmartCanvas>
-      </main>
+        <main className="canvas-panel" aria-label="Analysis canvas">
+          <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
+            {renderTabBar()}
+            {renderCompactProgress()}
+            <ErrorBoundary
+              fallbackTitle={t(language, "app.ready.title")}
+              retryLabel={language === "zh" ? "重试" : "Retry"}
+            >
+              {renderPanel()}
+            </ErrorBoundary>
+          </SmartCanvas>
+        </main>
+      </div>
 
       <SettingsModal
         open={settingsOpen}
