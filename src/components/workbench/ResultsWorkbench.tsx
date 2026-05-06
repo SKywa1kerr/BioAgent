@@ -21,11 +21,18 @@ interface ResultsWorkbenchProps {
 }
 
 export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenchProps) {
-  const { controls, setStatusFilter, setSearchQuery, setSortKey, setSummaryScope, reset } = useWorkbenchControls();
-  const { statusFilter, searchQuery, sortKey, summaryScope } = controls;
+  const {
+    controls,
+    setStatusFilter,
+    setSearchQuery,
+    setSortKey,
+    setDensity,
+    setSummaryScope,
+    reset,
+  } = useWorkbenchControls();
+  const { statusFilter, searchQuery, sortKey, summaryScope, density } = controls;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [density, setDensity] = useState<"compact" | "detailed">("compact");
 
   const visibleSamples = useMemo(
     () => buildResultsView(samples, { statusFilter, searchQuery, sortKey }),
