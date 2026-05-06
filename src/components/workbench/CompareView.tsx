@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import type { WorkbenchSample } from "./types";
+import type { WorkbenchSample, WorkbenchMutation } from "./types";
 import { bucketSampleStatus, formatPercent } from "./utils";
 import { buildAlignmentViewModel, parseAaChanges } from "./alignmentView";
 import { buildChromatogramData } from "./normalize";
@@ -8,6 +8,7 @@ import { SequenceAlignmentView } from "./SequenceAlignmentView";
 import { Icon } from "../ui/Icon";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
+import { diffMutations, type MutationDiffSet } from "../../lib/workbench/diffMutations";
 import "./CompareView.css";
 
 // Mirrors DetailDrawer's lazy loader: the canvas pulls in chromatogramRender
@@ -17,6 +18,42 @@ const ChromatogramCanvas = lazy(async () => {
   const mod = await import("./ChromatogramCanvas");
   return { default: mod.ChromatogramCanvas };
 });
+
+// Builds the className + data-unique attributes for a mutation row, blending
+// the existing effect-based styling (synonymous / single_read) with the diff
+// classification (unique-to-this-side, shared, or unrelated). When the diff
+// toggle is off (`diffSet` is null) the existing effect-based class survives
+// unchanged, matching the DetailDrawer rendering.
+function mutationRowAttrs(
+  m: WorkbenchMutation,
+  side: "left" | "right",
+  diffSet: MutationDiffSet | null,
+): { className?: string; "data-unique"?: "left" | "right" | "shared" } {
+  const effectClass =
+    m.effect === "synonymous"
+      ? "is-synonymous"
+      : m.effect === "single_read"
+      ? "is-single-read"
+      : null;
+
+  let diffClass: string | null = null;
+  let dataUnique: "left" | "right" | "shared" | undefined;
+  if (diffSet && typeof m.position === "number" && Number.isFinite(m.position)) {
+    if (diffSet.sharedPositions.has(m.position)) {
+      diffClass = "is-mutation-shared";
+      dataUnique = "shared";
+    } else if (side === "left" && diffSet.uniqueLeftPositions.has(m.position)) {
+      diffClass = "is-mutation-unique";
+      dataUnique = "left";
+    } else if (side === "right" && diffSet.uniqueRightPositions.has(m.position)) {
+      diffClass = "is-mutation-unique";
+      dataUnique = "right";
+    }
+  }
+
+  const classes = [effectClass, diffClass].filter(Boolean).join(" ") || undefined;
+  return { className: classes, "data-unique": dataUnique };
+}
 
 interface CompareViewProps {
   left: WorkbenchSample;
@@ -29,9 +66,11 @@ interface ColumnProps {
   sample: WorkbenchSample;
   language: AppLanguage;
   diffOn: boolean;
+  side: "left" | "right";
+  diffSet: MutationDiffSet | null;
 }
 
-function CompareColumn({ sample, language, diffOn: _diffOn }: ColumnProps) {
+function CompareColumn({ sample, language, diffOn, side, diffSet }: ColumnProps) {
   // Same memoisation pattern as DetailDrawer: derive once per sample so that
   // unrelated parent re-renders (diff toggle, motion frames, theme) do not
   // re-parse aa_changes or rebuild the gapped alignment coordinate map.
@@ -98,7 +137,7 @@ function CompareColumn({ sample, language, diffOn: _diffOn }: ColumnProps) {
         <section className="compare-section">
           <h4>{t(language, "table.mutationTable")}</h4>
           {muts.length ? (
-            <table className="compare-table">
+            <table className="compare-table compare-mutation-table">
               <thead>
                 <tr>
                   <th>{t(language, "table.pos")}</th>
@@ -112,13 +151,7 @@ function CompareColumn({ sample, language, diffOn: _diffOn }: ColumnProps) {
                 {muts.map((m, i) => (
                   <tr
                     key={i}
-                    className={
-                      m.effect === "synonymous"
-                        ? "is-synonymous"
-                        : m.effect === "single_read"
-                        ? "is-single-read"
-                        : undefined
-                    }
+                    {...mutationRowAttrs(m, side, diffOn ? diffSet : null)}
                   >
                     <td>{m.position ?? "-"}</td>
                     <td>{m.refBase ?? "-"}</td>
@@ -179,9 +212,16 @@ function CompareColumn({ sample, language, diffOn: _diffOn }: ColumnProps) {
 export function CompareView({ left, right, language, onClose }: CompareViewProps) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const reduceMotion = useReducedMotion() ?? false;
-  // Diff highlight is wired but not yet implemented. The toggle ships now so
-  // the layout is final; the actual mutation-set comparison math is deferred.
   const [diffOn, setDiffOn] = useState(false);
+
+  // Pull mutation refs out so the memo dep array is stable across re-renders
+  // that don't change the underlying samples (toggle flips, theme changes).
+  const leftMutations = left.mutations;
+  const rightMutations = right.mutations;
+  const diffSet = useMemo<MutationDiffSet>(
+    () => diffMutations(leftMutations ?? [], rightMutations ?? []),
+    [leftMutations, rightMutations],
+  );
 
   useEffect(() => {
     closeRef.current?.focus();
@@ -235,15 +275,31 @@ export function CompareView({ left, right, language, onClose }: CompareViewProps
       </header>
 
       {diffOn ? (
-        <div className="compare-diff-banner" role="status">
-          {t(language, "compare.diffPlaceholder")}
+        <div className="compare-diff-summary" role="status">
+          {t(language, "compare.diffSummary", {
+            left: diffSet.uniqueLeftPositions.size,
+            right: diffSet.uniqueRightPositions.size,
+            shared: diffSet.sharedPositions.size,
+          })}
         </div>
       ) : null}
 
       <div className="compare-view-grid">
-        <CompareColumn sample={left} language={language} diffOn={diffOn} />
+        <CompareColumn
+          sample={left}
+          language={language}
+          diffOn={diffOn}
+          side="left"
+          diffSet={diffSet}
+        />
         <div className="compare-view-divider" aria-hidden="true" />
-        <CompareColumn sample={right} language={language} diffOn={diffOn} />
+        <CompareColumn
+          sample={right}
+          language={language}
+          diffOn={diffOn}
+          side="right"
+          diffSet={diffSet}
+        />
       </div>
     </motion.div>
   );

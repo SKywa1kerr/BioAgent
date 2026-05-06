@@ -287,7 +287,7 @@ const zh: Dict = {
   "compare.bar.one": "已选 1/2",
   "compare.bar.two": "已选 2/2",
   "compare.diffHighlight": "差异高亮",
-  "compare.diffPlaceholder": "差异计算待实现",
+  "compare.diffSummary": "差异: 左侧独有 {left}，右侧独有 {right}，共有 {shared}",
 };
 
 const en: Dict = {
@@ -575,7 +575,7 @@ const en: Dict = {
   "compare.bar.one": "1/2 selected",
   "compare.bar.two": "2/2 selected",
   "compare.diffHighlight": "Diff highlight",
-  "compare.diffPlaceholder": "Diff math pending",
+  "compare.diffSummary": "Diff: {left} unique left, {right} unique right, {shared} shared",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

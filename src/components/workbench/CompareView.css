@@ -75,15 +75,14 @@
   outline-offset: 2px;
 }
 
-/* Diff placeholder banner ---------------------------------------- */
+/* Diff summary strip (shown when "Diff highlight" is on) ---------- */
 
-.compare-diff-banner {
-  padding: var(--space-2) var(--space-4);
+.compare-diff-summary {
+  padding: var(--space-1) var(--space-3);
   border-bottom: 1px solid var(--color-border-soft);
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
 }
 
 /* Two-column body ------------------------------------------------ */
@@ -231,6 +230,22 @@
 .compare-table tr.is-single-read td {
   font-style: italic;
   color: var(--color-text-muted);
+}
+
+/* Diff highlight rows --------------------------------------------- */
+/* `is-mutation-unique` is applied only to a row whose position is unique to
+ * the column it lives in (left-only on the left side, right-only on the
+ * right). `is-mutation-shared` is applied to rows whose position appears on
+ * both sides — they are de-emphasised so the eye is drawn to the unique
+ * rows. color-mix is already used elsewhere in this codebase (Chromium 130
+ * via Electron 33, well above the 33+ minimum). */
+
+.compare-mutation-table tr.is-mutation-unique td {
+  background: color-mix(in srgb, var(--color-status-uncertain) 18%, transparent);
+}
+
+.compare-mutation-table tr.is-mutation-shared td {
+  color: var(--color-text-subtle);
 }
 
 .compare-empty {
