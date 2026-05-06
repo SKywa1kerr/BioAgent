@@ -8,6 +8,7 @@ _PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 if str(_PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(_PACKAGE_ROOT))
 
+from bioagent.logger import configure as _configure_logging
 from core.alignment import analyze_dataset
 from core.evidence import format_evidence_for_llm, format_evidence_table
 from core.llm_client import call_llm, parse_llm_result
@@ -45,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_logging()
     parser = build_parser()
     args = parser.parse_args(argv)
 

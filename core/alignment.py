@@ -7,6 +7,7 @@ Bioinformatics core: GB/AB1 parsing, alignment, mutation detection, AA translati
 Merged and simplified from scripts/gb_ab1_mutations.py and scripts/gb_ab1_agent_pro.py.
 """
 
+import logging
 import re
 import sys
 from pathlib import Path
@@ -17,6 +18,8 @@ from Bio import SeqIO
 from Bio.Seq import Seq
 from Bio.Align import PairwiseAligner
 from Bio.Data import CodonTable
+
+_log = logging.getLogger("bioagent.alignment")
 
 
 # ── Rule tuning constants ────────────────────────────────────────────────────
@@ -81,7 +84,10 @@ def safe_write_csv(df: pd.DataFrame, path: Path) -> Path:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         alt = path.with_name(path.stem + f"_{stamp}" + path.suffix)
         df.to_csv(alt, index=False)
-        print(f"[WARN] Permission denied writing {path.name}. Saved as {alt.name}.", file=sys.stderr)
+        _log.warning(
+            "csv permission denied; wrote alternate path",
+            extra={"original": path.name, "alternate": alt.name},
+        )
         return alt
 
 
@@ -950,7 +956,7 @@ def analyze_dataset(dataset: str, data_dir: Path,
             continue
 
         for ab1_path in ab1_list:
-            print(f"  Analyzing {ab1_path.name} ...", end=" ", flush=True, file=sys.stderr)
+            _log.info("analyzing sample", extra={"clone": clone, "ab1": ab1_path.name})
             result = analyze_sample(
                 gb_path=gb_path,
                 ab1_path=ab1_path,
@@ -958,9 +964,20 @@ def analyze_dataset(dataset: str, data_dir: Path,
                 out_html_dir=out_html_dir,
             )
             if result is None:
-                print("SKIP (too short)", file=sys.stderr)
+                _log.info(
+                    "sample skipped (too short)",
+                    extra={"clone": clone, "ab1": ab1_path.name},
+                )
                 continue
-            print(f"id={result['identity']:.4f}  cds_cov={result['cds_coverage']:.3f}", file=sys.stderr)
+            _log.info(
+                "sample analyzed",
+                extra={
+                    "clone": clone,
+                    "ab1": ab1_path.name,
+                    "identity": round(result["identity"], 4),
+                    "cds_coverage": round(result["cds_coverage"], 3),
+                },
+            )
             all_results.append(result)
 
     # Group by SID: if multiple AB1 files exist for the same SID,

@@ -7,6 +7,7 @@ LLM client for Sanger sequencing QC judgment.
 Supports any OpenAI-compatible API (OpenRouter, DeepSeek, Anthropic proxies, etc.).
 """
 
+import logging
 import os
 import re
 import sys
@@ -14,6 +15,8 @@ import time
 from pathlib import Path
 
 from openai import OpenAI
+
+_log = logging.getLogger("bioagent.llm")
 
 
 def _load_env():
@@ -109,19 +112,29 @@ def call_llm(evidence_text: str,
             err_str = str(e)
             # Fallback: merge system prompt into user message
             if "Developer instruction" in err_str or "system" in err_str.lower():
-                print(f"\n  [INFO] Model does not support system prompt, merging into user message...", file=sys.stderr)
+                _log.info(
+                    "model rejects system prompt; merging into user message",
+                    extra={"model": model},
+                )
                 use_messages = messages_no_sys
                 continue
             if ("429" in err_str or "rate" in err_str.lower()) and attempt < max_retries - 1:
                 wait = 15 * (attempt + 1)
-                print(f"\n  [WARN] Rate limited, retrying in {wait}s (attempt {attempt+1}/{max_retries})...", file=sys.stderr)
+                _log.warning(
+                    "llm rate limited; retrying",
+                    extra={
+                        "wait_seconds": wait,
+                        "attempt": attempt + 1,
+                        "max_retries": max_retries,
+                    },
+                )
                 time.sleep(wait)
             else:
                 raise
-    print('-' * 50, file=sys.stderr)
-    print('LLM message start:', file=sys.stderr)
-    print(result, file=sys.stderr)
-    print('-' * 50, file=sys.stderr)
+    _log.info(
+        "llm response received",
+        extra={"model": model, "chars": len(result), "preview": result[:500]},
+    )
     return result
 
 
