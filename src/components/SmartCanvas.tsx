@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ReactNode } from "react";
 
 export type PanelType = "text" | "analysis" | "trends" | "suggestions" | "confirmation";
@@ -10,6 +10,11 @@ interface SmartCanvasProps {
 }
 
 export function SmartCanvas({ title, panelType, children }: SmartCanvasProps) {
+  const reduceMotion = useReducedMotion() ?? false;
+  const initial = reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 };
+  const animate = reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
+  const exit = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -10 };
+
   return (
     <div className="canvas-shell">
       <div className="panel-title">{title}</div>
@@ -17,10 +22,10 @@ export function SmartCanvas({ title, panelType, children }: SmartCanvasProps) {
         <AnimatePresence mode="wait">
           <motion.div
             key={panelType}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.22 }}
+            initial={initial}
+            animate={animate}
+            exit={exit}
+            transition={{ duration: 0.14, ease: [0.2, 0.7, 0.2, 1] }}
             className="canvas-motion"
           >
             {children}

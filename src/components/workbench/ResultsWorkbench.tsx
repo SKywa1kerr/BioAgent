@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence } from "framer-motion";
 import type { WorkbenchSample } from "./types";
 import { ResultsCharts } from "./ResultsCharts";
 import { ResultsSummary } from "./ResultsSummary";
@@ -227,11 +228,16 @@ export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenc
         isFiltered={hasActiveControls}
         onClearFilters={reset}
       />
-      <DetailDrawer
-        sample={selectedSample}
-        language={language}
-        onClose={() => setSelectedId(null)}
-      />
+      <AnimatePresence>
+        {selectedSample != null && (
+          <DetailDrawer
+            key="detail-drawer"
+            sample={selectedSample}
+            language={language}
+            onClose={() => setSelectedId(null)}
+          />
+        )}
+      </AnimatePresence>
     </section>
   );
 }

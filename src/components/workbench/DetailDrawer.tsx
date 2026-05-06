@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import type { WorkbenchSample } from "./types";
 import { bucketSampleStatus, formatPercent } from "./utils";
 import { buildAlignmentViewModel, parseAaChanges } from "./alignmentView";
@@ -26,7 +27,7 @@ function loadWidth(): number {
 }
 
 interface Props {
-  sample: WorkbenchSample | null;
+  sample: WorkbenchSample;
   language: AppLanguage;
   onClose(): void;
 }
@@ -34,6 +35,7 @@ interface Props {
 export function DetailDrawer({ sample, language, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [width, setWidth] = useState<number>(loadWidth);
+  const reduceMotion = useReducedMotion() ?? false;
 
   useEffect(() => {
     if (!sample) return;
@@ -96,13 +98,26 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
     window.addEventListener("mouseup", onUp);
   }
 
-  if (!sample) return null;
   const bucket = bucketSampleStatus(sample);
   const muts = Array.isArray(sample.mutations) ? sample.mutations : [];
   const avgQ = sample.avg_qry_quality ?? sample.avg_quality;
 
+  const initial = reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24 };
+  const animate = reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 };
+  const exit = reduceMotion ? { opacity: 0 } : { opacity: 0, x: 24 };
+
   return (
-    <aside className="detail-drawer" role="dialog" aria-modal="false" aria-label={sample.id} style={{ width }}>
+    <motion.aside
+      className="detail-drawer"
+      role="dialog"
+      aria-modal="false"
+      aria-label={sample.id}
+      style={{ width }}
+      initial={initial}
+      animate={animate}
+      exit={exit}
+      transition={{ duration: 0.14, ease: [0.2, 0.7, 0.2, 1] }}
+    >
       <div className="detail-drawer-resize" onMouseDown={startDrag} aria-hidden="true" />
       <header className="detail-drawer-head">
         <span className="detail-drawer-sid">{sample.id}</span>
@@ -208,8 +223,14 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
           {chrom ? (
             <Suspense
               fallback={
-                <div className="detail-drawer-empty">
-                  {t(language, "table.loadingChromatogram")}
+                <div
+                  className="chromatogram-skeleton"
+                  role="status"
+                  aria-label={t(language, "table.loadingChromatogram")}
+                >
+                  <div className="chromatogram-skeleton-row" />
+                  <div className="chromatogram-skeleton-row" />
+                  <div className="chromatogram-skeleton-row" />
                 </div>
               }
             >
@@ -226,6 +247,6 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
           )}
         </section>
       </div>
-    </aside>
+    </motion.aside>
   );
 }
