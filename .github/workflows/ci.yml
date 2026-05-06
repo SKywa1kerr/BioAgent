@@ -1,0 +1,125 @@
+# BioAgent Desktop CI
+#
+# Runs typecheck + JS tests on every PR and main push, builds Electron
+# artifacts on main pushes / tags, and publishes a GitHub Release on tag pushes.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    # Also trigger on semver tags (v1.2.3) so the release job can fire.
+    tags:
+      - 'v*.*.*'
+
+# Cancel superseded runs on the same ref (e.g. successive PR pushes).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # release job needs this to upload assets via softprops/action-gh-release
+
+jobs:
+  test:
+    # Cross-OS sanity check: typecheck + JS unit tests on the three Electron host platforms.
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          # Built-in cache for ~/.npm keyed on package-lock.json.
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run JS tests
+        run: npm run test:js
+
+      # NOTE: `npm run test:py` is intentionally skipped in CI for now.
+      # The Python sidecar's pytest suite depends on data fixtures that are
+      # not bundled into the repo (truth/, data/ samples generated locally).
+      # Re-enable once fixtures are vendored or downloaded as a CI step.
+
+  build:
+    # Build Electron installers. We split this from `test` because the build
+    # is slow and only relevant once code lands on main or is being released.
+    name: Build (${{ matrix.os }})
+    # Skip on plain PRs — only run on main pushes and tag pushes.
+    if: github.event_name == 'push'
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Linux is intentionally omitted: we don't ship a Linux build target
+        # right now (no AppImage/deb config in package.json `build`), and
+        # adding it would burn CI minutes on an unused artifact.
+        os: [windows-latest, macos-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Electron app
+        run: npm run electron:build
+        env:
+          # electron-builder reads this for code signing skips on CI when no certs are present.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-${{ matrix.os }}
+          path: release/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    # Publish a GitHub Release with attached installers, but only for tag pushes.
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          # Pull every `electron-*` artifact uploaded by the build matrix.
+          pattern: electron-*
+          path: artifacts
+          merge-multiple: false
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # Attach every file across all downloaded artifact directories.
+          files: artifacts/**/*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
