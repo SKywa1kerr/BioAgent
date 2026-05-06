@@ -46,6 +46,8 @@ export type AgentEvent =
 
 type PanelResolution = { panelType: PanelType; panelPayload: unknown; confirmMessage?: string };
 
+export type LastErrorEvent = { kind: "init" | "run" | "runtime"; message: string };
+
 /* ── Module-level pure utilities ─────────────────────────────────────── */
 
 function resolvePanelFromEvent(payload: AgentEvent): PanelResolution | null {
@@ -134,6 +136,7 @@ export function useAgentHarness(language: AppLanguage) {
   const [confirmMessage, setConfirmMessage] = useState("");
   const [statusMessage, setStatusMessage] = useState(t(language, "app.status.needInit"));
   const [progress, setProgress] = useState<ProgressState>({ phase: "idle", progress: 0, label: t(language, "app.progress.idle") });
+  const [lastErrorEvent, setLastErrorEvent] = useState<LastErrorEvent | null>(null);
 
   /* ── Refs ───────────────────────────────────────────────────────────── */
   const latestEventRef = useRef<AgentEvent | null>(null);
@@ -141,6 +144,7 @@ export function useAgentHarness(language: AppLanguage) {
   const panelTypeRef = useRef<PanelType>("text");
   const languageRef = useRef<AppLanguage>(language);
   const runTokenRef = useRef(0);
+  const lastRunOpRef = useRef<{ content: string; settings: AgentSettings } | null>(null);
 
   /* ── Sync refs ──────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -308,11 +312,12 @@ export function useAgentHarness(language: AppLanguage) {
       setProgressState("busy", 100, payload.message || t(lang, "app.progress.busy"));
     } else if (payload.type === "error") {
       setProgressState("error", 100, payload.message || t(lang, "error.runFailed", { message: "" }));
+      setLastErrorEvent({ kind: "runtime", message: payload.message ?? "" });
     }
 
-    if (payload.type === "reply" || payload.type === "error" || payload.type === "busy") {
+    if (payload.type === "reply" || payload.type === "busy") {
       const content = payload.type === "reply" ? payload.content : undefined;
-      const message = payload.type !== "reply" ? payload.message : undefined;
+      const message = payload.type === "busy" ? payload.message : undefined;
       const text = content || message;
       if (text) pushAssistant(text);
     }
@@ -384,6 +389,7 @@ export function useAgentHarness(language: AppLanguage) {
       setStatusMessage(t(language, "app.status.initFailed", { message: maskSecrets(message) }));
       setInitialized(false);
       setProgressState("error", 100, t(language, "app.status.initFailed", { message }));
+      setLastErrorEvent({ kind: "init", message: maskSecrets(message) });
     }
   }
 
@@ -394,6 +400,8 @@ export function useAgentHarness(language: AppLanguage) {
       setStatusMessage(t(language, "app.status.needInit"));
       return;
     }
+
+    lastRunOpRef.current = { content, settings };
 
     runTokenRef.current += 1;
     const currentRunToken = runTokenRef.current;
@@ -418,7 +426,7 @@ export function useAgentHarness(language: AppLanguage) {
 
       if (!runResult?.ok) {
         const err = runResult?.error || "Run failed";
-        pushAssistant(t(language, "error.runFailed", { message: err }));
+        setLastErrorEvent({ kind: "run", message: err });
         setProgressState("error", 100, t(language, "error.runFailed", { message: err }));
         return;
       }
@@ -433,13 +441,19 @@ export function useAgentHarness(language: AppLanguage) {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      pushAssistant(t(language, "error.runFailed", { message }));
+      setLastErrorEvent({ kind: "run", message });
       setProgressState("error", 100, t(language, "error.runFailed", { message }));
     } finally {
       if (runTokenRef.current === currentRunToken) {
         setIsRunning(false);
       }
     }
+  }
+
+  async function retryLast(): Promise<void> {
+    const op = lastRunOpRef.current;
+    if (!op) return;
+    await sendMessage(op.content, op.settings);
   }
 
   async function exportDebugLog(): Promise<void> {
@@ -471,5 +485,7 @@ export function useAgentHarness(language: AppLanguage) {
     exportDebugLog,
     setPanelType,
     clearMessages: () => setMessages([]),
+    lastErrorEvent,
+    retryLast,
   };
 }

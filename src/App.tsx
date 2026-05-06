@@ -10,8 +10,9 @@ import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
-import { useAgentHarness } from "./hooks/useAgentHarness";
+import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
 import { useOnboarding } from "./hooks/useOnboarding";
+import { useToasts } from "./components/ui/ToastProvider";
 import { registerCommand } from "./lib/commands/registry";
 import { loadSettings, saveSettings, type AgentSettings } from "./lib/settingsStorage";
 import { loadRailState, nextRailState, saveRailState, type ChatRailState } from "./lib/ui/chatRailState";
@@ -63,6 +64,45 @@ export function App() {
   }, []);
 
   const agent = useAgentHarness(language);
+  const toasts = useToasts();
+
+  /* ── Toast wiring (action handlers + error event → toast) ─────────── */
+
+  const agentRef = useRef(agent);
+  useEffect(() => { agentRef.current = agent; }, [agent]);
+
+  useEffect(() => {
+    const offs = [
+      toasts.registerActionHandler("export-debug-log", () => { void agentRef.current.exportDebugLog(); }),
+      toasts.registerActionHandler("retry-last", () => { void agentRef.current.retryLast(); }),
+    ];
+    return () => offs.forEach((off) => off());
+  }, [toasts]);
+
+  // Dedupe by reference so a language change alone does not re-emit an
+  // already-delivered toast. Each new error from the harness is a fresh
+  // object literal, so reference equality is the right gate here.
+  const lastEmittedErrorRef = useRef<LastErrorEvent | null>(null);
+  useEffect(() => {
+    const event = agent.lastErrorEvent;
+    if (!event || event === lastEmittedErrorRef.current) return;
+    lastEmittedErrorRef.current = event;
+    const titleKey =
+      event.kind === "init" ? "toast.error.initTitle" :
+      event.kind === "run" ? "toast.error.runTitle" :
+      "toast.error.runtimeTitle";
+    const action =
+      event.kind === "run"
+        ? { label: t(language, "toast.action.retry"), actionId: "retry-last" }
+        : { label: t(language, "toast.action.viewLog"), actionId: "export-debug-log" };
+    toasts.pushToast({
+      kind: "error",
+      title: t(language, titleKey),
+      description: event.message,
+      durationMs: 0,
+      action,
+    });
+  }, [agent.lastErrorEvent, toasts, language]);
 
   /* ── Panel history cache ──────────────────────────────────────────── */
 

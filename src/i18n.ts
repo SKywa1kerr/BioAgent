@@ -56,6 +56,11 @@ const zh: Dict = {
   "error.runFailed": "运行失败: {message}",
   "error.emptyApiKey": "API key 为空，请仅粘贴 key 本身，例如 sk-...",
   "error.initFailed": "智能体初始化失败",
+  "toast.action.viewLog": "查看日志",
+  "toast.action.retry": "重试",
+  "toast.error.initTitle": "初始化失败",
+  "toast.error.runTitle": "运行失败",
+  "toast.error.runtimeTitle": "智能体出错",
 
   "confirm.title": "请确认",
   "confirm.cancel": "取消",
@@ -309,6 +314,11 @@ const en: Dict = {
   "error.runFailed": "Run failed: {message}",
   "error.emptyApiKey": "API key is empty. Paste only the key value, e.g. sk-...",
   "error.initFailed": "Agent initialization failed",
+  "toast.action.viewLog": "View log",
+  "toast.action.retry": "Retry",
+  "toast.error.initTitle": "Initialization failed",
+  "toast.error.runTitle": "Run failed",
+  "toast.error.runtimeTitle": "Agent error",
 
   "confirm.title": "Please confirm",
   "confirm.cancel": "Cancel",
