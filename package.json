@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "test:js": "node --test \"tests/test_*.mjs\"",
     "test:py": "pytest tests",
-    "test": "npm run typecheck && npm run test:js && npm run test:py"
+    "test": "npm run typecheck && npm run test:js && npm run test:py",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",
@@ -26,9 +28,11 @@
     "pdfmake": "^0.3.7",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.45.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.0.0",
