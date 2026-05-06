@@ -1,7 +1,7 @@
-﻿.chromatogram-container {
+.chromatogram-container {
   position: relative;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 14px;
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(255, 255, 255, 0)),
@@ -9,7 +9,7 @@
 }
 
 :root[data-theme="dark"] .chromatogram-container {
-  border-color: rgba(148, 163, 184, 0.16);
+  border-color: var(--color-border-default);
   background:
     linear-gradient(180deg, rgba(30, 41, 59, 0.36), rgba(30, 41, 59, 0)),
     #0f172a;
@@ -19,10 +19,15 @@
   display: block;
   width: 100%;
   height: 220px;
+  cursor: grab;
+}
+
+.chromatogram-canvas:active {
+  cursor: grabbing;
 }
 
 .chromatogram-canvas:focus-visible {
-  outline: 2px solid var(--focus-ring, #0284c7);
+  outline: 2px solid var(--color-accent);
   outline-offset: -2px;
 }
 
@@ -40,50 +45,96 @@
 
 .chromatogram-tooltip {
   position: fixed;
-  background: rgba(15, 23, 42, 0.96);
-  color: #f8fafc;
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-family: "Consolas", "SFMono-Regular", monospace;
+  background: var(--color-surface-overlay);
+  color: var(--color-text-main);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-mono);
   pointer-events: none;
   z-index: 1000;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.24);
+  border: 1px solid var(--color-border-default);
+  box-shadow: var(--shadow-md);
 }
 
 .chromatogram-toolbar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px 4px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3) var(--space-1);
 }
 
-.chromatogram-zoom-btn {
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
-  min-width: 32px;
-  min-height: 28px;
-  padding: 0 8px;
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.chromatogram-zoom-btn:hover {
-  background: rgba(148, 163, 184, 0.1);
-}
-
-.chromatogram-zoom-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
+.chromatogram-toolbar-btn {
+  width: 26px;
+  height: 26px;
 }
 
 .chromatogram-zoom-label {
-  font-size: 11px;
-  color: inherit;
-  opacity: 0.6;
-  margin-left: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+  margin-left: var(--space-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Mini-map ────────────────────────────────────────────────────────── */
+
+.chromatogram-minimap {
+  position: relative;
+  width: 100%;
+  height: 36px;
+  margin-top: var(--space-1);
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border-soft);
+  cursor: pointer;
+  user-select: none;
+}
+
+.chromatogram-minimap-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.chromatogram-minimap-window {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--color-accent-soft);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  cursor: grab;
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast) var(--easing-standard),
+              background-color var(--duration-fast) var(--easing-standard);
+}
+
+.chromatogram-minimap-window:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.chromatogram-minimap-window:active {
+  cursor: grabbing;
+}
+
+.chromatogram-minimap-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  cursor: ew-resize;
+  background: transparent;
+}
+
+.chromatogram-minimap-handle-left {
+  left: -3px;
+}
+
+.chromatogram-minimap-handle-right {
+  right: -3px;
+}
+
+.chromatogram-minimap-handle:hover {
+  background: var(--color-accent-soft);
 }
