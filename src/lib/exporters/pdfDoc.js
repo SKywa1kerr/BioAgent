@@ -4,6 +4,11 @@ const MAX_REASON_CHARS = 400;
 const STATUS_KEYS = ["ok", "wrong", "uncertain", "untested"];
 
 function bucketStatus(sample) {
+  if (sample.override && (sample.override.status === "ok"
+      || sample.override.status === "wrong"
+      || sample.override.status === "uncertain")) {
+    return sample.override.status;
+  }
   if (sample.reason === "???") return "untested";
   if (sample.status === "ok" || sample.status === "wrong") return sample.status;
   return "uncertain";
@@ -66,6 +71,26 @@ export function buildDocDefinition({
       layout: "lightHorizontalLines",
     },
   ];
+
+  const overridden = samples.filter((s) => s && s.override && s.override.status);
+  if (overridden.length > 0) {
+    content.push({ text: T("export.pdf.overridesTitle"), style: "sampleHeader" });
+    content.push({
+      table: {
+        widths: ["auto", "auto", "*"],
+        body: [
+          [T("export.pdf.overrideSample"), T("export.pdf.overrideStatus"), T("export.pdf.overrideReason")],
+          ...overridden.map((s) => [
+            s.id || s.name || "-",
+            s.override.status,
+            (typeof s.override.reason === "string" && s.override.reason) ? s.override.reason : "-",
+          ]),
+        ],
+      },
+      layout: "lightHorizontalLines",
+      margin: [0, 4, 0, 8],
+    });
+  }
 
   if (!detailMode) {
     content.push({

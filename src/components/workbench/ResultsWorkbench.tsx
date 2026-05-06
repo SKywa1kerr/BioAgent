@@ -6,8 +6,9 @@ import { ResultsSummary } from "./ResultsSummary";
 import { ResultsTable } from "./ResultsTable";
 import { DetailDrawer } from "./DetailDrawer";
 import { ExportMenu } from "./ExportMenu";
-import { buildResultsView, bucketSampleStatus } from "./utils";
+import { applyOverride, buildResultsView, bucketSampleStatus } from "./utils";
 import { useWorkbenchControls } from "../../hooks/useWorkbenchControls";
+import { useSampleOverrides } from "../../hooks/useSampleOverrides";
 import { registerCommand } from "../../lib/commands/registry";
 import { runExport } from "../../lib/exporters/runExport";
 import type { AppLanguage } from "../../i18n";
@@ -18,9 +19,10 @@ interface ResultsWorkbenchProps {
   samples: WorkbenchSample[];
   language: AppLanguage;
   dataset?: string;
+  analysisId?: string | null;
 }
 
-export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenchProps) {
+export function ResultsWorkbench({ samples, language, dataset, analysisId }: ResultsWorkbenchProps) {
   const {
     controls,
     setStatusFilter,
@@ -33,10 +35,18 @@ export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenc
   const { statusFilter, searchQuery, sortKey, summaryScope, density } = controls;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const overridesApi = useSampleOverrides();
+
+  const samplesWithOverrides = useMemo(() => {
+    if (!analysisId) return samples;
+    return samples.map((s) =>
+      applyOverride(s, overridesApi.getOverride(analysisId, s.id)),
+    );
+  }, [samples, analysisId, overridesApi]);
 
   const visibleSamples = useMemo(
-    () => buildResultsView(samples, { statusFilter, searchQuery, sortKey }),
-    [samples, statusFilter, searchQuery, sortKey],
+    () => buildResultsView(samplesWithOverrides, { statusFilter, searchQuery, sortKey }),
+    [samplesWithOverrides, statusFilter, searchQuery, sortKey],
   );
 
   type ExportArgs = {
@@ -64,7 +74,7 @@ export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenc
     }
   }, [visibleSamples, selectedId]);
 
-  const summarySource = summaryScope === "filtered" ? visibleSamples : samples;
+  const summarySource = summaryScope === "filtered" ? visibleSamples : samplesWithOverrides;
 
   const buckets = useMemo(() => {
     const acc = { ok: 0, wrong: 0, uncertain: 0, untested: 0 };
@@ -241,6 +251,7 @@ export function ResultsWorkbench({ samples, language, dataset }: ResultsWorkbenc
             key="detail-drawer"
             sample={selectedSample}
             language={language}
+            analysisId={analysisId ?? null}
             onClose={() => setSelectedId(null)}
           />
         )}

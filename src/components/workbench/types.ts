@@ -61,6 +61,13 @@ export interface WorkbenchSample {
   base_locations?: number[];
   mixed_peaks?: number[];
   bucket?: "ok" | "wrong" | "uncertain" | "untested";
+  override?: SampleOverrideInfo;
+}
+
+export interface SampleOverrideInfo {
+  status: "ok" | "wrong" | "uncertain";
+  reason: string;
+  updatedAt: string;
 }
 
 export type WorkbenchStatus = "ok" | "wrong" | "uncertain" | "untested";

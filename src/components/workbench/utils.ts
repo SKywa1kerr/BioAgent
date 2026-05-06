@@ -1,4 +1,4 @@
-import type { WorkbenchSample, WorkbenchStatus } from "./types";
+import type { SampleOverrideInfo, WorkbenchSample, WorkbenchStatus } from "./types";
 
 export type ResultsStatusFilter = "all" | WorkbenchStatus;
 export type ResultsSortKey = "status" | "sample" | "identity" | "coverage" | "mutations";
@@ -22,6 +22,12 @@ function compareText(a: string, b: string) {
 }
 
 export function bucketSampleStatus(sample: WorkbenchSample): WorkbenchStatus {
+  if (sample.override
+      && (sample.override.status === "ok"
+          || sample.override.status === "wrong"
+          || sample.override.status === "uncertain")) {
+    return sample.override.status;
+  }
   if (sample.bucket === "ok" || sample.bucket === "wrong"
       || sample.bucket === "uncertain" || sample.bucket === "untested") {
     return sample.bucket;
@@ -29,6 +35,18 @@ export function bucketSampleStatus(sample: WorkbenchSample): WorkbenchStatus {
   if (sample.reason === UNTESTED_REASON) return "untested";
   if (sample.status === "ok" || sample.status === "wrong") return sample.status;
   return "uncertain";
+}
+
+export function applyOverride(
+  sample: WorkbenchSample,
+  override: SampleOverrideInfo | undefined,
+): WorkbenchSample {
+  if (!override) {
+    if (sample.override === undefined) return sample;
+    const { override: _gone, ...rest } = sample;
+    return rest;
+  }
+  return { ...sample, override };
 }
 
 export function countSampleMutations(sample: WorkbenchSample) {

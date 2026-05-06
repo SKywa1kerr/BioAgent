@@ -39,6 +39,8 @@ const COLUMNS = [
       return typeof v === "number" ? v : "";
     },
   ],
+  ["override_status", (s) => (s.override && s.override.status) ? s.override.status : ""],
+  ["override_reason", (s) => (s.override && typeof s.override.reason === "string") ? s.override.reason : ""],
 ];
 
 function escapeCell(value) {

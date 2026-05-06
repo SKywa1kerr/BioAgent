@@ -6,6 +6,9 @@ import { buildAlignmentViewModel, parseAaChanges } from "./alignmentView";
 import { buildChromatogramData } from "./normalize";
 import { SequenceAlignmentView } from "./SequenceAlignmentView";
 import { Icon } from "../ui/Icon";
+import { useToasts } from "../ui/ToastProvider";
+import { useSampleOverrides } from "../../hooks/useSampleOverrides";
+import type { SampleStatusOverride } from "../../lib/ui/sampleOverrides";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
 import "./DetailDrawer.css";
@@ -29,13 +32,32 @@ function loadWidth(): number {
 interface Props {
   sample: WorkbenchSample;
   language: AppLanguage;
+  analysisId?: string | null;
   onClose(): void;
 }
 
-export function DetailDrawer({ sample, language, onClose }: Props) {
+const OVERRIDE_OPTIONS: SampleStatusOverride[] = ["ok", "wrong", "uncertain"];
+
+export function DetailDrawer({ sample, language, analysisId, onClose }: Props) {
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const [width, setWidth] = useState<number>(loadWidth);
   const reduceMotion = useReducedMotion() ?? false;
+  const overridesApi = useSampleOverrides();
+  const toasts = useToasts();
+  const existingOverride = analysisId
+    ? overridesApi.getOverride(analysisId, sample.id)
+    : undefined;
+  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [draftStatus, setDraftStatus] = useState<SampleStatusOverride>(
+    existingOverride?.status ?? "uncertain",
+  );
+  const [draftReason, setDraftReason] = useState<string>(existingOverride?.reason ?? "");
+
+  useEffect(() => {
+    setOverrideOpen(false);
+    setDraftStatus(existingOverride?.status ?? "uncertain");
+    setDraftReason(existingOverride?.reason ?? "");
+  }, [sample.id, analysisId, existingOverride?.status, existingOverride?.reason]);
 
   useEffect(() => {
     if (!sample) return;
@@ -123,6 +145,11 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
         <span className="detail-drawer-sid">{sample.id}</span>
         <span className={`detail-drawer-status status-${bucket}`}>
           {t(language, `wb.status.${bucket}`)}
+          {existingOverride ? (
+            <span className="detail-drawer-override-badge">
+              {t(language, "override.badge")}
+            </span>
+          ) : null}
         </span>
         <button
           ref={closeRef}
@@ -134,6 +161,79 @@ export function DetailDrawer({ sample, language, onClose }: Props) {
         </button>
       </header>
       <div className="detail-drawer-body">
+        {analysisId ? (
+          <section className="detail-drawer-override">
+            <button
+              type="button"
+              className="detail-drawer-override-toggle"
+              aria-expanded={overrideOpen}
+              onClick={() => setOverrideOpen((v) => !v)}
+            >
+              {t(language, "override.title")}
+            </button>
+            {overrideOpen ? (
+              <div className="detail-drawer-override-panel">
+                <div className="detail-drawer-override-row" role="radiogroup" aria-label={t(language, "override.title")}>
+                  {OVERRIDE_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      role="radio"
+                      aria-checked={draftStatus === opt}
+                      className={`detail-drawer-override-option status-${opt}${draftStatus === opt ? " is-active" : ""}`}
+                      onClick={() => setDraftStatus(opt)}
+                    >
+                      {t(language, `wb.status.${opt}`)}
+                    </button>
+                  ))}
+                </div>
+                <label className="detail-drawer-override-reason">
+                  <span>{t(language, "override.reason")}</span>
+                  <input
+                    type="text"
+                    value={draftReason}
+                    onChange={(e) => setDraftReason(e.target.value)}
+                    placeholder={t(language, "override.reasonPlaceholder")}
+                  />
+                </label>
+                <div className="detail-drawer-override-actions">
+                  <button
+                    type="button"
+                    className="detail-drawer-override-save"
+                    onClick={() => {
+                      overridesApi.setOverride(analysisId, sample.id, draftStatus, draftReason);
+                      toasts.pushToast({
+                        kind: "info",
+                        title: t(language, "override.savedToast"),
+                        durationMs: 2400,
+                      });
+                      setOverrideOpen(false);
+                    }}
+                  >
+                    {t(language, "override.save")}
+                  </button>
+                  {existingOverride ? (
+                    <button
+                      type="button"
+                      className="detail-drawer-override-clear"
+                      onClick={() => {
+                        overridesApi.clearOverride(analysisId, sample.id);
+                        toasts.pushToast({
+                          kind: "info",
+                          title: t(language, "override.clearedToast"),
+                          durationMs: 2400,
+                        });
+                        setOverrideOpen(false);
+                      }}
+                    >
+                      {t(language, "override.clear")}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
         <section className="detail-drawer-metrics">
           <article>
             <span>{t(language, "table.clone")}</span>

@@ -33,6 +33,8 @@ export function AnalysisPanel({ result, language }: AnalysisPanelProps) {
   const detailError = typeof result?.__detailError === "string" ? result.__detailError : "";
   const sampleCount = result?.sample_count ?? result?.totalSamples ?? samples.length ?? 0;
   const displayCount = sampleCount > 0 ? sampleCount : (detailPending ? "..." : 0);
+  const analysisId =
+    typeof result?.analysis_id === "string" && result.analysis_id ? result.analysis_id : null;
 
   if (samples.length === 0) {
     return loadingCard(language, displayCount, detailError || (detailPending ? t(language, "analysis.loadingRows") : t(language, "analysis.detailFetchFailed")));
@@ -51,7 +53,7 @@ export function AnalysisPanel({ result, language }: AnalysisPanelProps) {
             {t(language, "app.summary.failed", { message: summaryError })}
           </div>
         ) : null}
-        <ResultsWorkbench samples={samples} language={language} />
+        <ResultsWorkbench samples={samples} language={language} analysisId={analysisId} />
       </div>
     </Suspense>
   );

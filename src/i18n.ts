@@ -206,6 +206,10 @@ const zh: Dict = {
   "export.pdf.exportedAt": "导出时间",
   "export.pdf.filters": "筛选条件",
   "export.pdf.summaryOnly": "样本数超过 200，仅生成概要报告。请使用 CSV/JSON 获取完整明细。",
+  "export.pdf.overridesTitle": "手动重写",
+  "export.pdf.overrideSample": "样本",
+  "export.pdf.overrideStatus": "状态",
+  "export.pdf.overrideReason": "原因",
   "wb.empty.filtered": "无匹配结果",
   "wb.empty.clear": "清除筛选",
   "wb.drawer.close": "关闭",
@@ -266,6 +270,15 @@ const zh: Dict = {
   "history.samples": "{count} 样本",
   "history.llmBadge": "LLM",
   "history.loadFailed": "无法加载分析详情：{message}",
+
+  "override.title": "重写状态",
+  "override.reason": "原因",
+  "override.reasonPlaceholder": "可选：写下你的理由",
+  "override.save": "保存",
+  "override.clear": "清除",
+  "override.savedToast": "样本状态已重写",
+  "override.clearedToast": "已清除重写",
+  "override.badge": "重写",
 };
 
 const en: Dict = {
@@ -472,6 +485,10 @@ const en: Dict = {
   "export.pdf.exportedAt": "Exported at",
   "export.pdf.filters": "Filters",
   "export.pdf.summaryOnly": "Sample count exceeds 200; summary only. Use CSV/JSON for full detail.",
+  "export.pdf.overridesTitle": "Manual overrides",
+  "export.pdf.overrideSample": "Sample",
+  "export.pdf.overrideStatus": "Status",
+  "export.pdf.overrideReason": "Reason",
   "wb.empty.filtered": "No matching results",
   "wb.empty.clear": "Clear filters",
   "wb.drawer.close": "Close",
@@ -532,6 +549,15 @@ const en: Dict = {
   "history.samples": "{count} samples",
   "history.llmBadge": "LLM",
   "history.loadFailed": "Could not load analysis detail: {message}",
+
+  "override.title": "Override status",
+  "override.reason": "Reason",
+  "override.reasonPlaceholder": "Optional: explain why",
+  "override.save": "Save",
+  "override.clear": "Clear",
+  "override.savedToast": "Status overridden",
+  "override.clearedToast": "Override cleared",
+  "override.badge": "Override",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };
