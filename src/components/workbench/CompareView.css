@@ -1,0 +1,252 @@
+/* CompareView — full-screen overlay showing two samples side by side. */
+
+.compare-view {
+  position: fixed;
+  inset: var(--space-5);
+  z-index: 60;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-elevated);
+  overflow: hidden;
+  color: var(--color-text-main);
+}
+
+/* Head bar -------------------------------------------------------- */
+
+.compare-view-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+}
+
+.compare-view-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-md);
+  color: var(--color-text-main);
+}
+
+.compare-diff-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.compare-diff-toggle input {
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.compare-view-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-main);
+  cursor: pointer;
+  transition: border-color var(--duration-base) var(--easing-standard),
+              background var(--duration-base) var(--easing-standard);
+}
+
+.compare-view-close:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-soft);
+}
+
+.compare-view-close:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Diff placeholder banner ---------------------------------------- */
+
+.compare-diff-banner {
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+/* Two-column body ------------------------------------------------ */
+
+.compare-view-grid {
+  display: grid;
+  grid-template-columns: 1fr 1px 1fr;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.compare-view-divider {
+  background: var(--color-border-soft);
+  height: 100%;
+}
+
+.compare-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.compare-column-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+}
+
+.compare-column-sid {
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  color: var(--color-text-main);
+  word-break: break-all;
+}
+
+.compare-column-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.compare-column-status.status-ok        { background: var(--color-status-ok); color: #fff; }
+.compare-column-status.status-wrong     { background: var(--color-status-wrong); color: #fff; }
+.compare-column-status.status-uncertain { background: var(--color-status-uncertain); color: #fff; }
+.compare-column-status.status-untested  { background: var(--color-status-untested); color: #fff; }
+
+.compare-column-override-badge {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-status-uncertain);
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+.compare-column-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* Sub-blocks (mirror DetailDrawer) -------------------------------- */
+
+.compare-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.compare-metrics article {
+  background: var(--card-bg);
+  border: 1px solid var(--color-border-default);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.compare-metrics article span {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.compare-metrics article strong {
+  font-size: var(--font-size-md);
+}
+
+.compare-section h4 {
+  margin: 0 0 var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.compare-aa {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--card-bg);
+  border: 1px solid var(--color-border-default);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+}
+
+.compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.compare-table th,
+.compare-table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-border-soft);
+  text-align: left;
+}
+
+.compare-table th {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-semibold);
+}
+
+.compare-table tr.is-synonymous td {
+  color: var(--color-text-muted);
+}
+
+.compare-table tr.is-single-read td {
+  font-style: italic;
+  color: var(--color-text-muted);
+}
+
+.compare-empty {
+  color: var(--color-text-muted);
+  padding: var(--space-2);
+  font-size: var(--font-size-md);
+}
+
+/* Stack to single column on narrow viewports */
+@media (max-width: 960px) {
+  .compare-view-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1px 1fr;
+  }
+  .compare-view-divider {
+    width: 100%;
+    height: 1px;
+  }
+}

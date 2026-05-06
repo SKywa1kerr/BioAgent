@@ -5,12 +5,15 @@ import { ResultsCharts } from "./ResultsCharts";
 import { ResultsSummary } from "./ResultsSummary";
 import { ResultsTable } from "./ResultsTable";
 import { DetailDrawer } from "./DetailDrawer";
+import { CompareView } from "./CompareView";
 import { ExportMenu } from "./ExportMenu";
 import { applyOverride, buildResultsView, bucketSampleStatus } from "./utils";
 import { useWorkbenchControls } from "../../hooks/useWorkbenchControls";
 import { useSampleOverrides } from "../../hooks/useSampleOverrides";
 import { registerCommand } from "../../lib/commands/registry";
 import { runExport } from "../../lib/exporters/runExport";
+import { nextCompareSelection } from "../../lib/workbench/compareSelection";
+import { Icon } from "../ui/Icon";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
 import "./ResultsWorkbench.css";
@@ -35,6 +38,8 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
   const { statusFilter, searchQuery, sortKey, summaryScope, density } = controls;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [compareOpen, setCompareOpen] = useState(false);
   const overridesApi = useSampleOverrides();
 
   const samplesWithOverrides = useMemo(() => {
@@ -68,11 +73,47 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
     ? visibleSamples.find((s) => s.id === selectedId) ?? null
     : null;
 
+  // Compare picks resolve against the *full* (post-override) sample set so
+  // toggling a status filter does not silently invalidate a selection — the
+  // user can still open the side-by-side view of two samples that the filter
+  // would otherwise hide.
+  const compareLeft = compareIds[0]
+    ? samplesWithOverrides.find((s) => s.id === compareIds[0]) ?? null
+    : null;
+  const compareRight = compareIds[1]
+    ? samplesWithOverrides.find((s) => s.id === compareIds[1]) ?? null
+    : null;
+  const compareReady = compareIds.length === 2 && compareLeft != null && compareRight != null;
+
   useEffect(() => {
     if (selectedId && !visibleSamples.some((s) => s.id === selectedId)) {
       setSelectedId(null);
     }
   }, [visibleSamples, selectedId]);
+
+  // If a compare-selected sample disappears from the underlying dataset
+  // entirely (e.g. user re-runs analysis), drop it. We do NOT prune when only
+  // the visible set changes — see comment above.
+  useEffect(() => {
+    setCompareIds((prev) => {
+      const next = prev.filter((id) => samplesWithOverrides.some((s) => s.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [samplesWithOverrides]);
+
+  // Auto-close the compare overlay if either pick disappears.
+  useEffect(() => {
+    if (compareOpen && !compareReady) setCompareOpen(false);
+  }, [compareOpen, compareReady]);
+
+  function handleToggleCompare(id: string) {
+    setCompareIds((prev) => nextCompareSelection(prev, id));
+  }
+
+  function handleClearCompare() {
+    setCompareIds([]);
+    setCompareOpen(false);
+  }
 
   const summarySource = summaryScope === "filtered" ? visibleSamples : samplesWithOverrides;
 
@@ -244,6 +285,8 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
         onSelect={setSelectedId}
         isFiltered={hasActiveControls}
         onClearFilters={reset}
+        compareIds={compareIds}
+        onToggleCompare={handleToggleCompare}
       />
       <AnimatePresence>
         {selectedSample != null && (
@@ -255,6 +298,49 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
             onClose={() => setSelectedId(null)}
           />
         )}
+      </AnimatePresence>
+
+      {compareIds.length > 0 ? (
+        <div className="compare-bar" role="region" aria-label={t(language, "compare.title")}>
+          <span className="compare-bar-icon" aria-hidden="true">
+            <Icon name="compare" size={14} />
+          </span>
+          <span className="compare-bar-label">
+            {compareIds.length === 2
+              ? t(language, "compare.bar.two")
+              : t(language, "compare.bar.one")}
+          </span>
+          <span className="compare-bar-ids" title={compareIds.join(", ")}>
+            {compareIds.join(" · ")}
+          </span>
+          <button
+            type="button"
+            className="compare-bar-button is-primary"
+            disabled={!compareReady}
+            onClick={() => setCompareOpen(true)}
+          >
+            {t(language, "compare.button")}
+          </button>
+          <button
+            type="button"
+            className="compare-bar-button"
+            onClick={handleClearCompare}
+          >
+            {t(language, "compare.clear")}
+          </button>
+        </div>
+      ) : null}
+
+      <AnimatePresence>
+        {compareOpen && compareReady && compareLeft && compareRight ? (
+          <CompareView
+            key="compare-view"
+            left={compareLeft}
+            right={compareRight}
+            language={language}
+            onClose={() => setCompareOpen(false)}
+          />
+        ) : null}
       </AnimatePresence>
     </section>
   );

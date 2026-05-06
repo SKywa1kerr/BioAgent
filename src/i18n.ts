@@ -279,6 +279,15 @@ const zh: Dict = {
   "override.savedToast": "样本状态已重写",
   "override.clearedToast": "已清除重写",
   "override.badge": "重写",
+
+  "compare.title": "对比",
+  "compare.selectSample": "选择样本对比",
+  "compare.button": "对比",
+  "compare.clear": "清除",
+  "compare.bar.one": "已选 1/2",
+  "compare.bar.two": "已选 2/2",
+  "compare.diffHighlight": "差异高亮",
+  "compare.diffPlaceholder": "差异计算待实现",
 };
 
 const en: Dict = {
@@ -558,6 +567,15 @@ const en: Dict = {
   "override.savedToast": "Status overridden",
   "override.clearedToast": "Override cleared",
   "override.badge": "Override",
+
+  "compare.title": "Compare",
+  "compare.selectSample": "Select sample for compare",
+  "compare.button": "Compare",
+  "compare.clear": "Clear",
+  "compare.bar.one": "1/2 selected",
+  "compare.bar.two": "2/2 selected",
+  "compare.diffHighlight": "Diff highlight",
+  "compare.diffPlaceholder": "Diff math pending",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

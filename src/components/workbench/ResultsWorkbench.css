@@ -1108,11 +1108,31 @@
   overflow: hidden;
   width: 100%;
 }
+/* When the row exposes a compare checkbox, prepend a 22px slot for it.
+   :has() lets the grid adapt without a parent class pierce. */
+.sample-compact-row:has(.sample-compact-compare) {
+  grid-template-columns: 22px 1.1fr 0.9fr 1.6fr 0.7fr 0.7fr 0.5fr 16px;
+}
 .sample-compact-row.is-selected { outline: 2px solid var(--accent-primary, #2c7fb8); }
+.sample-compact-row.is-compared {
+  background: var(--color-accent-soft, rgba(44, 127, 184, 0.12));
+}
 .sample-compact-row.status-ok        { border-left-color: var(--status-ok, #1d9c7d); }
 .sample-compact-row.status-wrong     { border-left-color: var(--status-wrong, #d23f5c); }
 .sample-compact-row.status-uncertain { border-left-color: var(--status-uncertain, #d89a2c); }
 .sample-compact-row.status-untested  { border-left-color: var(--status-untested, #6a7a93); }
+.sample-compact-compare {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sample-compact-compare input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent-primary, #2c7fb8);
+}
 .sample-compact-aa { display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
 .sample-compact-aa-pill,
 .sample-compact-aa-overflow {
@@ -1134,3 +1154,82 @@
 .sample-compact-metric { font-variant-numeric: tabular-nums; color: var(--text-muted); }
 .sample-compact-chevron { color: var(--text-muted); }
 .sample-compact-subline { grid-column: 1 / -1; font-size: 11px; color: var(--text-muted); }
+
+/* Sticky compare bar — floats at the bottom of the workbench when at least
+   one sample is checked. Stays out of the way when compareIds is empty. */
+.compare-bar {
+  position: sticky;
+  bottom: var(--space-4);
+  margin: 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-overlay);
+  box-shadow: var(--shadow-lg);
+  align-self: center;
+  z-index: 40;
+  font-size: var(--font-size-sm);
+}
+
+.compare-bar-icon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-accent);
+}
+
+.compare-bar-label {
+  color: var(--color-text-main);
+  font-weight: var(--font-weight-semibold);
+}
+
+.compare-bar-ids {
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-bar-button {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-text-main);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: border-color var(--duration-base) var(--easing-standard),
+              background var(--duration-base) var(--easing-standard);
+}
+
+.compare-bar-button:hover {
+  border-color: var(--color-border-strong);
+  background: var(--color-accent-soft);
+}
+
+.compare-bar-button.is-primary {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+.compare-bar-button.is-primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+  border-color: var(--color-accent-hover);
+}
+
+.compare-bar-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.compare-bar-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

@@ -15,6 +15,8 @@ interface Props {
   onSelect(id: string): void;
   isFiltered?: boolean;
   onClearFilters?: () => void;
+  compareIds?: string[];
+  onToggleCompare?(id: string): void;
 }
 
 interface RowView {
@@ -39,6 +41,8 @@ export function ResultsTable({
   onSelect,
   isFiltered,
   onClearFilters,
+  compareIds,
+  onToggleCompare,
 }: Props) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const rowHeight = density === "compact" ? ROW_COMPACT : ROW_DETAILED;
@@ -123,13 +127,15 @@ export function ResultsTable({
               const row = rowViews[v.index];
               if (!sample || !row) return null;
               const isSelected = selectedId === sample.id;
+              const isCompared = !!compareIds && compareIds.includes(sample.id);
+              const compareEnabled = !!onToggleCompare;
               return (
                 <button
                   key={v.key}
                   type="button"
                   data-index={v.index}
                   onClick={() => onSelect(sample.id)}
-                  className={`sample-compact-row status-${row.status}${isSelected ? " is-selected" : ""}`}
+                  className={`sample-compact-row status-${row.status}${isSelected ? " is-selected" : ""}${isCompared ? " is-compared" : ""}`}
                   style={{
                     position: "absolute",
                     top: 0,
@@ -139,6 +145,29 @@ export function ResultsTable({
                     transform: `translateY(${v.start}px)`,
                   }}
                 >
+                  {compareEnabled ? (
+                    <span
+                      className="sample-compact-compare"
+                      // The cell wraps a real <input>; wrapping <span> stops the
+                      // pointer event from bubbling into the parent button so
+                      // checking the box never opens the detail drawer.
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isCompared}
+                        // stopPropagation on the input itself keeps keyboard
+                        // (space / enter) interactions from also triggering
+                        // the parent button's click handler.
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          onToggleCompare?.(sample.id);
+                        }}
+                        aria-label={t(language, "compare.selectSample")}
+                      />
+                    </span>
+                  ) : null}
                   <span className="sample-compact-sid" title={sample.id}>{sample.id}</span>
                   <span className={`sample-compact-status status-${row.status}`}>
                     {t(language, `wb.status.${row.status}`)}
