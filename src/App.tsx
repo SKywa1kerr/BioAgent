@@ -10,7 +10,9 @@ import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
+import { RecentAnalysesRail } from "./components/RecentAnalysesRail";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
+import { useAnalysisHistory } from "./hooks/useAnalysisHistory";
 import { useOnboarding } from "./hooks/useOnboarding";
 import { useToasts } from "./components/ui/ToastProvider";
 import { registerCommand } from "./lib/commands/registry";
@@ -120,6 +122,55 @@ export function App() {
 
   const TAB_TYPES: PanelType[] = ["analysis", "trends", "suggestions"];
   const availableTabs = TAB_TYPES.filter((tab) => panelCache[tab] != null);
+
+  /* ── Recent analyses rail (history) ───────────────────────────────── */
+
+  const historyApi = useAnalysisHistory({ enabled: agent.initialized, limit: 20 });
+  const lastSeenAnalysisIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!agent.initialized) return;
+    if (agent.panelType !== "analysis") return;
+    const payload = agent.panelPayload as { analysis_id?: string } | null;
+    const analysisId = payload?.analysis_id;
+    if (!analysisId || analysisId === lastSeenAnalysisIdRef.current) return;
+    lastSeenAnalysisIdRef.current = analysisId;
+    void historyApi.refresh();
+  }, [agent.initialized, agent.panelType, agent.panelPayload, historyApi]);
+
+  const handleHistorySelect = useCallback(async (analysisId: string) => {
+    try {
+      const detailResp = await window.electronAPI.invoke("agent-harness-get-analysis-detail", analysisId);
+      if (detailResp?.ok && detailResp?.detail) {
+        const detail = detailResp.detail;
+        setPanelCache((prev) => ({
+          ...prev,
+          analysis: {
+            analysis_id: analysisId,
+            ...detail,
+            samples: Array.isArray(detail.samples) ? detail.samples : [],
+            __detailPending: false,
+            __detailError: undefined,
+          },
+        }));
+        setActiveTab("analysis");
+      } else {
+        const message = detailResp?.error || "unknown error";
+        toasts.pushToast({
+          kind: "error",
+          title: t(language, "history.loadFailed", { message }),
+        });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      toasts.pushToast({
+        kind: "error",
+        title: t(language, "history.loadFailed", { message }),
+      });
+    }
+  }, [toasts, language]);
+
+  const activeAnalysisId = (panelCache.analysis as { analysis_id?: string } | undefined)?.analysis_id ?? null;
 
   /* ── Persist theme & language ──────────────────────────────────────── */
 
@@ -416,26 +467,39 @@ export function App() {
   return (
     <div className={`app-shell rail-${railState}`}>
       {!isOnline ? <div className="offline-banner">{t(language, "app.offline")}</div> : null}
-      <ChatPanel
-        messages={agent.messages}
-        isRunning={agent.isRunning}
-        progress={agent.progress}
-        language={language}
-        initialized={agent.initialized}
-        onSend={handleSend}
-        onExportDebug={() => void agent.exportDebugLog()}
-        onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
-        onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
-        theme={theme}
-        prefillText={prefillText}
-        onPrefillConsumed={() => setPrefillText(null)}
-        inputRef={chatInputRef}
-        onOpenPalette={() => setPaletteOpen(true)}
-        onCycleRail={cycleRail}
-        railLabel={t(language, `wb.chatRail.${railState}`)}
-      />
+      <div className="left-stack">
+        <ChatPanel
+          messages={agent.messages}
+          isRunning={agent.isRunning}
+          progress={agent.progress}
+          language={language}
+          initialized={agent.initialized}
+          onSend={handleSend}
+          onExportDebug={() => void agent.exportDebugLog()}
+          onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
+          onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
+          theme={theme}
+          prefillText={prefillText}
+          onPrefillConsumed={() => setPrefillText(null)}
+          inputRef={chatInputRef}
+          onOpenPalette={() => setPaletteOpen(true)}
+          onCycleRail={cycleRail}
+          railLabel={t(language, `wb.chatRail.${railState}`)}
+        />
+        {agent.initialized ? (
+          <RecentAnalysesRail
+            items={historyApi.items}
+            total={historyApi.total}
+            isLoading={historyApi.isLoading}
+            activeId={activeAnalysisId}
+            language={language}
+            onSelect={(id) => void handleHistorySelect(id)}
+            onRefresh={() => void historyApi.refresh()}
+          />
+        ) : null}
+      </div>
 
       <main className="canvas-panel" aria-label="Analysis canvas">
         <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>

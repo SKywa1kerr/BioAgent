@@ -279,6 +279,29 @@ app.whenReady().then(async () => {
     }
   });
 
+  ipcMain.handle("agent-query-history", async (event, args) => {
+    const trace = [];
+
+    if (!agentHarness) {
+      pushLifecycle(trace, event.sender, "error", "History request rejected: harness not initialized");
+      return { ok: false, error: "Agent harness not initialized", trace };
+    }
+
+    try {
+      const result = await agentHarness.callMcpTool("query_history", args || { limit: 20 });
+      if (result?.ok === false) {
+        const msg = result?.error || "Failed to query history";
+        pushLifecycle(trace, event.sender, "error", msg);
+        return { ok: false, error: msg, trace };
+      }
+      return { ok: true, result, trace };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      pushLifecycle(trace, event.sender, "error", `History query failed: ${message}`);
+      return { ok: false, error: message, trace };
+    }
+  });
+
   ipcMain.handle("agent-harness-shutdown", async (event) => {
     if (agentHarness) {
       const entry = makeLifecycle("shutdown", "Shutting down harness");

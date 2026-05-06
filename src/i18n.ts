@@ -258,6 +258,14 @@ const zh: Dict = {
   "shortcuts.action.newline": "换行",
   "shortcuts.action.overlay": "显示此清单",
   "shortcuts.action.close": "关闭模态 / 面板",
+
+  "history.recent": "最近",
+  "history.empty": "暂无历史分析",
+  "history.loading": "加载中...",
+  "history.refresh": "刷新",
+  "history.samples": "{count} 样本",
+  "history.llmBadge": "LLM",
+  "history.loadFailed": "无法加载分析详情：{message}",
 };
 
 const en: Dict = {
@@ -516,6 +524,14 @@ const en: Dict = {
   "shortcuts.action.newline": "New line",
   "shortcuts.action.overlay": "Show this list",
   "shortcuts.action.close": "Close modal / panel",
+
+  "history.recent": "Recent",
+  "history.empty": "No recent analyses",
+  "history.loading": "Loading...",
+  "history.refresh": "Refresh",
+  "history.samples": "{count} samples",
+  "history.llmBadge": "LLM",
+  "history.loadFailed": "Could not load analysis detail: {message}",
 };
 
 const bundles: Record<AppLanguage, Dict> = { zh, en };

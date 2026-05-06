@@ -1,0 +1,173 @@
+/* Wrapper that holds ChatPanel + RecentAnalysesRail in the left grid cell. */
+.left-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  height: 100%;
+}
+
+.left-stack > .chat-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Rail hides when the chat rail is collapsed. */
+.app-shell.rail-hidden .recent-rail {
+  display: none;
+}
+
+.recent-rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  max-height: 280px;
+  min-height: 0;
+}
+
+.recent-rail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.recent-rail-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-muted);
+}
+
+.recent-rail-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-soft);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background var(--duration-base) var(--easing-standard),
+              color var(--duration-base) var(--easing-standard);
+}
+
+.recent-rail-refresh:hover:not(:disabled) {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.recent-rail-refresh:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.recent-rail-empty {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-subtle);
+  padding: var(--space-2) var(--space-1);
+  text-align: center;
+}
+
+.recent-rail-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.recent-rail-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  color: var(--color-text-main);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-base) var(--easing-standard),
+              background var(--duration-base) var(--easing-standard),
+              transform var(--duration-fast) var(--easing-standard);
+}
+
+.recent-rail-item:hover {
+  border-color: var(--color-border-default);
+  background: var(--color-accent-soft);
+}
+
+.recent-rail-item:active {
+  transform: translateY(1px);
+}
+
+.recent-rail-item-active {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  box-shadow: var(--shadow-sm);
+}
+
+.recent-rail-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.recent-rail-dataset {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-main);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-rail-llm {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.03em;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  line-height: 1.6;
+}
+
+.recent-rail-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.recent-rail-samples {
+  font-variant-numeric: tabular-nums;
+}
+
+.recent-rail-time {
+  font-family: var(--font-mono);
+  color: var(--color-text-subtle);
+}
