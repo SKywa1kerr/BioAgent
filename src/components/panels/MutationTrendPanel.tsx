@@ -1,9 +1,10 @@
 ﻿import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
+import type { MutationTrendResult } from "../../types/agentResult";
 
 interface MutationTrendPanelProps {
-  result: any;
+  result: MutationTrendResult;
   language: AppLanguage;
 }
 

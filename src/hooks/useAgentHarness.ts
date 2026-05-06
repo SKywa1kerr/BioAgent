@@ -3,6 +3,9 @@ import type { PanelType } from "../components/SmartCanvas";
 import type { AgentSettings } from "../lib/settingsStorage";
 import { t, type AppLanguage } from "../i18n";
 import { reduceSummaryEvent } from "./summaryEventReducer.js";
+import { AgentEventSchema, type AgentEvent, type AnalysisResult } from "../types/agentResult";
+
+export type { AgentEvent, AnalysisResult } from "../types/agentResult";
 
 declare global {
   interface Window {
@@ -27,22 +30,6 @@ export type ProgressState = {
   progress: number;
   label: string;
 };
-
-type AgentResult = Record<string, unknown>;
-
-export type AgentEvent =
-  | { type: "lifecycle"; phase?: "init" | "ready" | "run" | "error" | string; message?: string }
-  | { type: "thinking" }
-  | { type: "tool_calls_start" }
-  | { type: "tool_call"; tool?: string }
-  | { type: "tool_result"; tool?: string; result?: AgentResult }
-  | { type: "reply"; content?: string; uiAction?: "show_trends" | "show_suggestions" | "show_analysis" | string; result?: AgentResult }
-  | { type: "busy"; message?: string }
-  | { type: "error"; message?: string }
-  | { type: "confirm"; message?: string }
-  | { type: "summary_pending"; analysis_id?: string; dataset?: string }
-  | { type: "summary_ready"; analysis_id?: string; dataset?: string; content?: string; uiAction?: string }
-  | { type: "summary_failed"; analysis_id?: string; dataset?: string; message?: string };
 
 type PanelResolution = { panelType: PanelType; panelPayload: unknown; confirmMessage?: string };
 
@@ -171,24 +158,24 @@ export function useAgentHarness(language: AppLanguage) {
     });
   }
 
-  function updateAnalysisPayload(analysisId: string, patch: Record<string, unknown>) {
+  function updateAnalysisPayload(analysisId: string, patch: Partial<AnalysisResult>) {
     setPanelPayload((current: unknown) => {
-      const obj = current as Record<string, unknown> | null;
+      const obj = current as AnalysisResult | null;
       if (!obj || obj.analysis_id !== analysisId) return current;
       return { ...obj, ...patch };
     });
   }
 
-  async function hydrateAnalysisResult(result: AgentResult | undefined, runToken: number) {
+  async function hydrateAnalysisResult(result: AnalysisResult | undefined, runToken: number) {
     const analysisId = result?.analysis_id;
     if (!analysisId || typeof analysisId !== "string") return;
     if (runTokenRef.current !== runToken) return;
 
-    const detail = result?.detail as { samples?: unknown[] } | undefined;
+    const detail = result?.detail;
     if (detail && Array.isArray(detail.samples)) {
       setPanelPayload((current: unknown) => {
-        const obj = current as Record<string, unknown> | null;
-        const base = obj && obj.analysis_id === analysisId ? obj : (result as Record<string, unknown>);
+        const obj = current as AnalysisResult | null;
+        const base: AnalysisResult = obj && obj.analysis_id === analysisId ? obj : (result as AnalysisResult);
         return {
           ...base,
           detail,
@@ -210,8 +197,8 @@ export function useAgentHarness(language: AppLanguage) {
         if (runTokenRef.current !== runToken) return;
         if (detailResp?.ok && detailResp?.detail) {
           setPanelPayload((current: unknown) => {
-            const obj = current as Record<string, unknown> | null;
-            const base = obj && obj.analysis_id === analysisId ? obj : (result as Record<string, unknown>);
+            const obj = current as AnalysisResult | null;
+            const base: AnalysisResult = obj && obj.analysis_id === analysisId ? obj : (result as AnalysisResult);
             return {
               ...base,
               detail: detailResp.detail,
@@ -239,7 +226,13 @@ export function useAgentHarness(language: AppLanguage) {
     });
   }
 
-  function applyAgentEvent(payload: AgentEvent) {
+  function applyAgentEvent(rawPayload: unknown) {
+    const parsed = AgentEventSchema.safeParse(rawPayload);
+    if (!parsed.success) {
+      console.warn("[useAgentHarness] dropped invalid agent event", parsed.error.issues);
+      return;
+    }
+    const payload = parsed.data;
     latestEventRef.current = payload;
     const lang = languageRef.current;
 
@@ -280,15 +273,15 @@ export function useAgentHarness(language: AppLanguage) {
     } else if (payload.type === "tool_result") {
       setProgressState("tool_result", 92, t(lang, "app.progress.done"));
       if (payload.tool === "analyze_sequences") {
-        const result = payload.result as AgentResult | undefined;
-        const count = result?.sample_count as number | undefined;
-        const dataset = result?.dataset as string | undefined;
-        const analysisId = result?.analysis_id as string | undefined;
-        const resultPayload: AgentResult = result && typeof result === "object" ? result : {};
-        const detail = resultPayload.detail as { samples?: unknown[] } | undefined;
+        const result = payload.result;
+        const count = result?.sample_count;
+        const dataset = result?.dataset;
+        const analysisId = result?.analysis_id;
+        const resultPayload: AnalysisResult = result ?? {};
+        const detail = resultPayload.detail;
         setPanelType("analysis");
         setPanelPayload((current: unknown) => {
-          const obj = current as Record<string, unknown> | null;
+          const obj = current as AnalysisResult | null;
           return {
             ...(obj && obj.analysis_id === analysisId ? obj : {}),
             ...resultPayload,
@@ -336,7 +329,7 @@ export function useAgentHarness(language: AppLanguage) {
   /* ── IPC event subscription ────────────────────────────────────────── */
   useEffect(() => {
     const unsubscribe = window.electronAPI.onAgentEvent((payload: unknown) => {
-      applyAgentEvent(payload as AgentEvent);
+      applyAgentEvent(payload);
     });
     return () => unsubscribe?.();
   }, []);
@@ -344,7 +337,7 @@ export function useAgentHarness(language: AppLanguage) {
   function applyTraceFallback(trace: unknown[] | undefined, eventCursor: AgentEvent | null) {
     if (!Array.isArray(trace) || trace.length === 0) return;
     const ipcDelivered = latestEventRef.current !== eventCursor;
-    if (!ipcDelivered) trace.forEach((payload) => applyAgentEvent(payload as AgentEvent));
+    if (!ipcDelivered) trace.forEach((payload) => applyAgentEvent(payload));
   }
 
   /* ── Public actions ────────────────────────────────────────────────── */
@@ -433,7 +426,7 @@ export function useAgentHarness(language: AppLanguage) {
 
       if (Array.isArray(runResult?.events) && runResult.events.length > 0) {
         const ipcDelivered = latestEventRef.current !== eventCursor;
-        if (!ipcDelivered) runResult.events.forEach((payload: unknown) => applyAgentEvent(payload as AgentEvent));
+        if (!ipcDelivered) runResult.events.forEach((payload: unknown) => applyAgentEvent(payload));
       }
 
       if (assistantMessageCountRef.current === assistantCountBeforeRun) {

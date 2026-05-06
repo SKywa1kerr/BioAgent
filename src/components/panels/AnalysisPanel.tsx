@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo } from "react";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
 import { normalizeSamples } from "../workbench/normalize";
+import type { AnalysisResult } from "../../types/agentResult";
 
 const ResultsWorkbench = lazy(async () => {
   const mod = await import("../workbench/ResultsWorkbench");
@@ -9,7 +10,7 @@ const ResultsWorkbench = lazy(async () => {
 });
 
 interface AnalysisPanelProps {
-  result: any;
+  result: AnalysisResult;
   language: AppLanguage;
 }
 

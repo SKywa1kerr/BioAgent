@@ -1,8 +1,9 @@
 ﻿import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
+import type { LabDiagnosis, LabSuggestionResult } from "../../types/agentResult";
 
 interface LabSuggestionPanelProps {
-  result: any;
+  result: LabSuggestionResult;
   language: AppLanguage;
 }
 
@@ -21,7 +22,7 @@ export function LabSuggestionPanel({ result, language }: LabSuggestionPanelProps
       <div className="detail-card">
         <h3>{t(language, "lab.diagnosis")}</h3>
         <div className="diagnosis-list">
-          {diagnoses.length ? diagnoses.map((item: any, index: number) => (
+          {diagnoses.length ? diagnoses.map((item: LabDiagnosis, index: number) => (
             <div key={index} className={`diagnosis-item severity-${item.severity}`}>
               <div className="diagnosis-top">
                 <strong>{item.clone}</strong>
