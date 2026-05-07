@@ -137,9 +137,13 @@
   color-scheme: dark;
 
   /* macOS system dark — cool charcoal with system blue accent.
-     No gradients on the base bg; depth comes from layered surfaces
-     and backdrop-filter vibrancy on top-level panels. */
-  --color-bg-app: #1c1c1e;
+     Background gets two faint radial highlights (indigo top-right,
+     system-blue bottom-left) so the surface picks up vibrancy without
+     reading as warm or beige. */
+  --color-bg-app:
+    radial-gradient(80% 60% at 92% -10%, rgba(94, 92, 230, 0.07) 0%, transparent 55%),
+    radial-gradient(70% 60% at 0% 110%, rgba(10, 132, 255, 0.04) 0%, transparent 55%),
+    #1c1c1e;
   --color-text-main: #ffffff;
   --color-text-muted: rgba(235, 235, 245, 0.60);
   --color-text-subtle: rgba(235, 235, 245, 0.30);
