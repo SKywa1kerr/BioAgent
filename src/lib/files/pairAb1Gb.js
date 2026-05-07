@@ -20,17 +20,20 @@
 //   - AB1 candidates without a GB partner end up in `unpairedAb1`; GB
 //     candidates without an AB1 partner end up in `unpairedGb`.
 
-import { basename, extname } from "node:path";
+// Basename + extname implemented directly so this module works unchanged
+// in the renderer (browser) and Electron main (Node). Importing node:path
+// breaks Vite's browser bundle. Inputs may use forward or backslashes.
 
 const AB1_EXT = /^\.ab1$/i;
 const GB_EXT = /^\.(gb|gbk)$/i;
 
 function splitPath(p) {
-  // Normalise backslashes to forward slashes so node's POSIX-flavoured
-  // path.basename behaves identically on Windows and Linux/macOS hosts.
   const normalized = String(p).replace(/\\/g, "/");
-  const file = basename(normalized);
-  const ext = extname(file);
+  const lastSlash = normalized.lastIndexOf("/");
+  const file = lastSlash >= 0 ? normalized.slice(lastSlash + 1) : normalized;
+  const lastDot = file.lastIndexOf(".");
+  // Mirror node's path.extname: a leading dot only (".gb") is the whole name.
+  const ext = lastDot > 0 ? file.slice(lastDot) : "";
   const stem = ext ? file.slice(0, file.length - ext.length) : file;
   return { stem, ext };
 }
