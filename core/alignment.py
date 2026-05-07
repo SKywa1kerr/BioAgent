@@ -936,7 +936,17 @@ def analyze_dataset(dataset: str, data_dir: Path,
         raise ValueError(f"Unknown dataset: {dataset}. Choose from {list(DATASET_LAYOUTS.keys())}")
 
     gb_dir, ab1_dir = resolve_dataset_dirs(dataset, data_dir)
+    return analyze_dirs(gb_dir, ab1_dir, out_html_dir=out_html_dir)
 
+
+def analyze_dirs(gb_dir: Path, ab1_dir: Path,
+                 out_html_dir: Path | None = None) -> list[dict]:
+    """Analyze all samples given explicit GB and AB1 directories.
+
+    Mirrors the post-resolve behaviour of ``analyze_dataset`` and is used by
+    callers (e.g., the drag-and-drop import flow) that already know which
+    directories contain the GenBank references and AB1 traces.
+    """
     if not gb_dir.exists():
         raise FileNotFoundError(f"GB directory not found: {gb_dir}")
     if not ab1_dir.exists():

@@ -10,7 +10,7 @@ _PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 if str(_PACKAGE_ROOT) not in sys.path:
     sys.path.insert(0, str(_PACKAGE_ROOT))
 
-from core.alignment import analyze_dataset
+from core.alignment import analyze_dataset, analyze_dirs
 from core.evidence import format_evidence_for_llm, format_evidence_table
 from core.llm_client import call_llm, parse_llm_result
 
@@ -60,13 +60,39 @@ def _store_analysis(detail: dict) -> dict:
     return history_item
 
 
-def analyze_sequences(*, dataset: str, output_dir: str | None = None,
+def analyze_sequences(*, dataset: str | None = None,
+                      ab1_dir: str | None = None,
+                      gb_dir: str | None = None,
+                      output_dir: str | None = None,
                       no_llm: bool = True, model: str = _DEFAULT_MODEL) -> dict:
-    resolved_output_dir = _normalize_output_dir(output_dir, dataset)
+    has_dataset = dataset is not None
+    has_ab1 = ab1_dir is not None
+    has_gb = gb_dir is not None
+    has_dirs = has_ab1 and has_gb
+
+    if has_dataset and (has_ab1 or has_gb):
+        raise ToolExecutionError(
+            "Provide either dataset or (ab1_dir + gb_dir), not both."
+        )
+    if not has_dataset and not has_dirs:
+        if has_ab1 ^ has_gb:
+            raise ToolExecutionError(
+                "Both ab1_dir and gb_dir must be provided together."
+            )
+        raise ToolExecutionError(
+            "Either dataset or both ab1_dir and gb_dir must be provided."
+        )
+
+    effective_dataset = dataset if has_dataset else "dropped"
+    resolved_output_dir = _normalize_output_dir(output_dir, effective_dataset)
     resolved_output_dir.mkdir(parents=True, exist_ok=True)
     html_dir = resolved_output_dir / "html"
 
-    samples = analyze_dataset(dataset, _data_dir(), out_html_dir=html_dir)
+    if has_dataset:
+        samples = analyze_dataset(dataset, _data_dir(), out_html_dir=html_dir)
+    else:
+        samples = analyze_dirs(Path(gb_dir), Path(ab1_dir), out_html_dir=html_dir)
+
     if not samples:
         raise ToolExecutionError("No samples analyzed. Check dataset inputs.")
 
@@ -86,7 +112,7 @@ def analyze_sequences(*, dataset: str, output_dir: str | None = None,
     analysis_id = f"analysis-{uuid4().hex[:12]}"
     detail = {
         "analysis_id": analysis_id,
-        "dataset": dataset,
+        "dataset": effective_dataset,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "output_dir": str(resolved_output_dir),
         "evidence_path": str(evidence_path),
@@ -101,7 +127,7 @@ def analyze_sequences(*, dataset: str, output_dir: str | None = None,
 
     return {
         "analysis_id": analysis_id,
-        "dataset": dataset,
+        "dataset": effective_dataset,
         "sample_count": len(samples),
         "output_dir": str(resolved_output_dir),
         "evidence_path": str(evidence_path),
@@ -154,16 +180,17 @@ def register_initial_tools() -> None:
 
     register_tool(
         name="analyze_sequences",
-        description="Analyze one built-in BioAgent dataset and store the result in in-process history.",
+        description="Analyze a built-in BioAgent dataset or an explicit pair of GB/AB1 directories and store the result in in-process history.",
         parameters={
             "type": "object",
             "properties": {
                 "dataset": {"type": "string", "enum": ["base", "pro", "promax"]},
+                "ab1_dir": {"type": "string"},
+                "gb_dir": {"type": "string"},
                 "output_dir": {"type": "string"},
                 "no_llm": {"type": "boolean", "default": True},
                 "model": {"type": "string", "default": _DEFAULT_MODEL},
             },
-            "required": ["dataset"],
         },
         execute=analyze_sequences,
     )
