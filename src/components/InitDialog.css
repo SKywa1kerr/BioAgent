@@ -1,0 +1,175 @@
+/* InitDialog — premium modal for first-launch agent setup. Centered card
+   on a backdrop-filter scrim, macOS-style fields, full-width primary CTA. */
+
+.init-dialog-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8);
+  background: rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+
+.init-dialog-card {
+  width: 100%;
+  max-width: 480px;
+  padding: var(--space-10) var(--space-10) var(--space-8);
+  border: 1px solid var(--color-border-default);
+  border-radius: 18px;
+  background: var(--color-surface);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 24px 60px rgba(0, 0, 0, 0.48),
+    0 4px 12px rgba(0, 0, 0, 0.30);
+  color: var(--color-text-main);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.init-dialog-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.init-dialog-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 400;
+  font-variation-settings: "opsz" 28, "wght" 400, "SOFT" 50;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--color-text-main);
+}
+
+.init-dialog-subtitle {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-text-muted);
+}
+
+.init-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.init-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.init-dialog-field-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+}
+
+.init-dialog-field input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  background: var(--color-bg-app);
+  color: var(--color-text-main);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.4;
+  transition: border-color var(--duration-base) var(--easing-standard),
+              box-shadow var(--duration-base) var(--easing-standard);
+}
+
+.init-dialog-field input::placeholder {
+  color: var(--color-text-subtle);
+}
+
+.init-dialog-field input:focus-visible {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.init-dialog-submit {
+  margin-top: var(--space-3);
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--color-accent);
+  color: #ffffff;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background var(--duration-base) var(--easing-standard),
+              transform var(--duration-fast) var(--easing-standard);
+}
+
+.init-dialog-submit:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.init-dialog-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.init-dialog-submit:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.init-dialog-helper {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-subtle);
+  text-align: center;
+}
+
+.init-dialog-status {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-default);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.20);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (max-width: 540px) {
+  .init-dialog-card {
+    padding: var(--space-8) var(--space-6) var(--space-6);
+    border-radius: 14px;
+  }
+
+  .init-dialog-title {
+    font-size: 24px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .init-dialog-submit {
+    transition: none;
+  }
+}

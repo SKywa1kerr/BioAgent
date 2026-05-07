@@ -13,6 +13,7 @@ import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
 import { RecentAnalysesRail } from "./components/RecentAnalysesRail";
 import { DropZone } from "./components/DropZone";
+import { InitDialog } from "./components/InitDialog";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
 import { useAnalysisHistory } from "./hooks/useAnalysisHistory";
 import { useOnboarding } from "./hooks/useOnboarding";
@@ -444,37 +445,9 @@ export function App() {
   function renderPanel() {
     if (!agent.initialized) {
       return (
-        <div className="result-panel">
-          <div className="detail-card">
-            <h3>{t(language, "app.panel.settings")}</h3>
-            <div className="settings-form">
-              <label>
-                <span>{t(language, "app.field.apiKey")}</span>
-                <input type="password" value={settings.llmApiKey} onChange={(e) => setSettings((s) => ({ ...s, llmApiKey: e.target.value }))} placeholder="sk-..." />
-              </label>
-              <label>
-                <span>{t(language, "app.field.baseUrl")}</span>
-                <input value={settings.llmBaseUrl} onChange={(e) => setSettings((s) => ({ ...s, llmBaseUrl: e.target.value }))} placeholder="https://models.sjtu.edu.cn/api/v1" />
-              </label>
-              <label>
-                <span>{t(language, "app.field.model")}</span>
-                <input value={settings.llmModel} onChange={(e) => setSettings((s) => ({ ...s, llmModel: e.target.value }))} placeholder="deepseek-chat" />
-              </label>
-              <div className="settings-actions">
-                <button className="primary-button" onClick={() => handleSettingsSave(settings)}>{t(language, "app.action.init")}</button>
-              </div>
-              <div className="status-line">{agent.statusMessage}</div>
-            </div>
-          </div>
-          <div className="detail-card progress-card clean-progress-card">
-            <h3>{t(language, "app.progress.cardTitle")}</h3>
-            <div className="progress-track">
-              <div className="progress-fill" style={{ width: `${agent.progress.progress}%` }} />
-            </div>
-            <div className="progress-meta clean-progress-meta">
-              <span>{agent.progress.label}</span>
-            </div>
-          </div>
+        <div className="detail-card audience-card">
+          <h3>{t(language, "app.ready.title")}</h3>
+          <p>{t(language, "app.ready.body")}</p>
         </div>
       );
     }
@@ -587,7 +560,16 @@ export function App() {
         language={language}
       />
 
-      {!onboarding.complete && !settingsOpen && !paletteOpen && !shortcutsOpen ? (
+      <InitDialog
+        open={!agent.initialized && !settingsOpen}
+        initialSettings={settings}
+        language={language}
+        statusMessage={agent.statusMessage}
+        isInitializing={!agent.initialized && agent.progress.progress > 0 && agent.progress.progress < 100}
+        onSubmit={handleSettingsSave}
+      />
+
+      {!onboarding.complete && !settingsOpen && !paletteOpen && !shortcutsOpen && agent.initialized ? (
         <OnboardingCoach language={language} onDismiss={onboarding.finish} />
       ) : null}
     </div>
