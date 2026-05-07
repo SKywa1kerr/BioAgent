@@ -33,6 +33,9 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
 
   /* ── Radius ─────────────────────────────────────────────────── */
   --radius-sm: 6px;
@@ -41,28 +44,31 @@
   --radius-xl: 20px;
   --radius-pill: 999px;
 
-  /* ── Light palette (foundation) ────────────────────────────── */
-  --color-bg-app: radial-gradient(135% 135% at 100% 0%, #f4f8fb 0%, #eaf0f7 52%, #e3eaf2 100%);
-  --color-text-main: #0f1d2e;
-  --color-text-muted: #5b6f86;
-  --color-text-subtle: #8095af;
+  /* ── Light palette (foundation) — warm editorial cream ────── */
+  --color-bg-app:
+    radial-gradient(80% 60% at 90% -10%, rgba(217, 119, 87, 0.08) 0%, transparent 55%),
+    radial-gradient(60% 70% at 0% 110%, rgba(217, 119, 87, 0.04) 0%, transparent 60%),
+    #f7f3ec;
+  --color-text-main: #1f1a14;
+  --color-text-muted: #6b6357;
+  --color-text-subtle: #9a9082;
 
   --color-surface: #ffffff;
-  --color-surface-raised: linear-gradient(180deg, #ffffff, #fafcff);
-  --color-surface-overlay: rgba(255, 255, 255, 0.96);
-  --color-border-soft: rgba(15, 29, 46, 0.08);
-  --color-border-default: rgba(15, 29, 46, 0.14);
-  --color-border-strong: rgba(15, 29, 46, 0.24);
+  --color-surface-raised: linear-gradient(180deg, #fefcf7, #faf6ee);
+  --color-surface-overlay: rgba(255, 252, 245, 0.96);
+  --color-border-soft: rgba(31, 26, 20, 0.06);
+  --color-border-default: rgba(31, 26, 20, 0.10);
+  --color-border-strong: rgba(31, 26, 20, 0.20);
 
-  --color-accent: #2c7fb8;
-  --color-accent-hover: #2570a3;
-  --color-accent-soft: rgba(44, 127, 184, 0.12);
-  --color-accent-secondary: #1f9d8d;
+  --color-accent: #cc6b48;
+  --color-accent-hover: #b85a3a;
+  --color-accent-soft: rgba(204, 107, 72, 0.10);
+  --color-accent-secondary: #2c7fb8;
 
   --color-status-ok: #1d9c7d;
-  --color-status-wrong: #d23f5c;
-  --color-status-uncertain: #d89a2c;
-  --color-status-untested: #6a7a93;
+  --color-status-wrong: #cc4760;
+  --color-status-uncertain: #c47a26;
+  --color-status-untested: #6b6357;
 
   --color-mutation-sub: #2c7fb8;
   --color-mutation-ins: #6f42c1;
@@ -133,33 +139,34 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Editorial dark — near-black surface with a single warm highlight in
-     the corner for atmosphere; amber is the lone accent so attention
-     lands where the data wants it. */
+  /* Warm editorial dark — like reading a high-end scientific journal in
+     a candlelit study. Charcoal warm enough that white text reads as
+     ivory; corner highlights tinted in the coral accent so warmth
+     feels intentional rather than incidental. */
   --color-bg-app:
-    radial-gradient(70% 50% at 88% -10%, rgba(224, 168, 74, 0.06) 0%, transparent 55%),
-    radial-gradient(60% 60% at 0% 100%, rgba(111, 155, 255, 0.04) 0%, transparent 60%),
-    #0a0d14;
-  --color-text-main: #ecf0f7;
-  --color-text-muted: #8a99b8;
-  --color-text-subtle: #5b6985;
+    radial-gradient(80% 60% at 90% -10%, rgba(217, 119, 87, 0.10) 0%, transparent 55%),
+    radial-gradient(60% 70% at 0% 110%, rgba(217, 119, 87, 0.05) 0%, transparent 60%),
+    #1a1612;
+  --color-text-main: #f5f0e6;
+  --color-text-muted: #a89e90;
+  --color-text-subtle: #786f63;
 
-  --color-surface: #11161f;
-  --color-surface-raised: linear-gradient(180deg, #141a25, #0e131c);
-  --color-surface-overlay: rgba(17, 22, 31, 0.94);
-  --color-border-soft: rgba(255, 255, 255, 0.04);
-  --color-border-default: rgba(255, 255, 255, 0.08);
-  --color-border-strong: rgba(255, 255, 255, 0.16);
+  --color-surface: #221d18;
+  --color-surface-raised: linear-gradient(180deg, #251f1a, #1d1814);
+  --color-surface-overlay: rgba(34, 29, 24, 0.96);
+  --color-border-soft: rgba(245, 240, 230, 0.04);
+  --color-border-default: rgba(245, 240, 230, 0.07);
+  --color-border-strong: rgba(245, 240, 230, 0.14);
 
-  --color-accent: #e0a84a;
-  --color-accent-hover: #f0b85a;
-  --color-accent-soft: rgba(224, 168, 74, 0.14);
+  --color-accent: #d97757;
+  --color-accent-hover: #e6896c;
+  --color-accent-soft: rgba(217, 119, 87, 0.14);
   --color-accent-secondary: #6f9bff;
 
-  --color-status-ok: #5fd4a7;
-  --color-status-wrong: #ff6b80;
-  --color-status-uncertain: #f0b84a;
-  --color-status-untested: #7d8cab;
+  --color-status-ok: #6ec19a;
+  --color-status-wrong: #e15e75;
+  --color-status-uncertain: #d9a04a;
+  --color-status-untested: #786f63;
 
   --color-mutation-sub: #6f9bff;
   --color-mutation-ins: #a07bf5;

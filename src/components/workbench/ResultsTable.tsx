@@ -29,8 +29,8 @@ interface RowView {
   reason: string;
 }
 
-const ROW_COMPACT = 64;
-const ROW_DETAILED = 88;
+const ROW_COMPACT = 88;
+const ROW_DETAILED = 116;
 const OVERSCAN = 6;
 
 export function ResultsTable({
