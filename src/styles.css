@@ -72,6 +72,12 @@ body,
   min-height: 0;
 }
 
+.canvas-panel {
+  background: var(--color-surface-overlay);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+}
+
 .panel-title {
   padding: 16px 18px;
   font-size: 16px;

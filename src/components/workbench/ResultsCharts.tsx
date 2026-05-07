@@ -172,8 +172,8 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
       <div className="results-charts-grid">
         <ChartCard title={t(language, "charts.identityDist")}>
           {hasSamples ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={identityBins} margin={{ top: 8, right: 8, bottom: 0, left: 12 }} >
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={identityBins} margin={{ top: 8, right: 8, bottom: 0, left: 8 }} >
                 <CartesianGrid stroke="var(--results-grid)" strokeDasharray="0" vertical={false} />
                 <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 10, fontFamily: "var(--font-display)" }} angle={-35} textAnchor="end" height={56} />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11, fontFamily: "var(--font-display)" }} />
@@ -189,8 +189,8 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
 
         <ChartCard title={t(language, "charts.coverageDist")}>
           {hasSamples ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={coverageBins} margin={{ top: 8, right: 8, bottom: 0, left: 12 }} >
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={coverageBins} margin={{ top: 8, right: 8, bottom: 0, left: 8 }} >
                 <CartesianGrid stroke="var(--results-grid)" strokeDasharray="0" vertical={false} />
                 <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 10, fontFamily: "var(--font-display)" }} angle={-35} textAnchor="end" height={56} />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11, fontFamily: "var(--font-display)" }} />
@@ -206,8 +206,8 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
 
         <ChartCard title={t(language, "charts.identityVsCoverage")}>
           {hasSamples && scatterData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={250}>
-              <ScatterChart margin={{ top: 8, right: 16, bottom: 0, left: 12 }}>
+            <ResponsiveContainer width="100%" height={180}>
+              <ScatterChart margin={{ top: 8, right: 12, bottom: 0, left: 8 }}>
                 <CartesianGrid stroke="var(--results-grid)" strokeDasharray="0" />
                 <XAxis
                   type="number"
@@ -242,10 +242,10 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
         <ChartCard title={t(language, "charts.statusOverview")}>
           {hasSamples ? (
             <div className="results-status-card">
-              <ResponsiveContainer width="100%" height={220}>
+              <ResponsiveContainer width="100%" height={160}>
                 <PieChart>
                   <Tooltip />
-                  <Pie data={statusSlices} dataKey="value" nameKey="name" innerRadius={58} outerRadius={84} paddingAngle={3} >
+                  <Pie data={statusSlices} dataKey="value" nameKey="name" innerRadius={42} outerRadius={64} paddingAngle={3} >
                     {statusSlices.map((slice) => (<Cell key={slice.name} fill={slice.fill} />))}
                   </Pie>
                 </PieChart>

@@ -29,8 +29,8 @@ interface RowView {
   reason: string;
 }
 
-const ROW_COMPACT = 88;
-const ROW_DETAILED = 116;
+const ROW_COMPACT = 56;
+const ROW_DETAILED = 80;
 const OVERSCAN = 6;
 
 export function ResultsTable({
@@ -121,7 +121,22 @@ export function ResultsTable({
             )}
           </div>
         ) : (
-          <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
+          <>
+            <div
+              className={`sample-list-header${onToggleCompare ? " has-compare" : ""}`}
+              role="row"
+              aria-hidden="true"
+            >
+              {onToggleCompare ? <span /> : null}
+              <span>{t(language, "table.sample")}</span>
+              <span>{t(language, "table.status")}</span>
+              <span>{t(language, "table.aaChanges")}</span>
+              <span className="num">{t(language, "table.identity")}</span>
+              <span className="num">{t(language, "table.coverage")}</span>
+              <span className="num">{t(language, "table.mut")}</span>
+              <span />
+            </div>
+            <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
             {items.map((v) => {
               const sample = samples[v.index];
               const row = rowViews[v.index];
@@ -199,6 +214,7 @@ export function ResultsTable({
               );
             })}
           </div>
+          </>
         )}
       </div>
 
