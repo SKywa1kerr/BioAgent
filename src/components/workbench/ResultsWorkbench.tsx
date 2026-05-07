@@ -16,7 +16,7 @@ import { nextCompareSelection } from "../../lib/workbench/compareSelection";
 import { Icon } from "../ui/Icon";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
-import "./ResultsWorkbench.css";
+import styles from "./ResultsWorkbench.module.css";
 
 interface ResultsWorkbenchProps {
   samples: WorkbenchSample[];
@@ -196,7 +196,7 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
   }, [language]);
 
   return (
-    <section className="results-workbench-shell" aria-label={t(language, "wb.aria")}>
+    <section className={styles.resultsWorkbenchShell} aria-label={t(language, "wb.aria")}>
       <ResultsSummary
         language={language}
         total={total}
@@ -213,14 +213,14 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
       />
       <ResultsCharts samples={summarySource} language={language} />
 
-      <section className="results-toolbar-panel" aria-label={t(language, "wb.controls")}>
-        <div className="results-toolbar-copy">
+      <section className={styles.resultsToolbarPanel} aria-label={t(language, "wb.controls")}>
+        <div className={styles.resultsToolbarCopy}>
           <span className="results-kicker">{t(language, "wb.controls")}</span>
           <h3>{t(language, "wb.filterSort")}</h3>
           <p>{t(language, "wb.showing", { visible: visibleSamples.length, total: samples.length })}</p>
         </div>
-        <div className="results-toolbar-controls">
-          <label className="results-search-field">
+        <div className={styles.resultsToolbarControls}>
+          <label className={styles.resultsSearchField}>
             <span>{t(language, "wb.search")}</span>
             <input
               type="search"
@@ -229,7 +229,7 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
               placeholder={t(language, "wb.searchPlaceholder")}
             />
           </label>
-          <label className="results-sort-field">
+          <label className={styles.resultsSortField}>
             <span>{t(language, "wb.sort")}</span>
             <select value={sortKey} onChange={(event) => setSortKey(event.target.value as typeof sortKey)}>
               <option value="status">{t(language, "wb.sort.status")}</option>
@@ -246,19 +246,19 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
             language={language}
           />
         </div>
-        <div className="results-filter-row">
+        <div className={styles.resultsFilterRow}>
           {statusOptions.map((option) => (
             <button
               key={option.key}
               type="button"
-              className={`results-filter-chip${statusFilter === option.key ? " is-active" : ""}`}
+              className={`${styles.resultsFilterChip}${statusFilter === option.key ? " is-active" : ""}`}
               onClick={() => setStatusFilter(option.key)}
             >
               {option.label}
             </button>
           ))}
           {hasActiveControls ? (
-            <button type="button" className="results-clear-filters" onClick={reset}>
+            <button type="button" className={styles.resultsClearFilters} onClick={reset}>
               {t(language, "wb.clear")}
             </button>
           ) : null}
@@ -267,7 +267,7 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
               <button
                 key={d}
                 type="button"
-                className={`results-filter-chip${density === d ? " is-active" : ""}`}
+                className={`${styles.resultsFilterChip}${density === d ? " is-active" : ""}`}
                 onClick={() => setDensity(d)}
               >
                 {t(language, `wb.density.${d}`)}
@@ -301,21 +301,21 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
       </AnimatePresence>
 
       {compareIds.length > 0 ? (
-        <div className="compare-bar" role="region" aria-label={t(language, "compare.title")}>
-          <span className="compare-bar-icon" aria-hidden="true">
+        <div className={styles.compareBar} role="region" aria-label={t(language, "compare.title")}>
+          <span className={styles.compareBarIcon} aria-hidden="true">
             <Icon name="compare" size={14} />
           </span>
-          <span className="compare-bar-label">
+          <span className={styles.compareBarLabel}>
             {compareIds.length === 2
               ? t(language, "compare.bar.two")
               : t(language, "compare.bar.one")}
           </span>
-          <span className="compare-bar-ids" title={compareIds.join(", ")}>
+          <span className={styles.compareBarIds} title={compareIds.join(", ")}>
             {compareIds.join(" · ")}
           </span>
           <button
             type="button"
-            className="compare-bar-button is-primary"
+            className={`${styles.compareBarButton} is-primary`}
             disabled={!compareReady}
             onClick={() => setCompareOpen(true)}
           >
@@ -323,7 +323,7 @@ export function ResultsWorkbench({ samples, language, dataset, analysisId }: Res
           </button>
           <button
             type="button"
-            className="compare-bar-button"
+            className={styles.compareBarButton}
             onClick={handleClearCompare}
           >
             {t(language, "compare.clear")}
