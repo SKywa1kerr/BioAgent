@@ -44,31 +44,28 @@
   --radius-xl: 20px;
   --radius-pill: 999px;
 
-  /* ── Light palette (foundation) — warm editorial cream ────── */
-  --color-bg-app:
-    radial-gradient(80% 60% at 90% -10%, rgba(217, 119, 87, 0.08) 0%, transparent 55%),
-    radial-gradient(60% 70% at 0% 110%, rgba(217, 119, 87, 0.04) 0%, transparent 60%),
-    #f7f3ec;
-  --color-text-main: #1f1a14;
-  --color-text-muted: #6b6357;
-  --color-text-subtle: #9a9082;
+  /* ── Light palette (foundation) — macOS system light ────────── */
+  --color-bg-app: #f2f2f7;
+  --color-text-main: #000000;
+  --color-text-muted: rgba(60, 60, 67, 0.60);
+  --color-text-subtle: rgba(60, 60, 67, 0.30);
 
   --color-surface: #ffffff;
-  --color-surface-raised: linear-gradient(180deg, #fefcf7, #faf6ee);
-  --color-surface-overlay: rgba(255, 252, 245, 0.96);
-  --color-border-soft: rgba(31, 26, 20, 0.06);
-  --color-border-default: rgba(31, 26, 20, 0.10);
-  --color-border-strong: rgba(31, 26, 20, 0.20);
+  --color-surface-raised: #ffffff;
+  --color-surface-overlay: rgba(255, 255, 255, 0.78);
+  --color-border-soft: rgba(60, 60, 67, 0.06);
+  --color-border-default: rgba(60, 60, 67, 0.12);
+  --color-border-strong: rgba(60, 60, 67, 0.24);
 
-  --color-accent: #cc6b48;
-  --color-accent-hover: #b85a3a;
-  --color-accent-soft: rgba(204, 107, 72, 0.10);
-  --color-accent-secondary: #2c7fb8;
+  --color-accent: #007aff;
+  --color-accent-hover: #006ae0;
+  --color-accent-soft: rgba(0, 122, 255, 0.10);
+  --color-accent-secondary: #5856d6;
 
-  --color-status-ok: #1d9c7d;
-  --color-status-wrong: #cc4760;
-  --color-status-uncertain: #c47a26;
-  --color-status-untested: #6b6357;
+  --color-status-ok: #34c759;
+  --color-status-wrong: #ff3b30;
+  --color-status-uncertain: #ff9500;
+  --color-status-untested: rgba(60, 60, 67, 0.45);
 
   --color-mutation-sub: #2c7fb8;
   --color-mutation-ins: #6f42c1;
@@ -139,34 +136,30 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* Warm editorial dark — like reading a high-end scientific journal in
-     a candlelit study. Charcoal warm enough that white text reads as
-     ivory; corner highlights tinted in the coral accent so warmth
-     feels intentional rather than incidental. */
-  --color-bg-app:
-    radial-gradient(80% 60% at 90% -10%, rgba(217, 119, 87, 0.10) 0%, transparent 55%),
-    radial-gradient(60% 70% at 0% 110%, rgba(217, 119, 87, 0.05) 0%, transparent 60%),
-    #1a1612;
-  --color-text-main: #f5f0e6;
-  --color-text-muted: #a89e90;
-  --color-text-subtle: #786f63;
+  /* macOS system dark — cool charcoal with system blue accent.
+     No gradients on the base bg; depth comes from layered surfaces
+     and backdrop-filter vibrancy on top-level panels. */
+  --color-bg-app: #1c1c1e;
+  --color-text-main: #ffffff;
+  --color-text-muted: rgba(235, 235, 245, 0.60);
+  --color-text-subtle: rgba(235, 235, 245, 0.30);
 
-  --color-surface: #221d18;
-  --color-surface-raised: linear-gradient(180deg, #251f1a, #1d1814);
-  --color-surface-overlay: rgba(34, 29, 24, 0.96);
-  --color-border-soft: rgba(245, 240, 230, 0.04);
-  --color-border-default: rgba(245, 240, 230, 0.07);
-  --color-border-strong: rgba(245, 240, 230, 0.14);
+  --color-surface: #2c2c2e;
+  --color-surface-raised: #2c2c2e;
+  --color-surface-overlay: rgba(44, 44, 46, 0.72);
+  --color-border-soft: rgba(255, 255, 255, 0.06);
+  --color-border-default: rgba(84, 84, 88, 0.65);
+  --color-border-strong: rgba(255, 255, 255, 0.20);
 
-  --color-accent: #d97757;
-  --color-accent-hover: #e6896c;
-  --color-accent-soft: rgba(217, 119, 87, 0.14);
-  --color-accent-secondary: #6f9bff;
+  --color-accent: #0a84ff;
+  --color-accent-hover: #399cff;
+  --color-accent-soft: rgba(10, 132, 255, 0.16);
+  --color-accent-secondary: #5e5ce6;
 
-  --color-status-ok: #6ec19a;
-  --color-status-wrong: #e15e75;
-  --color-status-uncertain: #d9a04a;
-  --color-status-untested: #786f63;
+  --color-status-ok: #30d158;
+  --color-status-wrong: #ff453a;
+  --color-status-uncertain: #ff9f0a;
+  --color-status-untested: rgba(235, 235, 245, 0.45);
 
   --color-mutation-sub: #6f9bff;
   --color-mutation-ins: #a07bf5;

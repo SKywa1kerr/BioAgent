@@ -34,25 +34,25 @@
 }
 
 :root[data-theme="dark"] .resultsWorkbenchShell {
-  --results-panel-bg: #221d18;
-  --results-panel-border: rgba(245, 240, 230, 0.06);
+  --results-panel-bg: #1c1c1e;
+  --results-panel-border: rgba(84, 84, 88, 0.50);
   --results-panel-shadow: none;
-  --results-panel-muted: #a89e90;
-  --results-panel-text: #f5f0e6;
-  --results-panel-subtle: rgba(245, 240, 230, 0.03);
-  --results-panel-subtle-strong: rgba(245, 240, 230, 0.06);
-  --results-primary: #d97757;
-  --results-primary-soft: rgba(217, 119, 87, 0.14);
+  --results-panel-muted: rgba(235, 235, 245, 0.60);
+  --results-panel-text: #ffffff;
+  --results-panel-subtle: rgba(255, 255, 255, 0.04);
+  --results-panel-subtle-strong: rgba(255, 255, 255, 0.08);
+  --results-primary: #0a84ff;
+  --results-primary-soft: rgba(10, 132, 255, 0.16);
   --results-panel-gloss: none;
   --results-card-gloss: none;
-  --results-ok: #6ec19a;
-  --results-ok-soft: rgba(110, 193, 154, 0.14);
-  --results-wrong: #e15e75;
-  --results-wrong-soft: rgba(225, 94, 117, 0.14);
-  --results-uncertain: #d9a04a;
-  --results-uncertain-soft: rgba(217, 160, 74, 0.14);
-  --results-untested: #786f63;
-  --results-untested-soft: rgba(120, 111, 99, 0.14);
+  --results-ok: #30d158;
+  --results-ok-soft: rgba(48, 209, 88, 0.14);
+  --results-wrong: #ff453a;
+  --results-wrong-soft: rgba(255, 69, 58, 0.14);
+  --results-uncertain: #ff9f0a;
+  --results-uncertain-soft: rgba(255, 159, 10, 0.14);
+  --results-untested: rgba(235, 235, 245, 0.45);
+  --results-untested-soft: rgba(235, 235, 245, 0.10);
 }
 
 .resultsToolbarPanel {
@@ -1190,7 +1190,7 @@
     background: var(--color-accent-soft);
   }
   .sample-compact-row.is-compared {
-    background: rgba(217, 119, 87, 0.06);
+    background: rgba(10, 132, 255, 0.06);
   }
   /* Status indicated by a colored dot prefix on the sample id, not a left bar */
   .sample-compact-row.status-ok        { /* dot via status class on sample-compact-status */ }

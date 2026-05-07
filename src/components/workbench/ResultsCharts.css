@@ -25,18 +25,18 @@
 }
 
 :root[data-theme="dark"] .results-charts-panel {
-  --results-surface: #221d18;
+  --results-surface: transparent;
   --results-card: transparent;
-  --results-border: rgba(245, 240, 230, 0.06);
-  --results-axis: #a89e90;
-  --results-grid: rgba(245, 240, 230, 0.05);
-  --results-text: #f5f0e6;
-  --results-muted: #a89e90;
-  --results-tooltip-bg: #221d18;
-  --results-tooltip-border: rgba(245, 240, 230, 0.10);
-  --results-empty-bg: rgba(245, 240, 230, 0.02);
-  --results-empty-border: rgba(245, 240, 230, 0.08);
-  --results-chip-bg: rgba(245, 240, 230, 0.04);
+  --results-border: rgba(84, 84, 88, 0.50);
+  --results-axis: rgba(235, 235, 245, 0.60);
+  --results-grid: rgba(255, 255, 255, 0.06);
+  --results-text: #ffffff;
+  --results-muted: rgba(235, 235, 245, 0.60);
+  --results-tooltip-bg: #2c2c2e;
+  --results-tooltip-border: rgba(84, 84, 88, 0.65);
+  --results-empty-bg: rgba(255, 255, 255, 0.02);
+  --results-empty-border: rgba(84, 84, 88, 0.50);
+  --results-chip-bg: rgba(255, 255, 255, 0.06);
   --results-shadow: none;
 }
 
