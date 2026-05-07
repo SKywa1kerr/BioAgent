@@ -22,13 +22,18 @@ interface Props {
   startPosition: number;
   endPosition: number;
   mutations?: Array<{ position?: number }>;
+  /** Optional 1-based base positions to wash with the status-uncertain
+   *  background tint. CompareView uses this to surface positions where the
+   *  two compared samples differ. Missing or empty preserves today's
+   *  rendering. */
+  highlightPositions?: ReadonlySet<number> | null;
   language: AppLanguage;
 }
 
 const ZOOM_IN_FACTOR = 0.8;     // shrink window 20% → zoom in
 const ZOOM_OUT_FACTOR = 1.25;   // grow window 25%   → zoom out
 
-export function ChromatogramCanvas({ data, startPosition, endPosition, mutations, language }: Props) {
+export function ChromatogramCanvas({ data, startPosition, endPosition, mutations, highlightPositions, language }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderModelRef = useRef<ReturnType<typeof buildChromatogramRenderModel> | null>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; content: string } | null>(null);
@@ -113,8 +118,8 @@ export function ChromatogramCanvas({ data, startPosition, endPosition, mutations
     });
     renderModelRef.current = model;
 
-    drawChromatogram(ctx, model, { dark: isDarkTheme, mutations, keyboardCursor });
-  }, [data, effectiveStart, effectiveEnd, mutations, theme, size, keyboardCursor]);
+    drawChromatogram(ctx, model, { dark: isDarkTheme, mutations, keyboardCursor, highlightPositions });
+  }, [data, effectiveStart, effectiveEnd, mutations, highlightPositions, theme, size, keyboardCursor]);
 
   // When the user switches to a different sample, drop the keyboard cursor
   // so we never announce a stale position from the previous read.

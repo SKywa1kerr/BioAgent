@@ -82,6 +82,16 @@ function CompareColumn({ sample, language, diffOn, side, diffSet }: ColumnProps)
   const muts = Array.isArray(sample.mutations) ? sample.mutations : [];
   const avgQ = sample.avg_qry_quality ?? sample.avg_quality;
 
+  // When the diff toggle is on, paint a status-uncertain wash on the
+  // chromatogram for positions unique to *this* side — mirroring the
+  // is-mutation-unique row class in the mutation table so the table and
+  // canvas read consistently. When the toggle is off, leave the canvas
+  // unchanged from today.
+  const highlightPositions = useMemo<ReadonlySet<number> | null>(() => {
+    if (!diffOn || !diffSet) return null;
+    return side === "left" ? diffSet.uniqueLeftPositions : diffSet.uniqueRightPositions;
+  }, [diffOn, diffSet, side]);
+
   return (
     <div className="compare-column" role="group" aria-label={sample.id}>
       <header className="compare-column-head">
@@ -197,6 +207,7 @@ function CompareColumn({ sample, language, diffOn, side, diffSet }: ColumnProps)
                 startPosition={1}
                 endPosition={chrom.baseCalls.length}
                 mutations={muts}
+                highlightPositions={highlightPositions}
                 language={language}
               />
             </Suspense>

@@ -144,3 +144,98 @@ test("drawChromatogram renders traces, mixed peaks, and mutation markers", () =>
   assert.equal(calls.some((call) => call[0] === "arc"), true);
   assert.equal(calls.some((call) => call[0] === "fillStyle" && call[1] === "#f87171"), true);
 });
+
+function recordingCtx() {
+  const calls = [];
+  const ctx = {
+    set fillStyle(value) { calls.push(["fillStyle", value]); },
+    set strokeStyle(value) { calls.push(["strokeStyle", value]); },
+    set lineWidth(value) { calls.push(["lineWidth", value]); },
+    set font(value) { calls.push(["font", value]); },
+    set textAlign(value) { calls.push(["textAlign", value]); },
+    fillRect: (...args) => calls.push(["fillRect", ...args]),
+    beginPath: () => calls.push(["beginPath"]),
+    moveTo: (...args) => calls.push(["moveTo", ...args]),
+    lineTo: (...args) => calls.push(["lineTo", ...args]),
+    stroke: () => calls.push(["stroke"]),
+    fillText: (...args) => calls.push(["fillText", ...args]),
+    arc: (...args) => calls.push(["arc", ...args]),
+    closePath: () => calls.push(["closePath"]),
+    fill: () => calls.push(["fill"]),
+  };
+  return { ctx, calls };
+}
+
+test("drawChromatogram emits no extra highlight rect when highlightPositions is missing or empty", () => {
+  const model = buildChromatogramRenderModel(data, {
+    startPosition: 1,
+    endPosition: 3,
+    width: 300,
+    height: 120,
+  });
+
+  for (const options of [
+    { dark: true },
+    { dark: false, highlightPositions: new Set() },
+    { dark: true, highlightPositions: null },
+  ]) {
+    const { ctx, calls } = recordingCtx();
+    drawChromatogram(ctx, model, options);
+    const fillRects = calls.filter((c) => c[0] === "fillRect");
+    // Only the background fillRect should be present; the highlight pass
+    // emits one rect per highlighted base, and we have none here.
+    assert.equal(fillRects.length, 1);
+    assert.deepEqual(fillRects[0], ["fillRect", 0, 0, 300, 120]);
+  }
+});
+
+test("drawChromatogram paints a status-uncertain rect for each entry in highlightPositions", () => {
+  const model = buildChromatogramRenderModel(data, {
+    startPosition: 1,
+    endPosition: 3,
+    width: 300,
+    height: 120,
+  });
+
+  // baseCalls are "ATG" → 1-based positions 1, 2, 3. Highlight positions
+  // 1 and 3 (skip the middle) so we can assert both per-position emission
+  // and that non-highlighted positions are NOT painted.
+  const { ctx, calls } = recordingCtx();
+  drawChromatogram(ctx, model, {
+    dark: false,
+    highlightPositions: new Set([1, 3]),
+  });
+
+  const fillRects = calls.filter((c) => c[0] === "fillRect");
+  // Background + 2 highlight rects = 3 total fillRect calls.
+  assert.equal(fillRects.length, 3);
+  // Highlight rects sit inside the padding band, never the full canvas.
+  const highlightRects = fillRects.slice(1);
+  for (const rect of highlightRects) {
+    const [, x, y, w, h] = rect;
+    assert.equal(y, 24 - 4); // padding(24) - 4
+    assert.equal(h, 120 - 2 * 24 + 8); // height - 2*padding + 8
+    assert.equal(w > 0, true);
+    assert.equal(x > 0 && x < 300, true);
+  }
+  // Light-theme highlight fill style should be set immediately before the
+  // first highlight rect, and must mirror --color-status-uncertain.
+  const lightHighlight = "rgba(216, 154, 44, 0.22)";
+  assert.equal(calls.some((c) => c[0] === "fillStyle" && c[1] === lightHighlight), true);
+});
+
+test("drawChromatogram uses the dark highlight fill in dark mode", () => {
+  const model = buildChromatogramRenderModel(data, {
+    startPosition: 1,
+    endPosition: 3,
+    width: 300,
+    height: 120,
+  });
+  const { ctx, calls } = recordingCtx();
+  drawChromatogram(ctx, model, {
+    dark: true,
+    highlightPositions: new Set([2]),
+  });
+  const darkHighlight = "rgba(240, 184, 74, 0.22)";
+  assert.equal(calls.some((c) => c[0] === "fillStyle" && c[1] === darkHighlight), true);
+});

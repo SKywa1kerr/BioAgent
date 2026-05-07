@@ -43,6 +43,10 @@ export interface DrawChromatogramOptions {
   dark: boolean;
   mutations?: Array<{ position?: number }>;
   keyboardCursor?: number | null;
+  /** 1-based base positions to wash with the status-uncertain tint. Used by
+   *  CompareView's diff pathway to flag bases where the two compared
+   *  samples differ. Missing or empty → no highlight, no behaviour change. */
+  highlightPositions?: ReadonlySet<number> | null;
 }
 
 const BASES: ChromatogramBase[] = ["A", "T", "G", "C"];
@@ -64,6 +68,14 @@ const LIGHT_TRACE_COLORS: Record<ChromatogramBase, string> = {
   G: "#b45309",
   C: "#2563eb",
 };
+
+// Mirrors --color-status-uncertain (see src/styles/tokens.css). The canvas
+// painter is theme-aware but cannot read CSS variables synchronously inside
+// the draw loop, so we duplicate the token values as constants and pick by
+// `options.dark`. Alpha is baked into the rgba() so the test mock (which
+// does not implement save/restore/globalAlpha) still observes the call.
+const DARK_HIGHLIGHT_FILL = "rgba(240, 184, 74, 0.22)";
+const LIGHT_HIGHLIGHT_FILL = "rgba(216, 154, 44, 0.22)";
 
 export function percentile(values: number[], ratio: number) {
   if (values.length === 0) return 0;
@@ -259,6 +271,27 @@ export function drawChromatogram(
     ctx.moveTo(padding, y);
     ctx.lineTo(width - padding, y);
     ctx.stroke();
+  }
+
+  // Diff-position wash: paint a translucent column under each highlighted
+  // base BEFORE the traces are drawn, so the trace lines remain crisp on
+  // top. The half-width tracks the average label spacing so adjacent
+  // highlights merge cleanly at high zoom but stay narrow at low zoom.
+  if (options.highlightPositions && options.highlightPositions.size > 0 && model.baseLabels.length > 0) {
+    const highlightFill = options.dark ? DARK_HIGHLIGHT_FILL : LIGHT_HIGHLIGHT_FILL;
+    const firstLabel = model.baseLabels[0];
+    const lastLabel = model.baseLabels[model.baseLabels.length - 1];
+    const avgSpacing =
+      model.baseLabels.length > 1 && firstLabel && lastLabel
+        ? (lastLabel.x - firstLabel.x) / (model.baseLabels.length - 1)
+        : 16;
+    const halfW = Math.min(24, Math.max(6, avgSpacing * 0.5));
+    ctx.fillStyle = highlightFill;
+    for (const label of model.baseLabels) {
+      if (options.highlightPositions.has(label.baseIndex + 1)) {
+        ctx.fillRect(label.x - halfW, padding - 4, halfW * 2, height - 2 * padding + 8);
+      }
+    }
   }
 
   for (const base of BASES) {
