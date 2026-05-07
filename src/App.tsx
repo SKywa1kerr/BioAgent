@@ -15,6 +15,7 @@ import { RecentAnalysesRail } from "./components/RecentAnalysesRail";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
 import { useAnalysisHistory } from "./hooks/useAnalysisHistory";
 import { useOnboarding } from "./hooks/useOnboarding";
+import { useUpdater, type UpdaterPhase } from "./hooks/useUpdater";
 import { useToasts } from "./components/ui/ToastProvider";
 import { registerCommand } from "./lib/commands/registry";
 import { loadSettings, saveSettings, type AgentSettings } from "./lib/settingsStorage";
@@ -68,6 +69,7 @@ export function App() {
 
   const agent = useAgentHarness(language);
   const toasts = useToasts();
+  const updater = useUpdater();
 
   /* ── Toast wiring (action handlers + error event → toast) ─────────── */
 
@@ -78,9 +80,10 @@ export function App() {
     const offs = [
       toasts.registerActionHandler("export-debug-log", () => { void agentRef.current.exportDebugLog(); }),
       toasts.registerActionHandler("retry-last", () => { void agentRef.current.retryLast(); }),
+      toasts.registerActionHandler("updater-install", () => { updater.install(); }),
     ];
     return () => offs.forEach((off) => off());
-  }, [toasts]);
+  }, [toasts, updater.install]);
 
   // Dedupe by reference so a language change alone does not re-emit an
   // already-delivered toast. Each new error from the harness is a fresh
@@ -106,6 +109,35 @@ export function App() {
       action,
     });
   }, [agent.lastErrorEvent, toasts, language]);
+
+  // Updater state → toast. Dedup by phase so download-progress ticks and
+  // language toggles don't re-emit. Only "available", "ready", "error" toast.
+  const lastEmittedUpdaterPhaseRef = useRef<UpdaterPhase | null>(null);
+  useEffect(() => {
+    const { phase, version, message } = updater.state;
+    if (phase === lastEmittedUpdaterPhaseRef.current) return;
+    if (phase !== "available" && phase !== "ready" && phase !== "error") return;
+    lastEmittedUpdaterPhaseRef.current = phase;
+    if (phase === "available") {
+      toasts.pushToast({
+        kind: "info",
+        title: t(language, "updater.available", { version: version ?? "" }),
+      });
+    } else if (phase === "ready") {
+      toasts.pushToast({
+        kind: "success",
+        title: t(language, "updater.ready", { version: version ?? "" }),
+        durationMs: 0,
+        action: { label: t(language, "updater.action.restart"), actionId: "updater-install" },
+      });
+    } else {
+      toasts.pushToast({
+        kind: "error",
+        title: t(language, "updater.error", { message: message ?? "" }),
+        durationMs: 0,
+      });
+    }
+  }, [updater.state, toasts, language]);
 
   /* ── Panel history cache ──────────────────────────────────────────── */
 

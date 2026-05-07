@@ -277,5 +277,9 @@
   "titlebar.minimize": "最小化",
   "titlebar.maximize": "最大化",
   "titlebar.restore": "还原",
-  "titlebar.close": "关闭"
+  "titlebar.close": "关闭",
+  "updater.available": "新版本 {version} 可用，正在下载…",
+  "updater.ready": "新版本 {version} 已就绪",
+  "updater.action.restart": "立即重启",
+  "updater.error": "更新失败：{message}"
 }

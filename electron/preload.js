@@ -20,3 +20,12 @@ contextBridge.exposeInMainWorld("electronWindow", {
   },
   platform: process.platform,
 });
+
+contextBridge.exposeInMainWorld("electronUpdater", {
+  quitAndInstall: () => ipcRenderer.invoke("updater-quit-and-install"),
+  onState: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("updater-state", listener);
+    return () => ipcRenderer.removeListener("updater-state", listener);
+  },
+});

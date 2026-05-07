@@ -2,6 +2,7 @@
 const path = require("path");
 const fs = require("fs");
 const { pathToFileURL } = require("url");
+const { autoUpdater } = require("electron-updater");
 
 let mainWindow = null;
 let agentHarness = null;
@@ -166,9 +167,38 @@ function pushLifecycle(trace, sender, phase, message, extra = {}) {
   return entry;
 }
 
+function setupAutoUpdater(mainWindow) {
+  // No-op in dev — autoUpdater requires a packaged app.
+  if (!app.isPackaged) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  function broadcast(channel, payload) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(channel, payload);
+    }
+  }
+
+  autoUpdater.on("checking-for-update", () => broadcast("updater-state", { phase: "checking" }));
+  autoUpdater.on("update-available", (info) => broadcast("updater-state", { phase: "available", version: info.version }));
+  autoUpdater.on("update-not-available", () => broadcast("updater-state", { phase: "up-to-date" }));
+  autoUpdater.on("download-progress", (progress) => broadcast("updater-state", {
+    phase: "downloading",
+    percent: Math.round(progress.percent),
+    bytesPerSecond: progress.bytesPerSecond,
+  }));
+  autoUpdater.on("update-downloaded", (info) => broadcast("updater-state", { phase: "ready", version: info.version }));
+  autoUpdater.on("error", (err) => broadcast("updater-state", { phase: "error", message: err?.message ?? String(err) }));
+
+  // Kick off the first check 5s after launch so the renderer is mounted.
+  setTimeout(() => { autoUpdater.checkForUpdatesAndNotify().catch(() => {}); }, 5000);
+}
+
 app.whenReady().then(async () => {
   createWindow();
   flushTimer = setInterval(autoFlushDebugLog, AUTO_FLUSH_INTERVAL_MS);
+  setupAutoUpdater(mainWindow);
 
   const mod = await import(pathToFileURL(path.join(__dirname, "agent_harness.mjs")).href);
   const AgentHarness = mod.AgentHarness;
@@ -204,6 +234,19 @@ app.whenReady().then(async () => {
     const win = BrowserWindow.fromWebContents(event.sender);
     if (win && !win.isDestroyed()) win.close();
     return { ok: true };
+  });
+
+  ipcMain.handle("updater-quit-and-install", async (event) => {
+    const trace = [];
+    pushLifecycle(trace, event.sender, "run", "Updater: quit-and-install requested");
+    try {
+      autoUpdater.quitAndInstall();
+      return { ok: true, trace };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      pushLifecycle(trace, event.sender, "error", `Updater quit-and-install failed: ${message}`);
+      return { ok: false, error: message, trace };
+    }
   });
 
   ipcMain.handle("export-save-file", async (_event, payload) => {

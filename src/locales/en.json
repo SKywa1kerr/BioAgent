@@ -277,5 +277,9 @@
   "titlebar.minimize": "Minimize",
   "titlebar.maximize": "Maximize",
   "titlebar.restore": "Restore",
-  "titlebar.close": "Close"
+  "titlebar.close": "Close",
+  "updater.available": "Update {version} available, downloading…",
+  "updater.ready": "Update {version} ready",
+  "updater.action.restart": "Restart now",
+  "updater.error": "Update failed: {message}"
 }
