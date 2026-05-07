@@ -25,19 +25,19 @@
 }
 
 :root[data-theme="dark"] .results-charts-panel {
-  --results-surface: rgba(15, 23, 42, 0.9);
-  --results-card: rgba(15, 23, 42, 0.82);
-  --results-border: rgba(148, 163, 184, 0.16);
-  --results-axis: #cbd5e1;
-  --results-grid: rgba(148, 163, 184, 0.12);
-  --results-text: #e2e8f0;
-  --results-muted: #94a3b8;
-  --results-tooltip-bg: rgba(15, 23, 42, 0.98);
-  --results-tooltip-border: rgba(148, 163, 184, 0.18);
-  --results-empty-bg: rgba(148, 163, 184, 0.06);
-  --results-empty-border: rgba(148, 163, 184, 0.14);
-  --results-chip-bg: rgba(148, 163, 184, 0.12);
-  --results-shadow: 0 18px 34px rgba(2, 6, 23, 0.3);
+  --results-surface: #11161f;
+  --results-card: rgba(255, 255, 255, 0.02);
+  --results-border: rgba(255, 255, 255, 0.06);
+  --results-axis: #8a99b8;
+  --results-grid: rgba(255, 255, 255, 0.05);
+  --results-text: #ecf0f7;
+  --results-muted: #8a99b8;
+  --results-tooltip-bg: #11161f;
+  --results-tooltip-border: rgba(255, 255, 255, 0.10);
+  --results-empty-bg: rgba(255, 255, 255, 0.02);
+  --results-empty-border: rgba(255, 255, 255, 0.08);
+  --results-chip-bg: rgba(255, 255, 255, 0.04);
+  --results-shadow: none;
 }
 
 .results-charts-header {
@@ -47,8 +47,12 @@
 .results-charts-header h3 {
   margin: 0;
   color: var(--results-text);
-  font-size: 18px;
-  line-height: 1.2;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 500;
+  font-variation-settings: "opsz" 22, "wght" 500;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
 }
 
 .results-charts-grid {
@@ -62,17 +66,20 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 14px;
+  padding: 18px 16px 14px;
   border: 1px solid var(--results-border);
-  border-radius: 18px;
+  border-radius: 14px;
   background: var(--results-card);
 }
 
 .results-chart-card-title {
-  margin: 0;
-  color: var(--results-text);
-  font-size: 15px;
-  line-height: 1.25;
+  margin: 0 0 4px;
+  color: var(--results-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
 }
 
 .results-chart-card-body {

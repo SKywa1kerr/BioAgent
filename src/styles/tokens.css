@@ -9,6 +9,9 @@
              "Microsoft YaHei", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "JetBrains Mono Variable",
                "SF Mono", Menlo, Consolas, monospace;
+  --font-display: "Fraunces Variable", "Fraunces", "Source Serif Pro",
+                  "PingFang SC", "Noto Serif SC", "Microsoft YaHei",
+                  Georgia, serif;
   --font-size-xs: 11px;
   --font-size-sm: 12px;
   --font-size-md: 13px;
@@ -130,27 +133,33 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --color-bg-app: radial-gradient(135% 135% at 100% 0%, #0f1f33 0%, #0b1729 58%, #08111f 100%);
-  --color-text-main: #e8eefc;
-  --color-text-muted: #9eb1d8;
-  --color-text-subtle: #6a82a8;
+  /* Editorial dark — near-black surface with a single warm highlight in
+     the corner for atmosphere; amber is the lone accent so attention
+     lands where the data wants it. */
+  --color-bg-app:
+    radial-gradient(70% 50% at 88% -10%, rgba(224, 168, 74, 0.06) 0%, transparent 55%),
+    radial-gradient(60% 60% at 0% 100%, rgba(111, 155, 255, 0.04) 0%, transparent 60%),
+    #0a0d14;
+  --color-text-main: #ecf0f7;
+  --color-text-muted: #8a99b8;
+  --color-text-subtle: #5b6985;
 
-  --color-surface: #131d33;
-  --color-surface-raised: linear-gradient(180deg, #16213a, #0f182b);
-  --color-surface-overlay: rgba(15, 23, 42, 0.92);
-  --color-border-soft: rgba(255, 255, 255, 0.06);
-  --color-border-default: rgba(255, 255, 255, 0.10);
-  --color-border-strong: rgba(255, 255, 255, 0.18);
+  --color-surface: #11161f;
+  --color-surface-raised: linear-gradient(180deg, #141a25, #0e131c);
+  --color-surface-overlay: rgba(17, 22, 31, 0.94);
+  --color-border-soft: rgba(255, 255, 255, 0.04);
+  --color-border-default: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.16);
 
-  --color-accent: #6f9bff;
-  --color-accent-hover: #8aafff;
-  --color-accent-soft: rgba(111, 155, 255, 0.16);
-  --color-accent-secondary: #4fd4a7;
+  --color-accent: #e0a84a;
+  --color-accent-hover: #f0b85a;
+  --color-accent-soft: rgba(224, 168, 74, 0.14);
+  --color-accent-secondary: #6f9bff;
 
-  --color-status-ok: #4fd4a7;
+  --color-status-ok: #5fd4a7;
   --color-status-wrong: #ff6b80;
   --color-status-uncertain: #f0b84a;
-  --color-status-untested: #9eb1d8;
+  --color-status-untested: #7d8cab;
 
   --color-mutation-sub: #6f9bff;
   --color-mutation-ins: #a07bf5;

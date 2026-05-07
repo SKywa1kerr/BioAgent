@@ -173,10 +173,10 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
         <ChartCard title={t(language, "charts.identityDist")}>
           {hasSamples ? (
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={identityBins} margin={{ top: 8, right: 8, bottom: 0, left: -8 }} >
-                <CartesianGrid stroke="var(--results-grid)" strokeDasharray="3 3" />
-                <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11 }} angle={-35} textAnchor="end" height={56} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11 }} />
+              <BarChart data={identityBins} margin={{ top: 8, right: 8, bottom: 0, left: 12 }} >
+                <CartesianGrid stroke="var(--results-grid)" strokeDasharray="0" vertical={false} />
+                <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 10, fontFamily: "var(--font-display)" }} angle={-35} textAnchor="end" height={56} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11, fontFamily: "var(--font-display)" }} />
                 <Tooltip />
                 <Bar dataKey="ok" stackId="status" fill={palette.ok} name={t(language, "wb.status.ok")} isAnimationActive={false} />
                 <Bar dataKey="wrong" stackId="status" fill={palette.wrong} name={t(language, "wb.status.wrong")} isAnimationActive={false} />
@@ -190,10 +190,10 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
         <ChartCard title={t(language, "charts.coverageDist")}>
           {hasSamples ? (
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={coverageBins} margin={{ top: 8, right: 8, bottom: 0, left: -8 }} >
-                <CartesianGrid stroke="var(--results-grid)" strokeDasharray="3 3" />
-                <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11 }} angle={-35} textAnchor="end" height={56} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11 }} />
+              <BarChart data={coverageBins} margin={{ top: 8, right: 8, bottom: 0, left: 12 }} >
+                <CartesianGrid stroke="var(--results-grid)" strokeDasharray="0" vertical={false} />
+                <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 10, fontFamily: "var(--font-display)" }} angle={-35} textAnchor="end" height={56} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11, fontFamily: "var(--font-display)" }} />
                 <Tooltip />
                 <Bar dataKey="ok" stackId="status" fill={palette.ok} name={t(language, "wb.status.ok")} isAnimationActive={false} />
                 <Bar dataKey="wrong" stackId="status" fill={palette.wrong} name={t(language, "wb.status.wrong")} isAnimationActive={false} />
@@ -207,10 +207,28 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
         <ChartCard title={t(language, "charts.identityVsCoverage")}>
           {hasSamples && scatterData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
-              <ScatterChart margin={{ top: 8, right: 12, bottom: 0, left: -8 }}>
-                <CartesianGrid stroke="var(--results-grid)" strokeDasharray="3 3" />
-                <XAxis type="number" dataKey="identity" domain={[0, 100]} tickFormatter={(v) => formatPercent(Number(v))} name={t(language, "charts.identity")} />
-                <YAxis type="number" dataKey="coverage" domain={[0, 100]} tickFormatter={(v) => formatPercent(Number(v))} name={t(language, "charts.coverage")} />
+              <ScatterChart margin={{ top: 8, right: 16, bottom: 0, left: 12 }}>
+                <CartesianGrid stroke="var(--results-grid)" strokeDasharray="0" />
+                <XAxis
+                  type="number"
+                  dataKey="identity"
+                  domain={[0, 100]}
+                  tickFormatter={(v) => formatPercent(Number(v))}
+                  name={t(language, "charts.identity")}
+                  tickLine={false}
+                  axisLine={{ stroke: "var(--results-axis)" }}
+                  tick={{ fill: "var(--results-axis)", fontSize: 11, fontFamily: "var(--font-display)" }}
+                />
+                <YAxis
+                  type="number"
+                  dataKey="coverage"
+                  domain={[0, 100]}
+                  tickFormatter={(v) => formatPercent(Number(v))}
+                  name={t(language, "charts.coverage")}
+                  tickLine={false}
+                  axisLine={{ stroke: "var(--results-axis)" }}
+                  tick={{ fill: "var(--results-axis)", fontSize: 11, fontFamily: "var(--font-display)" }}
+                />
                 <ZAxis type="number" dataKey="size" range={[40, 220]} />
                 <Tooltip />
                 <Scatter data={scatterData} >
