@@ -12,6 +12,7 @@ import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
 import { RecentAnalysesRail } from "./components/RecentAnalysesRail";
+import { DropZone } from "./components/DropZone";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
 import { useAnalysisHistory } from "./hooks/useAnalysisHistory";
 import { useOnboarding } from "./hooks/useOnboarding";
@@ -497,6 +498,57 @@ export function App() {
 
   /* ── Layout ───────────────────────────────────────────────────────── */
 
+  const shellContent = (
+    <div className="app-shell-content">
+      <div className="left-stack">
+        <ChatPanel
+          messages={agent.messages}
+          isRunning={agent.isRunning}
+          progress={agent.progress}
+          language={language}
+          initialized={agent.initialized}
+          onSend={handleSend}
+          onExportDebug={() => void agent.exportDebugLog()}
+          onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
+          onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
+          theme={theme}
+          prefillText={prefillText}
+          onPrefillConsumed={() => setPrefillText(null)}
+          inputRef={chatInputRef}
+          onOpenPalette={() => setPaletteOpen(true)}
+          onCycleRail={cycleRail}
+          railLabel={t(language, `wb.chatRail.${railState}`)}
+        />
+        {agent.initialized ? (
+          <RecentAnalysesRail
+            items={historyApi.items}
+            total={historyApi.total}
+            isLoading={historyApi.isLoading}
+            activeId={activeAnalysisId}
+            language={language}
+            onSelect={(id) => void handleHistorySelect(id)}
+            onRefresh={() => void historyApi.refresh()}
+          />
+        ) : null}
+      </div>
+
+      <main className="canvas-panel" aria-label="Analysis canvas">
+        <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
+          {renderTabBar()}
+          {renderCompactProgress()}
+          <ErrorBoundary
+            fallbackTitle={t(language, "app.ready.title")}
+            retryLabel={language === "zh" ? "重试" : "Retry"}
+          >
+            {renderPanel()}
+          </ErrorBoundary>
+        </SmartCanvas>
+      </main>
+    </div>
+  );
+
   return (
     <div className={`app-shell rail-${railState}`}>
       <TitleBar
@@ -509,54 +561,11 @@ export function App() {
         }}
       />
       {!isOnline ? <div className="offline-banner">{t(language, "app.offline")}</div> : null}
-      <div className="app-shell-content">
-        <div className="left-stack">
-          <ChatPanel
-            messages={agent.messages}
-            isRunning={agent.isRunning}
-            progress={agent.progress}
-            language={language}
-            initialized={agent.initialized}
-            onSend={handleSend}
-            onExportDebug={() => void agent.exportDebugLog()}
-            onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
-            onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
-            theme={theme}
-            prefillText={prefillText}
-            onPrefillConsumed={() => setPrefillText(null)}
-            inputRef={chatInputRef}
-            onOpenPalette={() => setPaletteOpen(true)}
-            onCycleRail={cycleRail}
-            railLabel={t(language, `wb.chatRail.${railState}`)}
-          />
-          {agent.initialized ? (
-            <RecentAnalysesRail
-              items={historyApi.items}
-              total={historyApi.total}
-              isLoading={historyApi.isLoading}
-              activeId={activeAnalysisId}
-              language={language}
-              onSelect={(id) => void handleHistorySelect(id)}
-              onRefresh={() => void historyApi.refresh()}
-            />
-          ) : null}
-        </div>
-
-        <main className="canvas-panel" aria-label="Analysis canvas">
-          <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
-            {renderTabBar()}
-            {renderCompactProgress()}
-            <ErrorBoundary
-              fallbackTitle={t(language, "app.ready.title")}
-              retryLabel={language === "zh" ? "重试" : "Retry"}
-            >
-              {renderPanel()}
-            </ErrorBoundary>
-          </SmartCanvas>
-        </main>
-      </div>
+      {agent.initialized ? (
+        <DropZone language={language}>{shellContent}</DropZone>
+      ) : (
+        shellContent
+      )}
 
       <SettingsModal
         open={settingsOpen}

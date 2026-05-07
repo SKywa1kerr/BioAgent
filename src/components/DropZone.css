@@ -1,0 +1,73 @@
+/* Drop-zone overlay: shown only while a file drag is in progress.
+   When idle the wrapper stays in the layout but overlay is unrendered, so
+   underlying content stays interactive. Colours, motion and radii reference
+   design tokens — never raw hex. */
+
+.dropzone-root {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropzone-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  background: var(--color-accent-soft);
+  border: 2px dashed var(--color-accent);
+  border-radius: var(--radius-xl);
+  pointer-events: auto;
+  animation: dropzone-fade-in var(--duration-base) var(--easing-standard);
+}
+
+.dropzone-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-8);
+  background: var(--color-surface-overlay);
+  color: var(--color-text-main);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+  max-width: min(420px, 80%);
+  transition: transform var(--duration-base) var(--easing-standard);
+}
+
+.dropzone-icon {
+  color: var(--color-accent);
+}
+
+.dropzone-hint {
+  color: var(--color-text-main);
+  line-height: var(--line-height-tight);
+}
+
+@keyframes dropzone-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Disable animations under reduced-motion: the duration tokens already
+   collapse to 0ms via the global `prefers-reduced-motion` rule, but we add
+   an explicit guard so the keyframe can't run either. */
+.dropzone-overlay-static {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropzone-overlay { animation: none; }
+  .dropzone-card    { transition: none; }
+}

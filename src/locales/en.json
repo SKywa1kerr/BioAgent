@@ -281,5 +281,10 @@
   "updater.available": "Update {version} available, downloading…",
   "updater.ready": "Update {version} ready",
   "updater.action.restart": "Restart now",
-  "updater.error": "Update failed: {message}"
+  "updater.error": "Update failed: {message}",
+  "dropzone.hint": "Drop .ab1 + .gb files to analyse",
+  "dropzone.toast.success": "Analysed {count} sample(s)",
+  "dropzone.toast.error": "Import failed: {message}",
+  "dropzone.toast.unpaired": "{ab1} .ab1 and {gb} .gb files unpaired",
+  "dropzone.error.noPairs": "No matching .ab1/.gb file pairs found"
 }
