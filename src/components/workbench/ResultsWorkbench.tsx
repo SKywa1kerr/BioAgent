@@ -16,6 +16,7 @@ import { nextCompareSelection } from "../../lib/workbench/compareSelection";
 import { Icon } from "../ui/Icon";
 import type { AppLanguage } from "../../i18n";
 import { t } from "../../i18n";
+import "./ResultsWorkbench.global.css";
 import styles from "./ResultsWorkbench.module.css";
 
 interface ResultsWorkbenchProps {
