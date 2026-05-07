@@ -385,6 +385,103 @@ app.whenReady().then(async () => {
     }
   });
 
+  ipcMain.handle("analyze-dropped-files", async (event, payload) => {
+    const trace = [];
+
+    if (!agentHarness) {
+      pushLifecycle(trace, event.sender, "error", "Drop analyze rejected: harness not initialized");
+      return { ok: false, error: "Agent harness not initialized", trace };
+    }
+
+    const ab1Paths = Array.isArray(payload?.ab1Paths) ? payload.ab1Paths : [];
+    const gbPaths = Array.isArray(payload?.gbPaths) ? payload.gbPaths : [];
+
+    let pairs = [];
+    let unpairedAb1 = [];
+    let unpairedGb = [];
+    try {
+      const helperUrl = pathToFileURL(
+        path.resolve(__dirname, "..", "src", "lib", "files", "pairAb1Gb.js"),
+      ).href;
+      const { pairAb1Gb } = await import(helperUrl);
+      const pairResult = pairAb1Gb(ab1Paths, gbPaths);
+      pairs = pairResult.pairs;
+      unpairedAb1 = pairResult.unpairedAb1;
+      unpairedGb = pairResult.unpairedGb;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      pushLifecycle(trace, event.sender, "error", `Drop analyze pairing failed: ${message}`);
+      return { ok: false, error: message, trace };
+    }
+
+    if (pairs.length === 0) {
+      pushLifecycle(trace, event.sender, "error", "Drop analyze: no matching .ab1/.gb pairs found");
+      return {
+        ok: false,
+        error: "No matching .ab1/.gb pairs found",
+        pairs: 0,
+        unpairedAb1,
+        unpairedGb,
+        trace,
+      };
+    }
+
+    const ab1Dir = path.dirname(pairs[0].ab1);
+    const gbDir = path.dirname(pairs[0].gb);
+    const sameDirs = pairs.every(
+      (pair) => path.dirname(pair.ab1) === ab1Dir && path.dirname(pair.gb) === gbDir,
+    );
+    if (!sameDirs) {
+      pushLifecycle(trace, event.sender, "error", "Drop analyze: paired files span multiple directories");
+      return {
+        ok: false,
+        error: "Dropped files span multiple directories",
+        pairs: pairs.length,
+        unpairedAb1,
+        unpairedGb,
+        trace,
+      };
+    }
+
+    pushLifecycle(
+      trace,
+      event.sender,
+      "run",
+      `Drop analyze: ${pairs.length} pair(s) → analyze_sequences`,
+      { ab1Dir, gbDir },
+    );
+
+    try {
+      const result = await agentHarness.callMcpTool("analyze_sequences", {
+        ab1_dir: ab1Dir,
+        gb_dir: gbDir,
+      });
+      if (result?.ok === false) {
+        const msg = result?.error || "analyze_sequences failed";
+        pushLifecycle(trace, event.sender, "error", msg);
+        return { ok: false, error: msg, pairs: pairs.length, unpairedAb1, unpairedGb, trace };
+      }
+      pushLifecycle(
+        trace,
+        event.sender,
+        "run",
+        `Drop analyze complete (${pairs.length} pair(s))`,
+      );
+      return {
+        ok: true,
+        result,
+        pairs: pairs.length,
+        unpairedAb1,
+        unpairedGb,
+        trace,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      pushLifecycle(trace, event.sender, "error", `Drop analyze failed: ${message}`);
+      return { ok: false, error: message, pairs: pairs.length, unpairedAb1, unpairedGb, trace };
+    }
+  });
+
   ipcMain.handle("agent-harness-shutdown", async (event) => {
     if (agentHarness) {
       const entry = makeLifecycle("shutdown", "Shutting down harness");
