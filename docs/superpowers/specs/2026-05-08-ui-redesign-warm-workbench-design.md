@@ -253,3 +253,39 @@
 7. **CommandPalette / Shortcuts / Toast** 视觉同步。
 8. **业务面板**逐个 token 替换。
 9. **打磨 + 视觉回归**。
+
+---
+
+## 10. 评审澄清（2026-05-08 spec-reviewer 反馈后追加）
+
+### 10.1 Sidebar 面板历史段语义
+- 语义为"快速跳转"按钮，**不是**历史记录列表。
+- 三个静态项：分析 / 趋势 / 建议；点击 = 切到 canvas 对应 tab。
+- 当对应 panelCache 为空时显示为禁用态（弱化、不可点击）。
+
+### 10.2 Splitter 折叠规则
+- **只允许折叠 chat 列**，canvas 永远不可折叠（避免主舞台消失）。
+- chat 列宽下限 120 px：低于该值松手即吸附为 32 px rail；rail 上点击恢复到上次记忆的宽度（默认 320 px）。
+- chat 列宽上限：取剩余可用空间，至少给 canvas 留 360 px。
+- sidebar 折叠走独立通道（Ctrl+B），不与 splitter 联动。
+
+### 10.3 Provider 切换时字段联动
+- 切换 Provider 时：
+  - 如果当前 baseURL 等于上一个 provider 的默认值（说明用户没改过）→ 覆盖为新 provider 的默认值。
+  - 如果当前 baseURL 是用户手填值 → **保留用户值**，不覆盖（在字段下方显示一句小字提示"使用自定义 baseURL，建议核对"）。
+- model 字段同理。
+- API Key 不自动清空，但显示一句"切换厂家后建议确认 API Key 仍可用"提示。
+
+### 10.4 Provider 预设的兼容范围
+- 当前 agent_harness 走的是 OpenAI 兼容协议（OpenAI SDK + 自定义 baseURL）。
+- 因此 PROVIDERS 中的所有预设都假设走 OpenAI 兼容端点：
+  - openai、deepseek、sjtu、ollama、custom — 直接可用。
+  - anthropic — Anthropic 官方端点（api.anthropic.com）**不是** OpenAI 兼容协议。本期把 anthropic 预设的 baseURL 设为空字符串 + 显示一行提示"需通过兼容代理（如 LiteLLM）使用"，让用户走代理；不在本期实现 Anthropic 原生协议适配。
+
+### 10.5 ChatPanel CSS 现状
+- ChatPanel 最近已拆出独立 CSS module（commit 67c4ad7）。本期重写要**保留这个拆分**，新样式落到对应 module 文件，避免回退到全局 styles.css 中。
+
+### 10.6 视觉回归测试方式
+- 本期采用**手动截图比对**，不引入新的 visual-regression 工具。
+- 截图覆盖范围见 §8；产物存入 docs/superpowers/specs/assets/2026-05-08/（在实现阶段创建），作为后续设计基线。
+- 现有 playwright e2e 跑通即可（无快照断言）。
