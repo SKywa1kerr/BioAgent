@@ -1153,3 +1153,31 @@ git commit -m "test(visual): baseline screenshots for warm-workbench redesign"
 | 12 | 视觉回归 + 打磨 | 截图 + e2e |
 
 每 task 独立可 revert；如某 task 视觉效果不理想，回滚单个 commit 不影响其他成果。
+
+---
+
+## 评审反馈补丁（plan-reviewer 反馈后追加）
+
+### T12 commit 拆分修订
+取代原 12.5 和 12.6 单一 commit，改为：
+
+- [ ] **Step 12.5: 截图 commit**
+
+```
+git add docs/superpowers/specs/assets/2026-05-08/
+git commit -m "test(visual): baseline screenshots for warm-workbench redesign"
+```
+
+- [ ] **Step 12.6: 删除 tokens 备份**
+
+```
+rm src/styles/tokens.css.pre-warm.bak
+git add -u src/styles/
+git commit -m "chore(cleanup): remove pre-warm tokens backup"
+```
+
+### 其他实施期注意事项
+- **Task 2.1（TS 文件被 .mjs 测试 import）**：动手前先 cat 一个现有 tests/test_*.mjs 看是否真能 import .ts；如不能，把测试改为先把 providers.ts 编译产物或者用 vitest（package.json 已无）—— 折中：把 providers 的纯函数额外导出到一个 `.mjs` shim（`tests/_provider_helpers.mjs`）专门给测试用，业务代码继续用 .ts。
+- **Task 7.3（ChatPanel theme prop）**：选定一个：要么从 props 完全删除 onCycleRail/railLabel/theme，要么只删未用的（onCycleRail/railLabel 必删，theme 暂留 — 因为 theme toggle 按钮还在 panel-action-group 里）。本期定为：删 onCycleRail/railLabel，保留 theme 直到决定 theme 按钮搬到 sidebar 还是保留于 chat header。
+- **Task 11.1（glob 兼容）**：用 `find src/components -name "*.css"` 替代 `ls **/*.css`。
+- **Task 11.4（font import 位置）**：进 main.tsx 与 index.html 都看一眼，确定现有 Fraunces 引入位置后再改。
