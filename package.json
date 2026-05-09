@@ -19,9 +19,9 @@
     "test:e2e:install": "playwright install --with-deps chromium"
   },
   "dependencies": {
-    "@fontsource-variable/fraunces": "^5.2.9",
     "@fontsource/inter": "^5.2.8",
     "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/source-serif-pro": "^5.2.5",
     "@tanstack/react-virtual": "^3.13.24",
     "electron-updater": "^6.3.0",
     "framer-motion": "^11.11.11",

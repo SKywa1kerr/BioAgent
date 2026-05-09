@@ -4,25 +4,25 @@
    and .is-primary stay global because they are appended dynamically. */
 
 .resultsWorkbenchShell {
-  --results-panel-bg: rgba(246, 250, 255, 0.94);
-  --results-panel-border: rgba(15, 23, 42, 0.08);
-  --results-panel-shadow: 0 18px 34px rgba(18, 45, 78, 0.1);
-  --results-panel-muted: #5f7287;
-  --results-panel-text: #0f172a;
-  --results-panel-subtle: rgba(148, 163, 184, 0.1);
-  --results-panel-subtle-strong: rgba(148, 163, 184, 0.16);
-  --results-primary: #1f78c1;
-  --results-primary-soft: rgba(31, 120, 193, 0.14);
-  --results-panel-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0));
-  --results-card-gloss: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0));
-  --results-ok: #16a34a;
-  --results-ok-soft: rgba(22, 163, 74, 0.14);
-  --results-wrong: #dc2626;
-  --results-wrong-soft: rgba(220, 38, 38, 0.14);
-  --results-uncertain: #d97706;
-  --results-uncertain-soft: rgba(217, 119, 6, 0.14);
-  --results-untested: #64748b;
-  --results-untested-soft: rgba(100, 116, 139, 0.14);
+  --results-panel-bg: var(--surface);
+  --results-panel-border: var(--border-default);
+  --results-panel-shadow: var(--shadow-sm);
+  --results-panel-muted: var(--text-muted);
+  --results-panel-text: var(--text-main);
+  --results-panel-subtle: var(--bg-app);
+  --results-panel-subtle-strong: var(--accent-soft);
+  --results-primary: var(--accent);
+  --results-primary-soft: var(--accent-soft);
+  --results-panel-gloss: none;
+  --results-card-gloss: none;
+  --results-ok: var(--status-ok);
+  --results-ok-soft: rgba(74, 106, 48, 0.14);
+  --results-wrong: var(--status-error);
+  --results-wrong-soft: rgba(160, 77, 41, 0.14);
+  --results-uncertain: var(--status-warn);
+  --results-uncertain-soft: rgba(138, 90, 24, 0.14);
+  --results-untested: var(--text-subtle);
+  --results-untested-soft: rgba(144, 138, 128, 0.14);
 
   display: flex;
   flex-direction: column;
@@ -34,25 +34,25 @@
 }
 
 :root[data-theme="dark"] .resultsWorkbenchShell {
-  --results-panel-bg: #1c1c1e;
-  --results-panel-border: rgba(84, 84, 88, 0.50);
+  --results-panel-bg: var(--surface);
+  --results-panel-border: var(--border-default);
   --results-panel-shadow: none;
-  --results-panel-muted: rgba(235, 235, 245, 0.60);
-  --results-panel-text: #ffffff;
-  --results-panel-subtle: rgba(255, 255, 255, 0.04);
-  --results-panel-subtle-strong: rgba(255, 255, 255, 0.08);
-  --results-primary: #0a84ff;
-  --results-primary-soft: rgba(10, 132, 255, 0.16);
+  --results-panel-muted: var(--text-muted);
+  --results-panel-text: var(--text-main);
+  --results-panel-subtle: var(--bg-app);
+  --results-panel-subtle-strong: var(--accent-soft);
+  --results-primary: var(--accent);
+  --results-primary-soft: var(--accent-soft);
   --results-panel-gloss: none;
   --results-card-gloss: none;
-  --results-ok: #30d158;
-  --results-ok-soft: rgba(48, 209, 88, 0.14);
-  --results-wrong: #ff453a;
-  --results-wrong-soft: rgba(255, 69, 58, 0.14);
-  --results-uncertain: #ff9f0a;
-  --results-uncertain-soft: rgba(255, 159, 10, 0.14);
-  --results-untested: rgba(235, 235, 245, 0.45);
-  --results-untested-soft: rgba(235, 235, 245, 0.10);
+  --results-ok: var(--status-ok);
+  --results-ok-soft: rgba(163, 193, 128, 0.16);
+  --results-wrong: var(--status-error);
+  --results-wrong-soft: rgba(226, 160, 122, 0.16);
+  --results-uncertain: var(--status-warn);
+  --results-uncertain-soft: rgba(217, 168, 106, 0.16);
+  --results-untested: var(--text-subtle);
+  --results-untested-soft: rgba(106, 99, 87, 0.16);
 }
 
 .resultsToolbarPanel {
