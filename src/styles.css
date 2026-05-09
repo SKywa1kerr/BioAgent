@@ -24,45 +24,30 @@ body,
   display: flex;
   flex-direction: column;
   height: 100%;
+  background: var(--bg-app);
 }
 
 .app-shell-content {
+  --sidebar-w: 200px;
+  --chat-w: 320px;
   display: grid;
-  grid-template-columns: minmax(520px, 38%) 1fr;
-  gap: 10px;
-  padding: 10px 16px 16px;
+  grid-template-columns: var(--sidebar-w) var(--chat-w) 1px 1fr;
+  gap: 0;
+  padding: 0;
   flex: 1 1 auto;
   min-height: 0;
 }
 
-.app-shell.rail-wide   .app-shell-content { grid-template-columns: minmax(520px, 38%) 1fr; }
-.app-shell.rail-narrow .app-shell-content { grid-template-columns: minmax(300px, 26%) 1fr; }
-.app-shell.rail-hidden .app-shell-content { grid-template-columns: 40px 1fr; }
-
-.app-shell.rail-hidden .chat-panel > *:not(.chat-rail-toggle) { display: none; }
-.app-shell.rail-hidden .chat-panel {
-  align-items: center;
-  padding: 8px 0;
-  position: relative;
+.app-shell.sidebar-collapsed .app-shell-content {
+  --sidebar-w: 56px;
 }
 
-.chat-rail-toggle {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  color: var(--text-main);
-  border-radius: 6px;
-  padding: 4px 8px;
-  cursor: pointer;
-  font-size: 11px;
-  z-index: 3;
+.app-shell.chat-collapsed .app-shell-content {
+  grid-template-columns: var(--sidebar-w) 32px 1px 1fr;
 }
 
 .chat-panel,
 .canvas-panel {
-  border-radius: 14px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -70,19 +55,12 @@ body,
 }
 
 .chat-panel {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid var(--color-border-soft);
-  box-shadow: none;
+  background: var(--bg-app);
+  border-right: 0;
 }
 
 .canvas-panel {
-  background: var(--color-surface-overlay);
-  border: 1px solid var(--color-border-default);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.04) inset,
-    0 8px 28px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: var(--bg-canvas);
 }
 
 .panel-title {
@@ -613,12 +591,6 @@ body,
   font-size: 13px;
   font-weight: 600;
   text-align: center;
-}
-
-@media (max-width: 1280px) {
-  .app-shell-content {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-width: 1100px) {

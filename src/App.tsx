@@ -11,7 +11,9 @@ import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
-import { RecentAnalysesRail } from "./components/RecentAnalysesRail";
+import { Sidebar } from "./components/sidebar/Sidebar";
+import { Splitter, CollapsedRail } from "./components/workbench/Splitter";
+import { useChatColumnWidth } from "./hooks/useChatColumnWidth";
 import { DropZone } from "./components/DropZone";
 import { InitDialog } from "./components/InitDialog";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
@@ -21,8 +23,10 @@ import { useUpdater, type UpdaterPhase } from "./hooks/useUpdater";
 import { useToasts } from "./components/ui/ToastProvider";
 import { registerCommand } from "./lib/commands/registry";
 import { loadSettings, saveSettings, type AgentSettings } from "./lib/settingsStorage";
-import { loadRailState, nextRailState, saveRailState, type ChatRailState } from "./lib/ui/chatRailState";
 import { t, type AppLanguage } from "./i18n";
+
+const CANVAS_MIN_WIDTH = 360;
+const SIDEBAR_COLLAPSE_KEY = "bioagent-sidebar-collapsed";
 
 /* ── Helpers ────────────────────────────────────────────────────────── */
 
@@ -32,6 +36,16 @@ function getLocalStorageValue<T extends string>(key: string, allowed: readonly T
     if (saved && (allowed as readonly string[]).includes(saved)) return saved as T;
   } catch { /* ignore */ }
   return fallback;
+}
+
+function loadSidebarCollapsed(): boolean {
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === "1";
+  } catch { return false; }
+}
+
+function saveSidebarCollapsed(v: boolean): void {
+  try { window.localStorage.setItem(SIDEBAR_COLLAPSE_KEY, v ? "1" : "0"); } catch { /* ignore */ }
 }
 
 /* ── App ────────────────────────────────────────────────────────────── */
@@ -44,17 +58,15 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [prefillText, setPrefillText] = useState<string | null>(null);
-  const [railState, setRailState] = useState<ChatRailState>(() => loadRailState());
+  const chatWidth = useChatColumnWidth();
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => loadSidebarCollapsed());
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
   const onboarding = useOnboarding();
 
   useEffect(() => {
-    saveRailState(railState);
-  }, [railState]);
-
-  const cycleRail = useCallback(() => {
-    setRailState((s) => nextRailState(s));
-  }, []);
+    saveSidebarCollapsed(sidebarCollapsed);
+  }, [sidebarCollapsed]);
 
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
@@ -276,6 +288,13 @@ export function App() {
         return;
       }
 
+      // Ctrl+B → toggle sidebar collapse
+      if (mod && e.key.toLowerCase() === "b" && !e.shiftKey) {
+        e.preventDefault();
+        setSidebarCollapsed((v) => !v);
+        return;
+      }
+
       // Ctrl+Shift+Delete → clear chat
       if (mod && e.shiftKey && e.key === "Delete") {
         e.preventDefault();
@@ -471,9 +490,35 @@ export function App() {
 
   /* ── Layout ───────────────────────────────────────────────────────── */
 
+  const handleSplitterResize = useCallback((dx: number) => {
+    const containerW = shellRef.current?.clientWidth ?? window.innerWidth;
+    chatWidth.applyDelta(dx, containerW, CANVAS_MIN_WIDTH);
+  }, [chatWidth]);
+
+  const chatColumnStyle = chatWidth.collapsed
+    ? undefined
+    : ({ "--chat-w": `${chatWidth.width}px` } as React.CSSProperties);
+
   const shellContent = (
-    <div className="app-shell-content">
-      <div className="left-stack">
+    <div className="app-shell-content" ref={shellRef} style={chatColumnStyle}>
+      <Sidebar
+        language={language}
+        history={historyApi.items}
+        datasets={[]}
+        activeAnalysisId={activeAnalysisId}
+        activeTab={activeTab}
+        hasAnalysisCache={panelCache.analysis != null}
+        hasTrendsCache={panelCache.trends != null}
+        hasSuggestionsCache={panelCache.suggestions != null}
+        modelLabel={settings.llmModel}
+        onSelectHistory={(id) => void handleHistorySelect(id)}
+        onSelectTab={setActiveTab}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />
+
+      {chatWidth.collapsed ? (
+        <CollapsedRail onExpand={chatWidth.expand} language={language} />
+      ) : (
         <ChatPanel
           messages={agent.messages}
           isRunning={agent.isRunning}
@@ -491,21 +536,14 @@ export function App() {
           onPrefillConsumed={() => setPrefillText(null)}
           inputRef={chatInputRef}
           onOpenPalette={() => setPaletteOpen(true)}
-          onCycleRail={cycleRail}
-          railLabel={t(language, `wb.chatRail.${railState}`)}
         />
-        {agent.initialized ? (
-          <RecentAnalysesRail
-            items={historyApi.items}
-            total={historyApi.total}
-            isLoading={historyApi.isLoading}
-            activeId={activeAnalysisId}
-            language={language}
-            onSelect={(id) => void handleHistorySelect(id)}
-            onRefresh={() => void historyApi.refresh()}
-          />
-        ) : null}
-      </div>
+      )}
+
+      <Splitter
+        onResize={handleSplitterResize}
+        onCollapse={chatWidth.collapsed ? chatWidth.expand : chatWidth.collapse}
+        ariaLabel={t(language, chatWidth.collapsed ? "splitter.expandChat" : "splitter.collapseChat")}
+      />
 
       <main className="canvas-panel" aria-label="Analysis canvas">
         <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
@@ -522,8 +560,13 @@ export function App() {
     </div>
   );
 
+  const shellClass =
+    "app-shell" +
+    (sidebarCollapsed ? " sidebar-collapsed" : "") +
+    (chatWidth.collapsed ? " chat-collapsed" : "");
+
   return (
-    <div className={`app-shell rail-${railState}`}>
+    <div className={shellClass}>
       <TitleBar
         title={t(language, "app.title")}
         labels={{
