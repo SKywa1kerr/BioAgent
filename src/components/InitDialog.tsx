@@ -1,8 +1,10 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { FlaskConical } from "lucide-react";
+import { Atom } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentSettings } from "../lib/settingsStorage";
+import { applyProviderSwitch, getProvider, type ProviderId } from "../lib/providers";
 import { t, type AppLanguage } from "../i18n";
+import { ProviderSelect } from "./InitDialog/ProviderSelect";
 import "./InitDialog.css";
 
 interface InitDialogProps {
@@ -23,13 +25,22 @@ export function InitDialog({
   onSubmit,
 }: InitDialogProps): JSX.Element | null {
   const [settings, setSettings] = useState(initialSettings);
+  const [showCustomBaseUrlHint, setShowCustomBaseUrlHint] = useState(false);
   const apiKeyRef = useRef<HTMLInputElement | null>(null);
+  const baseUrlRef = useRef<HTMLInputElement | null>(null);
   const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (open) {
       setSettings(initialSettings);
-      const id = window.setTimeout(() => apiKeyRef.current?.focus(), 80);
+      setShowCustomBaseUrlHint(false);
+      const id = window.setTimeout(() => {
+        if (getProvider(initialSettings.provider).requiresApiKey) {
+          apiKeyRef.current?.focus();
+        } else {
+          baseUrlRef.current?.focus();
+        }
+      }, 80);
       return () => window.clearTimeout(id);
     }
     return undefined;
@@ -37,7 +48,24 @@ export function InitDialog({
 
   if (!open) return null;
 
-  const canSubmit = settings.llmApiKey.trim().length > 0 && !isInitializing;
+  const provider = getProvider(settings.provider);
+  const canSubmit =
+    (provider.requiresApiKey ? settings.llmApiKey.trim().length > 0 : true) &&
+    settings.llmBaseUrl.trim().length > 0 &&
+    !isInitializing;
+
+  function handleProviderChange(nextId: ProviderId) {
+    setSettings((prev) => {
+      const r = applyProviderSwitch({
+        fromId: prev.provider,
+        toId: nextId,
+        currentBaseUrl: prev.llmBaseUrl,
+        currentModel: prev.llmModel,
+      });
+      setShowCustomBaseUrlHint(r.baseUrlIsCustom);
+      return { ...prev, provider: nextId, llmBaseUrl: r.baseUrl, llmModel: r.model };
+    });
+  }
 
   return (
     <div className="init-dialog-scrim" role="dialog" aria-modal="true" aria-labelledby="init-title">
@@ -48,10 +76,12 @@ export function InitDialog({
         transition={{ duration: 0.18, ease: [0.2, 0.7, 0.2, 1] }}
       >
         <div className="init-dialog-icon" aria-hidden="true">
-          <FlaskConical size={26} strokeWidth={1.5} />
+          <Atom size={26} strokeWidth={1.6} />
         </div>
 
-        <h1 id="init-title" className="init-dialog-title">{t(language, "init.title")}</h1>
+        <h1 id="init-title" className="init-dialog-title">
+          {t(language, "init.title")}
+        </h1>
         <p className="init-dialog-subtitle">{t(language, "init.subtitle")}</p>
 
         <form
@@ -61,28 +91,43 @@ export function InitDialog({
             if (canSubmit) onSubmit(settings);
           }}
         >
-          <label className="init-dialog-field">
-            <span className="init-dialog-field-label">{t(language, "app.field.apiKey")}</span>
-            <input
-              ref={apiKeyRef}
-              type="password"
-              value={settings.llmApiKey}
-              onChange={(event) => setSettings((prev) => ({ ...prev, llmApiKey: event.target.value }))}
-              placeholder="sk-..."
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
+          <ProviderSelect
+            value={settings.provider}
+            language={language}
+            onChange={handleProviderChange}
+          />
+
+          {provider.requiresApiKey ? (
+            <label className="init-dialog-field">
+              <span className="init-dialog-field-label">{t(language, "app.field.apiKey")}</span>
+              <input
+                ref={apiKeyRef}
+                type="password"
+                value={settings.llmApiKey}
+                onChange={(event) => setSettings((prev) => ({ ...prev, llmApiKey: event.target.value }))}
+                placeholder="sk-..."
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </label>
+          ) : null}
 
           <label className="init-dialog-field">
             <span className="init-dialog-field-label">{t(language, "app.field.baseUrl")}</span>
             <input
+              ref={baseUrlRef}
               type="text"
               value={settings.llmBaseUrl}
               onChange={(event) => setSettings((prev) => ({ ...prev, llmBaseUrl: event.target.value }))}
-              placeholder="https://models.sjtu.edu.cn/api/v1"
+              placeholder={provider.defaultBaseUrl || "https://your-proxy.example/v1"}
               spellCheck={false}
             />
+            {provider.noteI18nKey ? (
+              <p className="init-dialog-hint">{t(language, provider.noteI18nKey)}</p>
+            ) : null}
+            {showCustomBaseUrlHint ? (
+              <p className="init-dialog-hint">{t(language, "provider.switchHint.customBaseUrl")}</p>
+            ) : null}
           </label>
 
           <label className="init-dialog-field">
@@ -91,9 +136,17 @@ export function InitDialog({
               type="text"
               value={settings.llmModel}
               onChange={(event) => setSettings((prev) => ({ ...prev, llmModel: event.target.value }))}
-              placeholder="deepseek-chat"
+              placeholder={provider.suggestedModels[0] ?? "model-id"}
               spellCheck={false}
+              list={`init-dialog-model-suggest-${provider.id}`}
             />
+            {provider.suggestedModels.length > 0 ? (
+              <datalist id={`init-dialog-model-suggest-${provider.id}`}>
+                {provider.suggestedModels.map((m) => (
+                  <option key={m} value={m} />
+                ))}
+              </datalist>
+            ) : null}
           </label>
 
           <button type="submit" className="init-dialog-submit" disabled={!canSubmit}>
@@ -102,7 +155,11 @@ export function InitDialog({
         </form>
 
         <p className="init-dialog-helper">{t(language, "init.helper")}</p>
-        {statusMessage ? <p className="init-dialog-status" role="status">{statusMessage}</p> : null}
+        {statusMessage ? (
+          <p className="init-dialog-status" role="status">
+            {statusMessage}
+          </p>
+        ) : null}
       </motion.div>
     </div>
   );

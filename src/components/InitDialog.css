@@ -1,5 +1,4 @@
-/* InitDialog — premium modal for first-launch agent setup. Centered card
-   on a backdrop-filter scrim, macOS-style fields, full-width primary CTA. */
+/* InitDialog — warm card on a soft cocoa scrim. Tokens-only, no raw hex. */
 
 .init-dialog-scrim {
   position: fixed;
@@ -9,23 +8,20 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-8);
-  background: rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  background: rgba(20, 17, 13, 0.45);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
 }
 
 .init-dialog-card {
   width: 100%;
   max-width: 480px;
   padding: var(--space-10) var(--space-10) var(--space-8);
-  border: 1px solid var(--color-border-default);
-  border-radius: 18px;
-  background: var(--color-surface);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.06) inset,
-    0 24px 60px rgba(0, 0, 0, 0.48),
-    0 4px 12px rgba(0, 0, 0, 0.30);
-  color: var(--color-text-main);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: var(--shadow-elevated);
+  color: var(--text-main);
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
@@ -34,12 +30,12 @@
 .init-dialog-icon {
   width: 48px;
   height: 48px;
-  border-radius: 14px;
+  border-radius: 12px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .init-dialog-title {
@@ -47,17 +43,16 @@
   font-family: var(--font-display);
   font-size: 28px;
   font-weight: 400;
-  font-variation-settings: "opsz" 28, "wght" 400, "SOFT" 50;
   letter-spacing: -0.02em;
   line-height: 1.1;
-  color: var(--color-text-main);
+  color: var(--text-main);
 }
 
 .init-dialog-subtitle {
   margin: 0;
   font-size: 14px;
   line-height: 1.55;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
 }
 
 .init-dialog-form {
@@ -79,40 +74,64 @@
   font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
 }
 
-.init-dialog-field input {
+.init-dialog-field input,
+.init-dialog-select {
   width: 100%;
   height: 38px;
   padding: 0 12px;
-  border: 1px solid var(--color-border-default);
-  border-radius: 8px;
-  background: var(--color-bg-app);
-  color: var(--color-text-main);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--bg-app);
+  color: var(--text-main);
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.4;
   transition: border-color var(--duration-base) var(--easing-standard),
               box-shadow var(--duration-base) var(--easing-standard);
 }
 
-.init-dialog-field input::placeholder {
-  color: var(--color-text-subtle);
+.init-dialog-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-subtle) 50%),
+    linear-gradient(135deg, var(--text-subtle) 50%, transparent 50%);
+  background-position:
+    calc(100% - 14px) 50%,
+    calc(100% - 9px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+  cursor: pointer;
 }
 
-.init-dialog-field input:focus-visible {
+.init-dialog-field input::placeholder {
+  color: var(--text-subtle);
+}
+
+.init-dialog-field input:focus-visible,
+.init-dialog-select:focus-visible {
   outline: none;
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.init-dialog-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--text-subtle);
 }
 
 .init-dialog-submit {
   margin-top: var(--space-3);
   height: 40px;
   border: 0;
-  border-radius: 8px;
-  background: var(--color-accent);
+  border-radius: 10px;
+  background: var(--accent);
   color: #ffffff;
   font-family: var(--font-ui);
   font-size: 14px;
@@ -124,7 +143,7 @@
 }
 
 .init-dialog-submit:hover:not(:disabled) {
-  background: var(--color-accent-hover);
+  background: var(--accent-hover);
 }
 
 .init-dialog-submit:active:not(:disabled) {
@@ -140,17 +159,17 @@
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--color-text-subtle);
+  color: var(--text-subtle);
   text-align: center;
 }
 
 .init-dialog-status {
   margin: 0;
   padding: 10px 12px;
-  border: 1px solid var(--color-border-default);
+  border: 1px solid var(--border-default);
   border-radius: 8px;
-  background: rgba(0, 0, 0, 0.20);
-  color: var(--color-text-muted);
+  background: var(--bg-app);
+  color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.5;
@@ -160,7 +179,7 @@
 @media (max-width: 540px) {
   .init-dialog-card {
     padding: var(--space-8) var(--space-6) var(--space-6);
-    border-radius: 14px;
+    border-radius: 12px;
   }
 
   .init-dialog-title {

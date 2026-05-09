@@ -289,5 +289,17 @@
   "dropzone.toast.success": "Analysed {count} sample(s)",
   "dropzone.toast.error": "Import failed: {message}",
   "dropzone.toast.unpaired": "{ab1} .ab1 and {gb} .gb files unpaired",
-  "dropzone.error.noPairs": "No matching .ab1/.gb file pairs found"
+  "dropzone.error.noPairs": "No matching .ab1/.gb file pairs found",
+  "provider.label": "Model provider",
+  "provider.anthropic.proxyRequired": "Anthropic native endpoint requires an OpenAI-compatible proxy (e.g. LiteLLM).",
+  "provider.switchHint.customBaseUrl": "Kept your custom baseURL after switching provider — please verify.",
+  "provider.switchHint.apiKey": "After switching provider, please confirm the API Key still applies.",
+  "sidebar.recent": "Recent",
+  "sidebar.recent.empty": "No history",
+  "sidebar.datasets": "Datasets",
+  "sidebar.datasets.empty": "Not imported",
+  "sidebar.panels": "Panels",
+  "sidebar.settings": "Settings",
+  "splitter.collapseChat": "Collapse chat",
+  "splitter.expandChat": "Expand chat"
 }

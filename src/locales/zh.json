@@ -289,5 +289,17 @@
   "dropzone.toast.success": "已分析 {count} 个样本",
   "dropzone.toast.error": "导入失败：{message}",
   "dropzone.toast.unpaired": "{ab1} 个 .ab1 与 {gb} 个 .gb 未配对",
-  "dropzone.error.noPairs": "未找到匹配的 .ab1/.gb 文件对"
+  "dropzone.error.noPairs": "未找到匹配的 .ab1/.gb 文件对",
+  "provider.label": "模型厂家",
+  "provider.anthropic.proxyRequired": "Anthropic 官方端点需经 OpenAI 兼容代理（如 LiteLLM）使用。",
+  "provider.switchHint.customBaseUrl": "保留你的自定义 baseURL，已切换厂家后请确认。",
+  "provider.switchHint.apiKey": "切换厂家后建议确认 API Key 仍可用。",
+  "sidebar.recent": "最近会话",
+  "sidebar.recent.empty": "暂无历史",
+  "sidebar.datasets": "数据集",
+  "sidebar.datasets.empty": "尚未导入",
+  "sidebar.panels": "面板",
+  "sidebar.settings": "设置",
+  "splitter.collapseChat": "折叠对话",
+  "splitter.expandChat": "展开对话"
 }
