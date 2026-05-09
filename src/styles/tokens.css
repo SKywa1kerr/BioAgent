@@ -1,5 +1,7 @@
 /* Design tokens — single source of truth for color, spacing, radius, shadow.
-   Component CSS should reference these tokens, never raw hex / rgba. */
+   Component CSS should reference these tokens, never raw hex / rgba.
+
+   Theme: Subtle Warm — Claude Desktop inspired. */
 
 :root {
   color-scheme: light;
@@ -9,7 +11,7 @@
              "Microsoft YaHei", system-ui, -apple-system, sans-serif;
   --font-mono: "JetBrains Mono", "JetBrains Mono Variable",
                "SF Mono", Menlo, Consolas, monospace;
-  --font-display: "Fraunces Variable", "Fraunces", "Source Serif Pro",
+  --font-display: "Source Serif Pro", "Source Serif",
                   "PingFang SC", "Noto Serif SC", "Microsoft YaHei",
                   Georgia, serif;
   --font-size-xs: 11px;
@@ -18,11 +20,12 @@
   --font-size-lg: 15px;
   --font-size-xl: 18px;
   --font-size-2xl: 22px;
+  --font-size-3xl: 28px;
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --line-height-tight: 1.25;
-  --line-height-normal: 1.5;
+  --line-height-normal: 1.6;
 
   /* ── Spacing scale (4px base) ──────────────────────────────── */
   --space-1: 4px;
@@ -44,46 +47,51 @@
   --radius-xl: 20px;
   --radius-pill: 999px;
 
-  /* ── Light palette (foundation) — macOS system light ────────── */
-  --color-bg-app: #f2f2f7;
-  --color-text-main: #000000;
-  --color-text-muted: rgba(60, 60, 67, 0.60);
-  --color-text-subtle: rgba(60, 60, 67, 0.30);
+  /* ── Light palette — Subtle Warm ──────────────────────────── */
+  --bg-app: #faf8f3;
+  --bg-sidebar: #f3f0e8;
+  --bg-canvas: #fcfaf6;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-overlay: rgba(255, 255, 255, 0.86);
 
-  --color-surface: #ffffff;
-  --color-surface-raised: #ffffff;
-  --color-surface-overlay: rgba(255, 255, 255, 0.78);
-  --color-border-soft: rgba(60, 60, 67, 0.06);
-  --color-border-default: rgba(60, 60, 67, 0.12);
-  --color-border-strong: rgba(60, 60, 67, 0.24);
+  --text-main: #1c1a17;
+  --text-muted: #5a544c;
+  --text-subtle: #908a80;
+  --text-faint: #b1a99c;
 
-  --color-accent: #007aff;
-  --color-accent-hover: #006ae0;
-  --color-accent-soft: rgba(0, 122, 255, 0.10);
-  --color-accent-secondary: #5856d6;
+  --border-soft: #ece6dd;
+  --border-default: #e8e3d8;
+  --border-strong: #d3ccbd;
 
-  --color-status-ok: #34c759;
-  --color-status-wrong: #ff3b30;
-  --color-status-uncertain: #ff9500;
-  --color-status-untested: rgba(60, 60, 67, 0.45);
+  --accent: #d97757;
+  --accent-hover: #c0623e;
+  --accent-soft: rgba(217, 119, 87, 0.10);
+  --accent-secondary: #b08560;
 
-  --color-mutation-sub: #2c7fb8;
+  --status-ok: #4a6a30;
+  --status-warn: #8a5a18;
+  --status-error: #a04d29;
+  --status-untested: #908a80;
+
+  /* Mutation colors (kept semantic, slight warm shift) */
+  --color-mutation-sub: #2f5fb8;
   --color-mutation-ins: #6f42c1;
   --color-mutation-del: #a04050;
   --color-mutation-frameshift: #c5453e;
-  --color-mutation-synonymous: #8a93a6;
+  --color-mutation-synonymous: #8a8377;
 
-  /* Trace colors used by chromatogram canvas (light) */
-  --color-trace-a: #16a34a;
-  --color-trace-t: #dc2626;
-  --color-trace-g: #b45309;
-  --color-trace-c: #2563eb;
+  /* Trace colors used by chromatogram canvas (light, slightly warm) */
+  --color-trace-a: #4d8a3e;
+  --color-trace-t: #c44a3c;
+  --color-trace-g: #b07021;
+  --color-trace-c: #2f5fb8;
 
-  /* ── Shadows ────────────────────────────────────────────────── */
-  --shadow-sm: 0 1px 2px rgba(15, 29, 46, 0.06);
-  --shadow-md: 0 4px 12px rgba(15, 29, 46, 0.08);
-  --shadow-lg: 0 12px 32px rgba(15, 29, 46, 0.12);
-  --shadow-elevated: 0 20px 48px rgba(15, 29, 46, 0.18);
+  /* ── Shadows (soft warm) ───────────────────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(28, 26, 23, 0.04);
+  --shadow-md: 0 4px 12px rgba(28, 26, 23, 0.06);
+  --shadow-lg: 0 12px 32px rgba(28, 26, 23, 0.10);
+  --shadow-elevated: 0 20px 48px rgba(28, 26, 23, 0.16);
 
   /* ── Motion ─────────────────────────────────────────────────── */
   --duration-fast: 80ms;
@@ -92,133 +100,173 @@
   --easing-standard: cubic-bezier(0.2, 0.7, 0.2, 1);
   --easing-emphasis: cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* ── Backwards-compat aliases (keep older CSS working) ────── */
-  --bg-app: var(--color-bg-app);
-  --text-main: var(--color-text-main);
-  --text-muted: var(--color-text-muted);
-  --panel-bg: var(--color-surface-raised);
-  --panel-border: var(--color-border-default);
+  /* ── Backwards-compat aliases (older CSS still works) ──────── */
+  --color-bg-app: var(--bg-app);
+  --color-text-main: var(--text-main);
+  --color-text-muted: var(--text-muted);
+  --color-text-subtle: var(--text-subtle);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-border-soft: var(--border-soft);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-secondary: var(--accent-secondary);
+  --color-status-ok: var(--status-ok);
+  --color-status-wrong: var(--status-error);
+  --color-status-uncertain: var(--status-warn);
+  --color-status-untested: var(--status-untested);
+  --status-wrong: var(--status-error);
+  --status-uncertain: var(--status-warn);
+
+  --panel-bg: var(--surface);
+  --panel-border: var(--border-default);
   --panel-shadow: var(--shadow-md);
-  --title-border: var(--color-border-soft);
-  --message-user-bg: linear-gradient(135deg, var(--color-accent-secondary), var(--color-accent));
-  --message-user-text: #ffffff;
-  --message-assistant-bg: #f3f7fc;
-  --message-assistant-border: rgba(35, 99, 161, 0.18);
-  --message-assistant-text: var(--color-text-main);
-  --composer-bg: #ffffff;
-  --composer-border: var(--color-border-strong);
-  --composer-text: var(--color-text-main);
-  --button-bg: linear-gradient(135deg, var(--color-accent-secondary), var(--color-accent));
+  --title-border: var(--border-soft);
+
+  --message-user-bg: var(--accent-soft);
+  --message-user-text: var(--text-main);
+  --message-assistant-bg: var(--surface);
+  --message-assistant-border: var(--border-soft);
+  --message-assistant-text: var(--text-main);
+
+  --composer-bg: var(--surface);
+  --composer-border: var(--border-default);
+  --composer-text: var(--text-main);
+
+  --button-bg: var(--accent);
   --button-text: #ffffff;
-  --card-bg: var(--color-surface);
-  --card-border: var(--color-border-default);
-  --progress-track: rgba(15, 29, 46, 0.12);
-  --progress-fill: linear-gradient(90deg, #4f7cff, #6fb1ff);
+
+  --card-bg: var(--surface);
+  --card-border: var(--border-default);
+
+  --progress-track: rgba(28, 26, 23, 0.08);
+  --progress-fill: linear-gradient(90deg, var(--accent), var(--accent-hover));
+
   --compact-bg: rgba(255, 255, 255, 0.92);
-  --compact-border: var(--color-border-soft);
-  --compact-label: #2a425d;
-  --chart-axis-color: #5f7ea3;
-  --chart-grid-color: var(--color-border-default);
-  --chart-primary-color: #4f7cff;
-  --status-ok: var(--color-status-ok);
-  --status-wrong: var(--color-status-wrong);
-  --status-uncertain: var(--color-status-uncertain);
-  --status-untested: var(--color-status-untested);
+  --compact-border: var(--border-soft);
+  --compact-label: var(--text-muted);
+
+  --chart-axis-color: var(--text-subtle);
+  --chart-grid-color: var(--border-default);
+  --chart-primary-color: var(--accent);
+
   --mutation-sub: var(--color-mutation-sub);
   --mutation-ins: var(--color-mutation-ins);
   --mutation-del: var(--color-mutation-del);
   --mutation-frameshift: var(--color-mutation-frameshift);
   --mutation-synonymous: var(--color-mutation-synonymous);
-  --accent-primary: var(--color-accent);
-  --accent-secondary: var(--color-accent-secondary);
+
+  --accent-primary: var(--accent);
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* macOS system dark — cool charcoal with system blue accent.
-     Background gets two faint radial highlights (indigo top-right,
-     system-blue bottom-left) so the surface picks up vibrancy without
-     reading as warm or beige. */
-  --color-bg-app:
-    radial-gradient(80% 60% at 92% -10%, rgba(94, 92, 230, 0.07) 0%, transparent 55%),
-    radial-gradient(70% 60% at 0% 110%, rgba(10, 132, 255, 0.04) 0%, transparent 55%),
-    #1c1c1e;
-  --color-text-main: #ffffff;
-  --color-text-muted: rgba(235, 235, 245, 0.60);
-  --color-text-subtle: rgba(235, 235, 245, 0.30);
+  /* Dark palette — Warm cocoa, no blue cast */
+  --bg-app: #1a1815;
+  --bg-sidebar: #131210;
+  --bg-canvas: #1f1c19;
+  --surface: #211e1a;
+  --surface-raised: #26221d;
+  --surface-overlay: rgba(33, 30, 26, 0.85);
 
-  --color-surface: #2c2c2e;
-  --color-surface-raised: #2c2c2e;
-  --color-surface-overlay: rgba(44, 44, 46, 0.72);
-  --color-border-soft: rgba(255, 255, 255, 0.06);
-  --color-border-default: rgba(84, 84, 88, 0.65);
-  --color-border-strong: rgba(255, 255, 255, 0.20);
+  --text-main: #f0ece5;
+  --text-muted: #908a80;
+  --text-subtle: #6a6357;
+  --text-faint: #4a453d;
 
-  --color-accent: #0a84ff;
-  --color-accent-hover: #399cff;
-  --color-accent-soft: rgba(10, 132, 255, 0.16);
-  --color-accent-secondary: #5e5ce6;
+  --border-soft: #26231e;
+  --border-default: #2e2a24;
+  --border-strong: #3f3a32;
 
-  --color-status-ok: #30d158;
-  --color-status-wrong: #ff453a;
-  --color-status-uncertain: #ff9f0a;
-  --color-status-untested: rgba(235, 235, 245, 0.45);
+  --accent: #d97757;
+  --accent-hover: #e08e6f;
+  --accent-soft: rgba(217, 119, 87, 0.16);
+  --accent-secondary: #b08560;
+
+  --status-ok: #a3c180;
+  --status-warn: #d9a86a;
+  --status-error: #e2a07a;
+  --status-untested: #6a6357;
 
   --color-mutation-sub: #6f9bff;
-  --color-mutation-ins: #a07bf5;
-  --color-mutation-del: #ff7688;
-  --color-mutation-frameshift: #ff8177;
-  --color-mutation-synonymous: #9eb1d8;
+  --color-mutation-ins: #b793f0;
+  --color-mutation-del: #ff8a92;
+  --color-mutation-frameshift: #ff9a82;
+  --color-mutation-synonymous: #908a80;
 
   --color-trace-a: #4ade80;
   --color-trace-t: #f87171;
   --color-trace-g: #fbbf24;
   --color-trace-c: #60a5fa;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
   --shadow-elevated: 0 20px 48px rgba(0, 0, 0, 0.7);
 
-  /* Backwards-compat aliases (refreshed for dark) */
-  --message-assistant-bg: #18253f;
-  --message-assistant-border: rgba(111, 177, 255, 0.16);
-  --composer-bg: #0c1224;
-  --card-bg: rgba(255, 255, 255, 0.04);
-  --progress-track: rgba(255, 255, 255, 0.1);
-  --progress-fill: linear-gradient(90deg, #5b80ff, #6fb1ff);
-  --compact-bg: rgba(15, 23, 42, 0.82);
-  --compact-border: rgba(148, 163, 184, 0.22);
-  --compact-label: #d7e4ff;
-  --chart-axis-color: #9fb5ff;
-  --chart-grid-color: rgba(255, 255, 255, 0.1);
-  --chart-primary-color: #6f9bff;
+  /* Dark backwards-compat refresh */
+  --message-user-bg: var(--accent-soft);
+  --message-user-text: var(--text-main);
+  --message-assistant-bg: var(--surface);
+  --message-assistant-border: var(--border-soft);
+  --composer-bg: var(--surface);
+  --card-bg: var(--surface);
+  --progress-track: rgba(255, 255, 255, 0.08);
+  --progress-fill: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  --compact-bg: rgba(33, 30, 26, 0.85);
+  --compact-border: var(--border-soft);
+  --compact-label: var(--text-muted);
+  --chart-axis-color: var(--text-subtle);
+  --chart-grid-color: var(--border-default);
+  --chart-primary-color: var(--accent);
 }
 
 :root[data-theme="hc"] {
   color-scheme: dark;
 
+  --bg-app: #000000;
   --color-bg-app: #000000;
+  --text-main: #ffffff;
   --color-text-main: #ffffff;
+  --text-muted: #d4d4d4;
   --color-text-muted: #d4d4d4;
+  --text-subtle: #a3a3a3;
   --color-text-subtle: #a3a3a3;
 
+  --surface: #0a0a0a;
   --color-surface: #0a0a0a;
+  --surface-raised: #111111;
   --color-surface-raised: #111111;
+  --surface-overlay: #050505;
   --color-surface-overlay: #050505;
+  --border-soft: #ffffff;
   --color-border-soft: #ffffff;
+  --border-default: #ffffff;
   --color-border-default: #ffffff;
+  --border-strong: #ffffff;
   --color-border-strong: #ffffff;
 
+  --accent: #66ccff;
   --color-accent: #66ccff;
+  --accent-hover: #99ddff;
   --color-accent-hover: #99ddff;
+  --accent-soft: rgba(102, 204, 255, 0.2);
   --color-accent-soft: rgba(102, 204, 255, 0.2);
+  --accent-secondary: #66ff99;
   --color-accent-secondary: #66ff99;
 
+  --status-ok: #4ade80;
   --color-status-ok: #4ade80;
+  --status-error: #ff5577;
   --color-status-wrong: #ff5577;
+  --status-warn: #ffcc33;
   --color-status-uncertain: #ffcc33;
+  --status-untested: #cccccc;
   --color-status-untested: #cccccc;
 
   --shadow-sm: 0 0 0 1px #ffffff;
