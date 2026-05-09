@@ -166,13 +166,17 @@ interface PanelButtonProps {
 }
 
 function PanelButton({ label, icon, active, disabled, onClick }: PanelButtonProps): JSX.Element {
+  // Clicking always switches the active tab — even with no cache, the canvas
+  // will fall back to the "Ready" empty state which gives clear feedback.
+  // The disabled flag dims the row to indicate "no data yet" without locking
+  // the click out, since the original gate (cache!=null) isn't a hard rule
+  // for navigation.
   return (
     <button
       type="button"
       className={`${styles.row}${active ? ` ${styles.active}` : ""}`}
-      disabled={disabled}
       onClick={onClick}
-      style={disabled ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
+      style={disabled && !active ? { opacity: 0.55 } : undefined}
     >
       {icon}
       <span className={styles.rowMain}>{label}</span>

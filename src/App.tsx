@@ -589,6 +589,9 @@ export function App() {
         onSave={handleSettingsSave}
         currentSettings={settings}
         language={language}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onToggleLanguage={toggleLanguage}
       />
 
       <CommandPalette

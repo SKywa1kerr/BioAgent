@@ -175,7 +175,7 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={identityBins} margin={{ top: 8, right: 8, bottom: 0, left: 8 }} >
                 <CartesianGrid stroke="var(--results-grid)" strokeDasharray="0" vertical={false} />
-                <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 10, fontFamily: "var(--font-display)" }} angle={-35} textAnchor="end" height={56} />
+                <XAxis dataKey="label" interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 10, fontFamily: "var(--font-display)" }} angle={-25} textAnchor="end" height={48} />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11, fontFamily: "var(--font-display)" }} />
                 <Tooltip />
                 <Bar dataKey="ok" stackId="status" fill={palette.ok} name={t(language, "wb.status.ok")} isAnimationActive={false} />
@@ -192,7 +192,7 @@ export function ResultsCharts({ samples, language }: { samples: WorkbenchSample[
             <ResponsiveContainer width="100%" height={180}>
               <BarChart data={coverageBins} margin={{ top: 8, right: 8, bottom: 0, left: 8 }} >
                 <CartesianGrid stroke="var(--results-grid)" strokeDasharray="0" vertical={false} />
-                <XAxis dataKey="label" interval={0} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 10, fontFamily: "var(--font-display)" }} angle={-35} textAnchor="end" height={56} />
+                <XAxis dataKey="label" interval="preserveStartEnd" tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 10, fontFamily: "var(--font-display)" }} angle={-25} textAnchor="end" height={48} />
                 <YAxis allowDecimals={false} tickLine={false} axisLine={{ stroke: "var(--results-axis)" }} tick={{ fill: "var(--results-axis)", fontSize: 11, fontFamily: "var(--font-display)" }} />
                 <Tooltip />
                 <Bar dataKey="ok" stackId="status" fill={palette.ok} name={t(language, "wb.status.ok")} isAnimationActive={false} />

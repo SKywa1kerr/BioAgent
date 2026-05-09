@@ -206,16 +206,18 @@ body,
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
 }
 
 .canvas-body {
   flex: 1;
   overflow: auto;
   padding: 14px;
+  min-height: 0;
 }
 
 .canvas-motion {
-  height: 100%;
+  min-height: 100%;
 }
 
 .result-panel {
@@ -228,8 +230,6 @@ body,
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: 100%;
-  min-height: 0;
 }
 
 .analysis-summary-status {
@@ -538,6 +538,31 @@ body,
   justify-content: flex-end;
   gap: 10px;
   margin-top: 8px;
+}
+
+.settings-quick-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.settings-quick-btn {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-default);
+  background: var(--bg-app);
+  color: var(--text-main);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--easing-standard),
+              border-color var(--duration-fast) var(--easing-standard);
+}
+
+.settings-quick-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .status-line {

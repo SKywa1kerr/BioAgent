@@ -12,9 +12,14 @@ interface SettingsModalProps {
   onSave: (settings: AgentSettings) => void;
   currentSettings: AgentSettings;
   language: AppLanguage;
+  theme: "light" | "dark";
+  onToggleTheme: () => void;
+  onToggleLanguage: () => void;
 }
 
-export function SettingsModal({ open, onClose, onSave, currentSettings, language }: SettingsModalProps) {
+export function SettingsModal({
+  open, onClose, onSave, currentSettings, language, theme, onToggleTheme, onToggleLanguage,
+}: SettingsModalProps) {
   const [draft, setDraft] = useState<AgentSettings>(currentSettings);
   const [showCustomBaseUrlHint, setShowCustomBaseUrlHint] = useState(false);
   const [showApiKeyHint, setShowApiKeyHint] = useState(false);
@@ -134,6 +139,26 @@ export function SettingsModal({ open, onClose, onSave, currentSettings, language
               max={8192}
             />
           </label>
+
+          <div className="settings-quick-row">
+            <button
+              type="button"
+              className="settings-quick-btn"
+              onClick={onToggleTheme}
+              title={theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")}
+            >
+              {theme === "dark" ? "☼ " : "☾ "}
+              {theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")}
+            </button>
+            <button
+              type="button"
+              className="settings-quick-btn"
+              onClick={onToggleLanguage}
+              title={t(language, "app.lang")}
+            >
+              {language === "zh" ? "中 → EN" : "EN → 中"}
+            </button>
+          </div>
 
           <div className="settings-actions">
             <button type="button" className="ghost-button" onClick={onClose}>
