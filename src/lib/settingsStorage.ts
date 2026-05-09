@@ -1,7 +1,10 @@
 // src/lib/settingsStorage.ts
+import { inferProviderFromBaseUrl, type ProviderId } from "./providers";
+
 const STORAGE_KEY = "bioagent-settings";
 
 export interface AgentSettings {
+  provider: ProviderId;
   llmApiKey: string;
   llmBaseUrl: string;
   llmModel: string;
@@ -9,20 +12,39 @@ export interface AgentSettings {
 }
 
 const DEFAULTS: AgentSettings = {
+  provider: "sjtu",
   llmApiKey: "",
   llmBaseUrl: "https://models.sjtu.edu.cn/api/v1",
   llmModel: "deepseek-chat",
   maxTokens: 2400,
 };
 
+const ALLOWED_PROVIDERS: readonly ProviderId[] = [
+  "openai",
+  "anthropic",
+  "deepseek",
+  "sjtu",
+  "ollama",
+  "custom",
+];
+
+function coerceProvider(raw: unknown, baseUrl: string): ProviderId {
+  if (typeof raw === "string" && (ALLOWED_PROVIDERS as readonly string[]).includes(raw)) {
+    return raw as ProviderId;
+  }
+  return inferProviderFromBaseUrl(baseUrl);
+}
+
 export function loadSettings(): AgentSettings {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return { ...DEFAULTS };
     const parsed = JSON.parse(raw);
+    const llmBaseUrl = typeof parsed.u === "string" ? parsed.u : DEFAULTS.llmBaseUrl;
     return {
+      provider: coerceProvider(parsed.p, llmBaseUrl),
       llmApiKey: typeof parsed.k === "string" ? atob(parsed.k) : DEFAULTS.llmApiKey,
-      llmBaseUrl: typeof parsed.u === "string" ? parsed.u : DEFAULTS.llmBaseUrl,
+      llmBaseUrl,
       llmModel: typeof parsed.m === "string" ? parsed.m : DEFAULTS.llmModel,
       maxTokens: typeof parsed.t === "number" ? parsed.t : DEFAULTS.maxTokens,
     };
@@ -36,6 +58,7 @@ export function saveSettings(settings: AgentSettings): void {
     window.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
+        p: settings.provider,
         k: btoa(settings.llmApiKey),
         u: settings.llmBaseUrl,
         m: settings.llmModel,

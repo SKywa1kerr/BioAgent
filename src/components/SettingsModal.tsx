@@ -20,7 +20,7 @@ export function SettingsModal({ open, onClose, onSave, currentSettings, language
   if (!open) return null;
 
   function handleSave() {
-    onSave({ llmApiKey: apiKey, llmBaseUrl: baseUrl, llmModel: model, maxTokens });
+    onSave({ provider: currentSettings.provider, llmApiKey: apiKey, llmBaseUrl: baseUrl, llmModel: model, maxTokens });
   }
 
   return (
