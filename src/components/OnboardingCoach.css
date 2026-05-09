@@ -5,11 +5,12 @@
   z-index: 45;
   width: 320px;
   padding: 14px 16px;
-  background: var(--results-panel-bg, #fff);
-  color: var(--results-panel-text, #0f172a);
-  border: 1px solid var(--results-panel-border, rgba(0, 0, 0, 0.08));
-  border-radius: 12px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  background: var(--surface);
+  color: var(--text-main);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  font-family: var(--font-ui);
   animation: onboarding-pop 180ms ease-out;
 }
 
@@ -26,34 +27,41 @@
 }
 
 .onboarding-coach-step {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   padding: 2px 8px;
-  background: var(--results-primary-soft, rgba(31, 120, 193, 0.14));
-  color: var(--results-primary, #1f78c1);
+  background: var(--accent-soft);
+  color: var(--accent);
   border-radius: 999px;
 }
 
 .onboarding-coach-close {
   border: none;
   background: transparent;
-  color: inherit;
+  color: var(--text-subtle);
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
 }
 
+.onboarding-coach-close:hover {
+  color: var(--text-main);
+}
+
 .onboarding-coach-title {
   margin: 4px 0 6px;
+  font-family: var(--font-display);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 400;
+  color: var(--text-main);
 }
 
 .onboarding-coach-body {
   margin: 0 0 10px;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--results-panel-muted, #5f7287);
+  color: var(--text-muted);
 }
 
 .onboarding-coach-foot {
@@ -65,18 +73,26 @@
 .onboarding-coach-skip {
   border: none;
   background: transparent;
-  color: var(--results-panel-muted, #64748b);
+  color: var(--text-subtle);
   cursor: pointer;
   font-size: 12px;
+}
+
+.onboarding-coach-skip:hover {
+  color: var(--text-main);
 }
 
 .onboarding-coach-next {
   padding: 6px 14px;
   border-radius: 999px;
   border: none;
-  background: var(--results-primary, #1f78c1);
+  background: var(--accent);
   color: #fff;
   cursor: pointer;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
+}
+
+.onboarding-coach-next:hover {
+  background: var(--accent-hover);
 }

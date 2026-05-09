@@ -1,7 +1,9 @@
 .shortcuts-scrim {
   position: fixed;
   inset: 0;
-  background: rgba(10, 15, 25, 0.4);
+  background: rgba(20, 17, 13, 0.45);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -9,26 +11,29 @@
 }
 
 .shortcuts-overlay {
-  width: min(420px, 92vw);
-  background: var(--results-panel-bg, #fff);
-  color: var(--results-panel-text, #0f172a);
-  border: 1px solid var(--results-panel-border, rgba(0, 0, 0, 0.08));
-  border-radius: 12px;
-  padding: 16px 18px;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
+  width: min(440px, 92vw);
+  background: var(--surface);
+  color: var(--text-main);
+  border: 1px solid var(--border-default);
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow-elevated);
+  font-family: var(--font-ui);
 }
 
 .shortcuts-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .shortcuts-head h3 {
   margin: 0;
-  font-size: 15px;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-main);
 }
 
 .shortcuts-close {
@@ -36,7 +41,12 @@
   background: transparent;
   font-size: 18px;
   cursor: pointer;
-  color: inherit;
+  color: var(--text-subtle);
+  transition: color var(--duration-fast) var(--easing-standard);
+}
+
+.shortcuts-close:hover {
+  color: var(--text-main);
 }
 
 .shortcuts-list {
@@ -44,7 +54,7 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
 .shortcuts-list li {
@@ -52,13 +62,17 @@
   align-items: baseline;
   gap: 12px;
   font-size: 13px;
+  color: var(--text-muted);
 }
 
 .shortcuts-list kbd {
-  font-family: ui-monospace, Menlo, monospace;
-  background: var(--results-panel-subtle, rgba(148, 163, 184, 0.1));
+  font-family: var(--font-mono);
+  background: var(--bg-app);
+  color: var(--text-main);
   padding: 2px 8px;
   border-radius: 4px;
-  font-size: 11px;
+  border: 1px solid var(--border-soft);
+  font-size: 10px;
   min-width: 110px;
+  text-align: center;
 }
