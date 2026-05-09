@@ -64,15 +64,14 @@ body,
 }
 
 .panel-title {
-  padding: 14px 18px;
+  padding: 14px 22px 12px;
   font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 500;
-  font-variation-settings: "opsz" 17, "wght" 500, "SOFT" 50;
-  letter-spacing: -0.01em;
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   line-height: 1.2;
-  color: var(--color-text-main);
-  border-bottom: 1px solid var(--color-border-soft);
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-soft);
 }
 
 .panel-title-row {
@@ -288,15 +287,25 @@ body,
 .hero-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
+  padding: 16px 22px 0;
 }
 
-.hero-card,
+.hero-card {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .detail-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 14px;
-  padding: 18px;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 14px 22px 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .audience-card {
@@ -307,50 +316,52 @@ body,
   flex-direction: column;
   gap: var(--space-3);
   align-items: flex-start;
+  margin: 0;
+  box-shadow: none;
 }
 
 .audience-card h3 {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 400;
-  font-variation-settings: "opsz" 32, "wght" 400, "SOFT" 50;
   letter-spacing: -0.02em;
-  line-height: 1.1;
-  color: var(--color-text-main);
+  line-height: 1.15;
+  color: var(--text-main);
 }
 
 .audience-card p {
   margin: 0;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.6;
-  color: var(--color-text-muted);
+  color: var(--text-muted);
   max-width: 56ch;
 }
 
 .hero-label {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
+  color: var(--text-subtle);
+  font-family: var(--font-ui);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-top: 5px;
+  order: 2;
 }
 
 .hero-value {
-  font-family: var(--font-display);
-  font-size: 34px;
-  font-weight: 400;
-  font-variation-settings: "opsz" 34, "wght" 400, "SOFT" 50;
+  font-family: var(--font-ui);
+  font-size: 28px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums lining-nums;
   letter-spacing: -0.02em;
   line-height: 1;
+  color: var(--text-main);
+  order: 1;
 }
 
 .hero-value.small {
   font-size: 22px;
-  font-variation-settings: "opsz" 22, "wght" 400, "SOFT" 50;
 }
 
 .hero-subtitle {
@@ -360,8 +371,11 @@ body,
 }
 
 .detail-card h3 {
-  margin: 0 0 14px 0;
-  font-size: 16px;
+  margin: 0 0 10px 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-main);
 }
 
 .detail-card pre {
@@ -881,38 +895,38 @@ button:focus-visible {
 
 .panel-tab-bar {
   display: flex;
-  gap: 4px;
-  padding: 0 14px 10px;
-  border-bottom: 1px solid var(--panel-border);
-  margin-bottom: 10px;
+  gap: 2px;
+  padding: 6px 22px 10px;
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 0;
 }
 
 .panel-tab {
-  border: 1px solid transparent;
+  border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--text-muted);
-  padding: 6px 14px;
-  font-size: 13px;
-  font-weight: 700;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: background var(--duration-fast) var(--easing-standard),
+              color var(--duration-fast) var(--easing-standard);
 }
 
 .panel-tab:hover {
-  background: color-mix(in srgb, var(--card-bg) 72%, transparent);
+  background: var(--accent-soft);
   color: var(--text-main);
 }
 
 .panel-tab-active {
-  background: var(--button-bg);
-  color: var(--button-text);
-  border-color: transparent;
+  background: var(--text-main);
+  color: var(--bg-app);
 }
 
 .panel-tab-active:hover {
-  background: var(--button-bg);
-  color: var(--button-text);
+  background: var(--text-main);
+  color: var(--bg-app);
 }
 
 /* ── Global focus-visible audit (Round 3) ─────────────────────────── */
