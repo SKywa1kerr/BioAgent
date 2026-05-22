@@ -5,6 +5,7 @@ import {
   FlaskConical,
   History,
   Lightbulb,
+  Plus,
   Settings as SettingsIcon,
 } from "lucide-react";
 import { t, type AppLanguage } from "../../i18n";
@@ -12,9 +13,10 @@ import type { PanelType } from "../SmartCanvas";
 import type { HistoryItem } from "../../hooks/useAnalysisHistory";
 import styles from "./Sidebar.module.css";
 
-interface DatasetItem {
+export interface DatasetItem {
   id: string;
   label: string;
+  kind?: "builtin" | "user";
   count?: number;
 }
 
@@ -31,6 +33,8 @@ interface SidebarProps {
   onSelectHistory: (id: string) => void;
   onSelectTab: (tab: PanelType) => void;
   onOpenSettings: () => void;
+  onSelectDataset?: (name: string) => void;
+  onAddDataset?: () => void;
 }
 
 function formatRelative(iso: string | undefined, language: AppLanguage): string {
@@ -64,6 +68,8 @@ export function Sidebar({
   onSelectHistory,
   onSelectTab,
   onOpenSettings,
+  onSelectDataset,
+  onAddDataset,
 }: SidebarProps): JSX.Element {
   const recentSlice = useMemo(() => history.slice(0, 8), [history]);
 
@@ -98,18 +104,59 @@ export function Sidebar({
 
         <section className={styles.section} aria-labelledby="sidebar-datasets">
           <div className={styles.label} id="sidebar-datasets">
-            {t(language, "sidebar.datasets")}
+            <span>{t(language, "sidebar.datasets")}</span>
+            {onAddDataset ? (
+              <button
+                type="button"
+                className={styles.addBtn}
+                onClick={onAddDataset}
+                aria-label={t(language, "sidebar.datasets.add")}
+                title={t(language, "sidebar.datasets.add")}
+              >
+                <Plus size={12} aria-hidden="true" />
+              </button>
+            ) : null}
           </div>
           {datasets.length === 0 ? (
-            <div className={styles.rowDisabled}>{t(language, "sidebar.datasets.empty")}</div>
+            onAddDataset ? (
+              <button
+                type="button"
+                className={styles.emptyCta}
+                onClick={onAddDataset}
+              >
+                <Plus size={14} aria-hidden="true" />
+                <span className={styles.emptyCtaTitle}>{t(language, "sidebar.datasets.empty.cta")}</span>
+                <span className={styles.emptyCtaHint}>{t(language, "sidebar.datasets.empty.hint")}</span>
+              </button>
+            ) : (
+              <div className={styles.rowDisabled}>{t(language, "sidebar.datasets.empty")}</div>
+            )
           ) : (
-            datasets.map((d) => (
-              <div key={d.id} className={styles.row} aria-disabled="true">
-                <Database size={13} className={styles.icon} aria-hidden="true" />
-                <span className={styles.rowMain}>{d.label}</span>
-                {d.count != null ? <span className={styles.meta}>{d.count}</span> : null}
-              </div>
-            ))
+            <>
+              {datasets.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  className={styles.row}
+                  onClick={() => onSelectDataset?.(d.label || d.id)}
+                  title={d.kind === "user" ? t(language, "sidebar.datasets.user") : t(language, "sidebar.datasets.builtin")}
+                >
+                  <Database size={13} className={styles.icon} aria-hidden="true" />
+                  <span className={styles.rowMain}>{d.label}</span>
+                  {d.kind === "user" ? <span className={styles.meta}>·</span> : null}
+                </button>
+              ))}
+              {onAddDataset && !datasets.some((d) => d.kind === "user") ? (
+                <button
+                  type="button"
+                  className={styles.importHint}
+                  onClick={onAddDataset}
+                >
+                  <Plus size={12} aria-hidden="true" />
+                  <span>{t(language, "sidebar.datasets.importLocal")}</span>
+                </button>
+              ) : null}
+            </>
           )}
         </section>
 

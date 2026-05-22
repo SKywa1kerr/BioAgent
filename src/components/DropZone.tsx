@@ -11,6 +11,9 @@ interface DropZoneProps {
   language: AppLanguage;
   /** Children render inside the dropzone container so the overlay sits on top. */
   children: ReactNode;
+  /** Triggered when the user drops a folder (or folders) instead of files —
+   *  App opens the register-dataset dialog with the path pre-filled. */
+  onRequestImport?: (prefill: { ab1Dir?: string; gbDir?: string }) => void;
 }
 
 interface DroppedFilesResponse {
@@ -40,7 +43,7 @@ function dragHasFiles(event: DragEvent): boolean {
  * instant local check, and forwards the lists to the main process via the
  * `analyze-dropped-files` IPC channel. Feedback is delivered through toasts.
  */
-export function DropZone({ language, children }: DropZoneProps): JSX.Element {
+export function DropZone({ language, children, onRequestImport }: DropZoneProps): JSX.Element {
   const [dragActive, setDragActive] = useState(false);
   const dragCounterRef = useRef(0);
   const toasts = useToasts();
@@ -63,6 +66,7 @@ export function DropZone({ language, children }: DropZoneProps): JSX.Element {
       const lang = languageRef.current;
       const ab1Paths: string[] = [];
       const gbPaths: string[] = [];
+      const allPaths: string[] = [];
 
       for (let i = 0; i < fileList.length; i += 1) {
         const file = fileList.item(i);
@@ -71,9 +75,55 @@ export function DropZone({ language, children }: DropZoneProps): JSX.Element {
         // type does not, so we narrow via a runtime check.
         const path = (file as File & { path?: unknown }).path;
         if (typeof path !== "string" || path.length === 0) continue;
+        allPaths.push(path);
         if (AB1_RE.test(path)) ab1Paths.push(path);
         else if (GB_RE.test(path)) gbPaths.push(path);
-        // Other extensions are silently ignored.
+      }
+
+      // If nothing was a file extension we recognize, check whether the user
+      // dropped folders. A folder drop signals "register this as a dataset".
+      if (ab1Paths.length === 0 && gbPaths.length === 0 && allPaths.length > 0 && onRequestImport) {
+        try {
+          const inspect = await window.electronAPI.invoke("inspect-dropped-paths", allPaths);
+          const dirs: string[] = inspect?.dirs || [];
+          if (dirs.length === 1) {
+            // Inspect: a folder may be (a) a dataset root with `ab1/` and
+            // `gb/` subdirs (e.g. data/batch1), (b) a flat folder with both
+            // file types in it, or (c) ambiguous. The IPC returns the best
+            // ab1Dir/gbDir guess for each.
+            const folder = dirs[0]!;
+            const inspected = await window.electronAPI.invoke("inspect-dataset-folder", folder);
+            if (inspected?.ok) {
+              onRequestImport({ ab1Dir: inspected.ab1Dir, gbDir: inspected.gbDir });
+            } else {
+              onRequestImport({ ab1Dir: folder, gbDir: folder });
+            }
+            return;
+          }
+          if (dirs.length === 2) {
+            // Heuristic: if names hint at ab1/gb, route accordingly; else just
+            // hand them over and let the user finalize.
+            const [d0, d1] = dirs as [string, string];
+            const lower0 = d0.toLowerCase();
+            const lower1 = d1.toLowerCase();
+            const looksAb1 = (s: string) => /ab1/.test(s);
+            const looksGb = (s: string) => /\bgb\b|gbk/.test(s);
+            let ab1Dir = d0;
+            let gbDir = d1;
+            if (looksAb1(lower1) || looksGb(lower0)) {
+              ab1Dir = d1;
+              gbDir = d0;
+            }
+            onRequestImport({ ab1Dir, gbDir });
+            return;
+          }
+          if (dirs.length > 2) {
+            onRequestImport({ ab1Dir: dirs[0], gbDir: dirs[1] });
+            return;
+          }
+        } catch {
+          // Fall through to normal "no pairs" error path below.
+        }
       }
 
       const { pairs, unpairedAb1, unpairedGb } = pairAb1Gb(ab1Paths, gbPaths);
@@ -146,7 +196,7 @@ export function DropZone({ language, children }: DropZoneProps): JSX.Element {
         });
       }
     },
-    [toasts],
+    [toasts, onRequestImport],
   );
 
   useEffect(() => {

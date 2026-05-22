@@ -20,6 +20,43 @@ body,
   box-sizing: border-box;
 }
 
+/* ── Unified scrollbars ─────────────────────────────────────────────────
+   Replace native (Windows, especially) scrollbars with a thin, themed bar
+   so chat / canvas / detail-drawer / dropdowns all share the same look in
+   light and dark modes. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-default) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border-default);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background var(--duration-fast) var(--easing-standard);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text-faint);
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 .app-shell {
   display: flex;
   flex-direction: column;

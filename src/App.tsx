@@ -11,11 +11,12 @@ import { AnalysisPanel } from "./components/panels/AnalysisPanel";
 import { MutationTrendPanel } from "./components/panels/MutationTrendPanel";
 import { LabSuggestionPanel } from "./components/panels/LabSuggestionPanel";
 import { ConfirmationDialog } from "./components/panels/ConfirmationDialog";
-import { Sidebar } from "./components/sidebar/Sidebar";
+import { Sidebar, type DatasetItem } from "./components/sidebar/Sidebar";
 import { Splitter, CollapsedRail } from "./components/workbench/Splitter";
 import { useChatColumnWidth } from "./hooks/useChatColumnWidth";
 import { DropZone } from "./components/DropZone";
 import { InitDialog } from "./components/InitDialog";
+import { ImportDatasetDialog } from "./components/ImportDatasetDialog";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
 import { useAnalysisHistory } from "./hooks/useAnalysisHistory";
 import { useOnboarding } from "./hooks/useOnboarding";
@@ -167,8 +168,54 @@ export function App() {
     }
   }, [agent.panelType, agent.panelPayload]);
 
+  // Chained tool results fill the relevant cache slot WITHOUT switching the
+  // active tab — the user expects the analysis tab to stay focused after a
+  // dataset run, with trends/suggestions ready underneath.
+  useEffect(() => {
+    if (agent.chainedTrends?.result) {
+      setPanelCache((prev) => ({ ...prev, trends: agent.chainedTrends!.result }));
+    }
+  }, [agent.chainedTrends]);
+  useEffect(() => {
+    if (agent.chainedSuggestions?.result) {
+      setPanelCache((prev) => ({ ...prev, suggestions: agent.chainedSuggestions!.result }));
+    }
+  }, [agent.chainedSuggestions]);
+
   const TAB_TYPES: PanelType[] = ["analysis", "trends", "suggestions"];
   const availableTabs = TAB_TYPES.filter((tab) => panelCache[tab] != null);
+
+  /* ── Dataset list (sidebar) ───────────────────────────────────────── */
+
+  const [datasets, setDatasets] = useState<DatasetItem[]>([]);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importPrefill, setImportPrefill] = useState<{ ab1Dir?: string; gbDir?: string } | null>(null);
+
+  const refreshDatasets = useCallback(async () => {
+    if (!agent.initialized) return;
+    try {
+      const resp = await window.electronAPI.invoke("datasets-list");
+      if (resp?.ok) {
+        const builtin: DatasetItem[] = (resp.builtin || []).map((d: any) => ({
+          id: d.id,
+          label: d.label || d.id,
+          kind: "builtin",
+        }));
+        const user: DatasetItem[] = (resp.user || []).map((d: any) => ({
+          id: d.id,
+          label: d.label || d.id,
+          kind: "user",
+        }));
+        setDatasets([...builtin, ...user]);
+      }
+    } catch {
+      // sidebar dataset list is best-effort
+    }
+  }, [agent.initialized]);
+
+  useEffect(() => {
+    void refreshDatasets();
+  }, [refreshDatasets]);
 
   /* ── Recent analyses rail (history) ───────────────────────────────── */
 
@@ -187,9 +234,9 @@ export function App() {
 
   const handleHistorySelect = useCallback(async (analysisId: string) => {
     try {
-      const detailResp = await window.electronAPI.invoke("agent-harness-get-analysis-detail", analysisId);
-      if (detailResp?.ok && detailResp?.detail) {
-        const detail = detailResp.detail;
+      const bundleResp = await window.electronAPI.invoke("agent-harness-get-analysis-bundle", analysisId);
+      if (bundleResp?.ok && bundleResp?.detail) {
+        const detail = bundleResp.detail;
         setPanelCache((prev) => ({
           ...prev,
           analysis: {
@@ -199,10 +246,12 @@ export function App() {
             __detailPending: false,
             __detailError: undefined,
           },
+          ...(bundleResp.trends ? { trends: bundleResp.trends } : {}),
+          ...(bundleResp.suggestions ? { suggestions: bundleResp.suggestions } : {}),
         }));
         setActiveTab("analysis");
       } else {
-        const message = detailResp?.error || "unknown error";
+        const message = bundleResp?.error || "unknown error";
         toasts.pushToast({
           kind: "error",
           title: t(language, "history.loadFailed", { message }),
@@ -480,10 +529,21 @@ export function App() {
     if (activeTab === "trends" && cachedPayload) return <MutationTrendPanel result={cachedPayload} language={language} />;
     if (activeTab === "suggestions" && cachedPayload) return <LabSuggestionPanel result={cachedPayload} language={language} />;
 
+    const titleKey =
+      activeTab === "trends" ? "panel.empty.trends.title"
+      : activeTab === "suggestions" ? "panel.empty.suggestions.title"
+      : activeTab === "analysis" ? "panel.empty.analysis.title"
+      : "app.ready.title";
+    const bodyKey =
+      activeTab === "trends" ? "panel.empty.trends.body"
+      : activeTab === "suggestions" ? "panel.empty.suggestions.body"
+      : activeTab === "analysis" ? "panel.empty.analysis.body"
+      : "app.ready.body";
+
     return (
       <div className="detail-card audience-card">
-        <h3>{t(language, "app.ready.title")}</h3>
-        <p>{t(language, "app.ready.body")}</p>
+        <h3>{t(language, titleKey)}</h3>
+        <p>{t(language, bodyKey)}</p>
       </div>
     );
   }
@@ -504,7 +564,7 @@ export function App() {
       <Sidebar
         language={language}
         history={historyApi.items}
-        datasets={[]}
+        datasets={datasets}
         activeAnalysisId={activeAnalysisId}
         activeTab={activeTab}
         hasAnalysisCache={panelCache.analysis != null}
@@ -514,6 +574,8 @@ export function App() {
         onSelectHistory={(id) => void handleHistorySelect(id)}
         onSelectTab={setActiveTab}
         onOpenSettings={() => setSettingsOpen(true)}
+        onSelectDataset={(name) => setPrefillText(`分析 ${name} 数据集`)}
+        onAddDataset={() => { setImportPrefill(null); setImportDialogOpen(true); }}
       />
 
       {chatWidth.collapsed ? (
@@ -578,7 +640,12 @@ export function App() {
       />
       {!isOnline ? <div className="offline-banner">{t(language, "app.offline")}</div> : null}
       {agent.initialized ? (
-        <DropZone language={language}>{shellContent}</DropZone>
+        <DropZone
+          language={language}
+          onRequestImport={(prefill) => { setImportPrefill(prefill); setImportDialogOpen(true); }}
+        >
+          {shellContent}
+        </DropZone>
       ) : (
         shellContent
       )}
@@ -613,6 +680,29 @@ export function App() {
         statusMessage={agent.statusMessage}
         isInitializing={!agent.initialized && agent.progress.progress > 0 && agent.progress.progress < 100}
         onSubmit={handleSettingsSave}
+      />
+
+      <ImportDatasetDialog
+        open={importDialogOpen}
+        language={language}
+        prefill={importPrefill}
+        onClose={() => setImportDialogOpen(false)}
+        onSuccess={(label) => {
+          setImportDialogOpen(false);
+          setImportPrefill(null);
+          void refreshDatasets();
+          toasts.pushToast({
+            kind: "success",
+            title: t(language, "import.toast.success", { label }),
+          });
+        }}
+        onError={(message) => {
+          toasts.pushToast({
+            kind: "error",
+            title: t(language, "import.toast.failed", { message }),
+            durationMs: 0,
+          });
+        }}
       />
 
       {!onboarding.complete && !settingsOpen && !paletteOpen && !shortcutsOpen && agent.initialized ? (

@@ -9,7 +9,7 @@ interface Props {
   onDismiss: () => void;
 }
 
-const TOTAL = 3;
+const TOTAL = 4;
 
 export function OnboardingCoach({ language, onDismiss }: Props) {
   const [step, setStep] = useState(1);

@@ -52,6 +52,12 @@ function deriveStatus(item, mutationCount) {
   return "uncertain";
 }
 
+function mapBucketToStatus(bucket) {
+  if (bucket === "ok" || bucket === "wrong" || bucket === "uncertain") return bucket;
+  if (bucket === "untested") return "uncertain";
+  return undefined;
+}
+
 function deriveReason(item, mutationCount, language) {
   const identity = getIdentity(item);
   const coverage = getCoverage(item);
@@ -70,7 +76,7 @@ export function normalizeSample(item, idx, language) {
     (toNumber(firstDefined(item?.ins_count, item?.insCount, item?.ins)) ?? 0) +
     (toNumber(firstDefined(item?.del_count, item?.delCount, item?.dele, item?.del)) ?? 0) ||
     mutations.length;
-  const status = item?.status || deriveStatus(item, mutationCount);
+  const status = item?.status || mapBucketToStatus(item?.bucket) || deriveStatus(item, mutationCount);
   const reason = firstDefined(item?.reason, item?.review_reason, item?.reviewReason, item?.llm_reason, item?.llmReason, item?.auto_reason, item?.autoReason) || deriveReason(item, mutationCount, language);
 
   return {
@@ -114,6 +120,7 @@ export function normalizeSample(item, idx, language) {
     quality: toArray(item?.quality),
     base_locations: toArray(firstDefined(item?.base_locations, item?.baseLocations)),
     mixed_peaks: toArray(firstDefined(item?.mixed_peaks, item?.mixedPeaks)),
+    quality_tags: toArray(firstDefined(item?.quality_tags, item?.qualityTags)),
   };
 }
 

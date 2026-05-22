@@ -234,6 +234,15 @@ export function DetailDrawer({ sample, language, analysisId, onClose }: Props) {
             ) : null}
           </section>
         ) : null}
+        {sample.quality_tags && sample.quality_tags.length > 0 ? (
+          <section className="detail-drawer-tags">
+            {sample.quality_tags.map((tagId) => (
+              <span key={tagId} className={`detail-drawer-tag detail-drawer-tag-${tagId}`}>
+                {t(language, `quality.tag.${tagId}`)}
+              </span>
+            ))}
+          </section>
+        ) : null}
         <section className="detail-drawer-metrics">
           <article>
             <span>{t(language, "table.clone")}</span>

@@ -45,6 +45,12 @@ function deriveStatus(item: any, mutationCount: number): "ok" | "wrong" | "uncer
   return "uncertain";
 }
 
+function mapBucketToStatus(bucket: unknown): "ok" | "wrong" | "uncertain" | undefined {
+  if (bucket === "ok" || bucket === "wrong" || bucket === "uncertain") return bucket;
+  if (bucket === "untested") return "uncertain";
+  return undefined;
+}
+
 function deriveReason(item: any, mutationCount: number, language: AppLanguage): string {
   const identity = getIdentity(item);
   const coverage = getCoverage(item);
@@ -63,7 +69,10 @@ export function normalizeSample(item: any, idx: number, language: AppLanguage): 
     (toNumber(firstDefined(item?.ins_count, item?.insCount, item?.ins)) ?? 0) +
     (toNumber(firstDefined(item?.del_count, item?.delCount, item?.dele, item?.del)) ?? 0) ||
     mutations.length;
-  const status = (item?.status as "ok" | "wrong" | "uncertain" | undefined) || deriveStatus(item, mutationCount);
+  const status =
+    (item?.status as "ok" | "wrong" | "uncertain" | undefined) ||
+    mapBucketToStatus(item?.bucket) ||
+    deriveStatus(item, mutationCount);
   const reason = firstDefined(item?.reason, item?.review_reason, item?.reviewReason, item?.llm_reason, item?.llmReason, item?.auto_reason, item?.autoReason) || deriveReason(item, mutationCount, language);
 
   return {
@@ -107,6 +116,7 @@ export function normalizeSample(item: any, idx: number, language: AppLanguage): 
     quality: toArray<number>(item?.quality),
     base_locations: toArray<number>(firstDefined(item?.base_locations, item?.baseLocations)),
     mixed_peaks: toArray<number>(firstDefined(item?.mixed_peaks, item?.mixedPeaks)),
+    quality_tags: toArray<string>(firstDefined(item?.quality_tags, item?.qualityTags)),
   };
 }
 

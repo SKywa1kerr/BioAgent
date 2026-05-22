@@ -60,6 +60,32 @@ test("normalizeSample derives status from camelCase coverage alias", () => {
   assert.equal(sample.cds_coverage, 1);
 });
 
+test("normalizeSample respects Python `bucket` field over coverage-based heuristic", () => {
+  // Pro dataset reality: identity=1.0, cds_coverage≈0.5 — Python's decide_bucket
+  // marks these as "ok"; the workbench should NOT downgrade them to "uncertain"
+  // just because cds_coverage < 0.8.
+  const sample = normalizeSample(
+    { id: "C364-6", identity: 1.0, cds_coverage: 0.518, bucket: "ok" },
+    0,
+    "en",
+  );
+  assert.equal(sample.status, "ok");
+});
+
+test("normalizeSample maps `untested` bucket to uncertain", () => {
+  const sample = normalizeSample({ id: "S3", bucket: "untested" }, 0, "en");
+  assert.equal(sample.status, "uncertain");
+});
+
+test("normalizeSample passes wrong bucket through", () => {
+  const sample = normalizeSample(
+    { id: "S4", bucket: "wrong", aa_changes: ["L23P"] },
+    0,
+    "en",
+  );
+  assert.equal(sample.status, "wrong");
+});
+
 test("buildChromatogramData returns null when required traces or query sequence are missing", () => {
   assert.equal(buildChromatogramData({ id: "S1", query_sequence: "AT" }), null);
 });

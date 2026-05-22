@@ -113,6 +113,38 @@
   font-size: 13px;
 }
 
+.detail-drawer-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 12px;
+}
+
+.detail-drawer-tag {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: var(--accent-soft, rgba(120, 110, 90, 0.18));
+  color: var(--text-main);
+  border: 1px solid var(--card-border);
+  white-space: nowrap;
+  font-family: var(--font-ui);
+}
+
+.detail-drawer-tag-frameshift,
+.detail-drawer-tag-alignment_failed,
+.detail-drawer-tag-large_indel_cluster {
+  background: rgba(180, 70, 60, 0.18);
+  border-color: rgba(180, 70, 60, 0.4);
+}
+
+.detail-drawer-tag-low_quality,
+.detail-drawer-tag-mixed_peaks_high,
+.detail-drawer-tag-dual_read_conflict {
+  background: rgba(190, 130, 50, 0.18);
+  border-color: rgba(190, 130, 50, 0.4);
+}
+
 .detail-drawer-resize {
   position: absolute;
   left: -4px;

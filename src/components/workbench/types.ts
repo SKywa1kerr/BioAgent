@@ -61,6 +61,7 @@ export interface WorkbenchSample {
   base_locations?: number[];
   mixed_peaks?: number[];
   bucket?: "ok" | "wrong" | "uncertain" | "untested";
+  quality_tags?: string[];
   override?: SampleOverrideInfo;
 }
 
