@@ -1,5 +1,7 @@
 # BioAgent — Sanger 测序质控与突变分析工具
 
+> ⚠️ **免责声明**：本工具仅供科研、教学和实验体系自检使用，分析结果**不可作为临床诊断或生产放行的唯一依据**。bucket 判定基于内置数据集 truth 文件做过校准，但部分覆盖样本（cds_coverage < 70%）的未覆盖区段无法检出变异；最终结论请结合实验员人工复核。
+
 BioAgent 是一个两阶段的 Sanger 测序分析流水线：
 
 1. **生物信息学分析** — 将 AB1 测序文件与 GenBank 参考序列进行比对，检测碱基突变、氨基酸变异和移码
@@ -176,3 +178,40 @@ C789-1 gene is wrong 移码错误
 | `core/alignment.py` | 读取 GenBank 参考序列和 AB1 测序文件，执行双向（正向/反向互补）局部比对，计算 identity、CDS 覆盖率，检测碱基替换/插入/缺失、氨基酸变异、移码突变，并生成 HTML 可视化比对图 |
 | `core/evidence.py` | 将 `alignment.py` 产出的结构化数据格式化为文本摘要，作为 AI 判读的输入 |
 | `core/llm_client.py` | 封装 LLM API 的调用逻辑（兼容任何 OpenAI 格式的 API），包含质控判读的 System Prompt、429 限流自动重试、system prompt 不兼容时自动降级 |
+
+---
+
+## 桌面端打包发布（Electron + Python sidecar）
+
+桌面端把 Python 部分通过 PyInstaller 打成独立 sidecar exe，用户机器**无需预装 Python**。
+
+### 一次性环境准备
+```bash
+npm install
+pip install -r requirements.txt -r requirements-build.txt
+```
+
+### 完整打包流程
+```bash
+npm run electron:build
+```
+等价于：
+1. `npm run build` — vite 构建前端到 `dist/`
+2. `npm run build:sidecar` — PyInstaller 把 `src-python/` + `core/` + biopython/pandas/openai 打到 `dist-python/bioagent-sidecar/`
+3. `electron-builder` — 把 `dist/` + `electron/` + sidecar 一起打成安装包，输出到 `release/`
+
+只需重新打 sidecar 时：
+```bash
+npm run build:sidecar
+```
+
+### 验证
+- 安装包安装后，sidecar 在 `<install>/resources/sidecar/bioagent-sidecar/bioagent-sidecar.exe`
+- `data/` 目录**不会**进安装包（只用于本地 dev），用户的数据集走应用内"导入数据集"按钮注册
+- 用户的注册表 / 历史持久化在系统 userData 目录（Windows 是 `%APPDATA%/<app-name>/bioagent/`）
+
+### 注意
+- biopython 的 PyInstaller 隐藏导入已经在 `scripts/build_sidecar.py` 里配好；新增 Python 依赖时记得加 `--hidden-import` 或 `--collect-submodules`
+- Windows 下需要 Python 3.10+ 和 PyInstaller 6+
+- 第一次打包后 `release/win-unpacked/resources/sidecar/bioagent-sidecar/` 应有 `bioagent-sidecar.exe`，确认后再发
+

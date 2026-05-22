@@ -1,7 +1,7 @@
 {
   "name": "ultimate-bioagent",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Ultimate BioAgent desktop app",
   "main": "electron/main.js",
   "scripts": {
@@ -9,7 +9,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"vite\" \"electron .\"",
-    "electron:build": "npm run build && electron-builder",
+    "build:sidecar": "python scripts/build_sidecar.py",
+    "electron:build": "npm run build && npm run build:sidecar && electron-builder",
     "build:all": "npm run electron:build",
     "typecheck": "tsc --noEmit",
     "test:js": "node --test \"tests/test_*.mjs\"",
@@ -66,6 +67,9 @@
     "win": {
       "target": "nsis",
       "signAndEditExecutable": false
+    },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "publish": [
       {
