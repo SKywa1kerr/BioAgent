@@ -4,7 +4,7 @@ import { EventEmitter } from "events";
 
 const DEFAULT_MODEL = "deepseek-chat";
 const MAX_TURNS = 3;
-const MAX_TOOL_CALLS_PER_TURN = 2;
+const MAX_TOOL_CALLS_PER_TURN = 3;
 const LLM_TIMEOUT_MS = 45000;
 const MAX_HISTORY_NON_TOOL_MESSAGES = 6;
 const MAX_PROMPT_MESSAGES = 8;
@@ -50,9 +50,9 @@ function normalizeIntentText(input) {
 
 function matchDatasetAnalysisIntent(input) {
   const text = normalizeIntentText(input);
-  const match = text.match(/^(?:(?:请)?分析|(?:please )?analyze) (?<dataset>base|pro|promax) (?:数据集|dataset)$/i);
+  const match = text.match(/^(?:(?:请)?分析|(?:please )?analyze) (?<dataset>[\w\u4e00-\u9fff\-_.]+) (?:数据集|dataset)$/i);
   if (!match) return null;
-  return { dataset: match.groups.dataset.toLowerCase() };
+  return { dataset: match.groups.dataset };
 }
 
 function pickAnalysisSamples(result) {
@@ -65,19 +65,26 @@ function pickAnalysisSamples(result) {
   return [];
 }
 
-function buildAnalysisSummaryPrompt(result) {
+function buildAnalysisSummaryPrompt(result, language) {
   const samples = pickAnalysisSamples(result).slice(0, MAX_SUMMARY_SAMPLES).map((sample) => ({
     id: sample.id,
+    bucket: sample.bucket,
     identity: sample.identity,
     cds_coverage: sample.cds_coverage,
     aa_changes: Array.isArray(sample.aa_changes) ? sample.aa_changes.slice(0, 8) : [],
   }));
 
+  const langDirective = language === "en"
+    ? "Reply in English. Keep it to 2-4 sentences."
+    : "请用简体中文回复，控制在 2-4 句话以内。";
+
   return [
     "You are Ultimate BioAgent.",
-    "Summarize this dataset analysis for the user in 2-4 sentences.",
+    langDirective,
+    "Summarize this dataset analysis for the user.",
     "Be concise, mention the dataset and any notable samples or quality risks.",
-    "If the result looks stable, say so plainly.",
+    "If a sample's bucket is 'ok', say it is fine; do not invent quality concerns.",
+    "If cds_coverage is below ~0.7, note that only part of the gene was sequenced and the uncovered region is unverified.",
     JSON.stringify({
       analysis_id: result?.analysis_id,
       dataset: result?.dataset,
@@ -88,7 +95,7 @@ function buildAnalysisSummaryPrompt(result) {
   ].join("\n");
 }
 
-async function createAnalysisSummary(client, model, timeout, result) {
+async function createAnalysisSummary(client, model, timeout, result, language) {
   const response = await client.chat.completions.create({
     model,
     temperature: 0,
@@ -97,7 +104,7 @@ async function createAnalysisSummary(client, model, timeout, result) {
     messages: [
       {
         role: "user",
-        content: buildAnalysisSummaryPrompt(result),
+        content: buildAnalysisSummaryPrompt(result, language),
       },
     ],
   });
@@ -112,12 +119,33 @@ export class AgentHarness extends EventEmitter {
       ...settings,
       llmTimeoutMs: settings?.llmTimeoutMs ?? LLM_TIMEOUT_MS,
     };
+    this.language = settings?.language === "en" ? "en" : "zh";
+    this.knownDatasets = { builtin: [], user: [] };
     this.messages = [];
     this.mcpProcess = null;
     this.mcpRequestId = 0;
     this.mcpTools = [];
     this.isRunning = false;
     this.currentTurnId = 0;
+  }
+
+  setLanguage(language) {
+    this.language = language === "en" ? "en" : "zh";
+  }
+
+  async refreshDatasetList() {
+    try {
+      const result = await this.callMcpTool("list_datasets", {});
+      if (result && result.ok !== false) {
+        this.knownDatasets = {
+          builtin: Array.isArray(result.builtin) ? result.builtin : [],
+          user: Array.isArray(result.user) ? result.user : [],
+        };
+      }
+    } catch {
+      // Non-fatal — system prompt just won't include dataset hints this turn.
+    }
+    return this.knownDatasets;
   }
 
   async initMcpServer() {
@@ -166,6 +194,7 @@ export class AgentHarness extends EventEmitter {
     });
     const toolsResp = await this._mcpCall("tools/list", {});
     this.mcpTools = toolsResp?.result?.tools || [];
+    await this.refreshDatasetList();
     return this.mcpTools;
   }
 
@@ -208,19 +237,30 @@ export class AgentHarness extends EventEmitter {
   }
 
   buildSystemPrompt() {
+    const knownBuiltin = (this.knownDatasets?.builtin || []).map((d) => d.id || d.label).filter(Boolean);
+    const knownUser = (this.knownDatasets?.user || []).map((d) => d.label || d.id).filter(Boolean);
+    const datasetHint = (knownBuiltin.length || knownUser.length)
+      ? `Available datasets — built-in: [${knownBuiltin.join(", ")}]; user-registered: [${knownUser.join(", ") || "none"}].`
+      : "Use list_datasets first if the user references a dataset by name.";
+    const languageDirective = this.language === "en"
+      ? "Reply to the user in English."
+      : "请用简体中文回复用户。";
+
     return [
       "You are Ultimate BioAgent.",
-      "Always answer briefly and clearly.",
-      "Use tools when useful:",
-      "- analyze_sequences: run baseline sequence analysis",
-      "- detect_mutation_trends: detect hotspot and trend patterns",
-      "- generate_lab_suggestions: suggest experiment improvements",
-      "- query_history: check prior analyses (only when user asks for history)",
-      "- get_analysis_detail: fetch detail for a specific analysis",
-      "When user asks to analyze a dataset, call analyze_sequences first and avoid extra tool calls.",
-      "Do not call query_history unless explicitly requested.",
-      "If a request includes analysis + trends + suggestions, call multiple tools in sequence.",
-      "Risky actions must require user confirmation first.",
+      "Be concise and direct.",
+      "Tools available:",
+      "- analyze_sequences: run a dataset analysis (pass `dataset` for a known name, or `ab1_dir`+`gb_dir` for an arbitrary folder pair).",
+      "- detect_mutation_trends: hotspot/trend view of an analysis (optional analysis_id; defaults to most recent).",
+      "- generate_lab_suggestions: experiment improvement suggestions for an analysis (optional analysis_id; defaults to most recent).",
+      "- list_datasets / register_dataset / delete_dataset: manage user dataset registrations.",
+      "- query_history / get_analysis_detail: prior analyses (only when explicitly asked).",
+      datasetHint,
+      "When the user asks to analyze a dataset, ALWAYS call analyze_sequences first, then in the SAME turn call detect_mutation_trends and generate_lab_suggestions for the resulting analysis_id so all three views populate together.",
+      "If the user provides a folder path, pass it as ab1_dir/gb_dir to analyze_sequences (no extra registration needed).",
+      "If the user asks only for trends or only for suggestions on the latest result, call just that one tool.",
+      "Risky actions (delete_dataset, anything destructive) must require explicit user confirmation first.",
+      languageDirective,
     ].join("\n");
   }
 
@@ -315,6 +355,7 @@ export class AgentHarness extends EventEmitter {
           this.settings.llmModel || DEFAULT_MODEL,
           this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
           result,
+          this.language,
         );
 
         if (!this.isCurrentTurn(turnId)) return;
@@ -366,7 +407,40 @@ export class AgentHarness extends EventEmitter {
       dataset: result.dataset || dataset,
       result,
     });
+
+    await this.runChainedAnalyses(result.analysis_id, onEvent, turnId);
+
     this.startAnalysisSummary(result, dataset, onEvent, turnId);
+  }
+
+  async runChainedAnalyses(analysisId, onEvent, turnId) {
+    if (!analysisId) return;
+
+    try {
+      onEvent({ type: "tool_call", tool: "detect_mutation_trends", args: { analysis_id: analysisId }, chained: true });
+      const trends = await this.callMcpTool("detect_mutation_trends", { analysis_id: analysisId });
+      if (!this.isCurrentTurn(turnId)) return;
+      if (trends && trends.ok !== false) {
+        onEvent({ type: "tool_result", tool: "detect_mutation_trends", result: trends, chained: true });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      onEvent({ type: "tool_result", tool: "detect_mutation_trends", result: { ok: false, error: message }, chained: true });
+    }
+
+    if (!this.isCurrentTurn(turnId)) return;
+
+    try {
+      onEvent({ type: "tool_call", tool: "generate_lab_suggestions", args: { analysis_id: analysisId }, chained: true });
+      const suggestions = await this.callMcpTool("generate_lab_suggestions", { analysis_id: analysisId });
+      if (!this.isCurrentTurn(turnId)) return;
+      if (suggestions && suggestions.ok !== false) {
+        onEvent({ type: "tool_result", tool: "generate_lab_suggestions", result: suggestions, chained: true });
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      onEvent({ type: "tool_result", tool: "generate_lab_suggestions", result: { ok: false, error: message }, chained: true });
+    }
   }
 
   async runTurn(userMessage, onEvent) {

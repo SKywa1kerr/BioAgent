@@ -50,13 +50,33 @@ function createWindow() {
 }
 
 function getPythonConfig() {
+  const persistRoot = path.join(app.getPath("userData"), "bioagent");
+  fs.mkdirSync(persistRoot, { recursive: true });
+  const env = {
+    ...process.env,
+    BIOAGENT_DATA_DIR: persistRoot,
+    // Force UTF-8 on Python stdio so JSON over MCP carries Chinese characters
+    // verbatim. Without this, Windows defaults to cp936/gbk and the renderer
+    // shows garbled trends/suggestions text.
+    PYTHONIOENCODING: "utf-8",
+    PYTHONUTF8: "1",
+  };
+
+  if (app.isPackaged) {
+    // Production: spawn the standalone PyInstaller sidecar that ships
+    // alongside the Electron binary. extraResources in package.json drops
+    // it under <resources>/sidecar/bioagent-sidecar/.
+    const sidecarDir = path.join(process.resourcesPath, "sidecar", "bioagent-sidecar");
+    const exeName = process.platform === "win32" ? "bioagent-sidecar.exe" : "bioagent-sidecar";
+    const cmd = path.join(sidecarDir, exeName);
+    return { cmd, cwd: sidecarDir, baseArgs: [], env };
+  }
+
+  // Dev: fall back to the user's system Python with our source on PYTHONPATH.
   const cmd = process.platform === "win32" ? "python" : "python3";
   const cwd = path.resolve(__dirname, "..");
   const baseArgs = ["-m", "bioagent.main"];
-  const env = {
-    ...process.env,
-    PYTHONPATH: path.resolve(__dirname, "../src-python"),
-  };
+  env.PYTHONPATH = path.resolve(__dirname, "../src-python");
   return { cmd, cwd, baseArgs, env };
 }
 
@@ -280,10 +300,12 @@ app.whenReady().then(async () => {
 
         pushLifecycle(trace, event.sender, "init", "Starting MCP server");
         const tools = await withTimeout(agentHarness.initMcpServer(), INIT_TIMEOUT_MS, "MCP init");
+        if (settings?.language) agentHarness.setLanguage(settings.language);
         pushLifecycle(trace, event.sender, "ready", `Agent ready. Tools loaded: ${tools.length}`);
         return { ok: true, tools, trace };
       }
 
+      if (settings?.language) agentHarness.setLanguage(settings.language);
       pushLifecycle(trace, event.sender, "ready", "Agent already initialized");
       return { ok: true, tools: agentHarness.mcpTools || [], trace };
     } catch (error) {
@@ -309,7 +331,7 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.handle("agent-harness-run", async (event, userMessage) => {
+  ipcMain.handle("agent-harness-run", async (event, userMessage, runtimeSettings) => {
     const trace = [];
 
     if (!agentHarness) {
@@ -317,6 +339,8 @@ app.whenReady().then(async () => {
       pushLifecycle(trace, event.sender, "error", "Run rejected: harness not initialized");
       return { ok: false, error: "Agent harness not initialized", tools, trace };
     }
+
+    if (runtimeSettings?.language) agentHarness.setLanguage(runtimeSettings.language);
 
     const events = [];
     pushLifecycle(trace, event.sender, "run", "Run started");
@@ -359,6 +383,179 @@ app.whenReady().then(async () => {
       const message = error instanceof Error ? error.message : String(error);
       pushLifecycle(trace, event.sender, "error", `Detail fetch failed: ${message}`);
       return { ok: false, error: message, trace };
+    }
+  });
+
+  ipcMain.handle("agent-harness-get-analysis-bundle", async (event, analysisId) => {
+    const trace = [];
+
+    if (!agentHarness) {
+      pushLifecycle(trace, event.sender, "error", "Bundle request rejected: harness not initialized");
+      return { ok: false, error: "Agent harness not initialized", trace };
+    }
+
+    try {
+      const detail = await agentHarness.callMcpTool("get_analysis_detail", { analysis_id: analysisId });
+      if (detail?.ok === false) {
+        const msg = detail?.error || "Failed to fetch analysis detail";
+        pushLifecycle(trace, event.sender, "error", msg);
+        return { ok: false, error: msg, trace };
+      }
+
+      let trends = detail?.trends ?? null;
+      let suggestions = detail?.suggestions ?? null;
+
+      if (!trends) {
+        const trendsResult = await agentHarness.callMcpTool("detect_mutation_trends", { analysis_id: analysisId });
+        if (trendsResult?.ok !== false) trends = trendsResult;
+      }
+      if (!suggestions) {
+        const suggestionsResult = await agentHarness.callMcpTool("generate_lab_suggestions", { analysis_id: analysisId });
+        if (suggestionsResult?.ok !== false) suggestions = suggestionsResult;
+      }
+
+      pushLifecycle(trace, event.sender, "run", `Loaded analysis bundle: ${analysisId}`);
+      return { ok: true, detail, trends, suggestions, trace };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      pushLifecycle(trace, event.sender, "error", `Bundle fetch failed: ${message}`);
+      return { ok: false, error: message, trace };
+    }
+  });
+
+  ipcMain.handle("datasets-list", async (event) => {
+    const trace = [];
+    if (!agentHarness) {
+      pushLifecycle(trace, event.sender, "error", "Datasets list rejected: harness not initialized");
+      return { ok: false, error: "Agent harness not initialized", trace };
+    }
+    try {
+      const result = await agentHarness.callMcpTool("list_datasets", {});
+      if (result?.ok === false) {
+        return { ok: false, error: result?.error || "list_datasets failed", trace };
+      }
+      return { ok: true, builtin: result?.builtin || [], user: result?.user || [], trace };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, error: message, trace };
+    }
+  });
+
+  ipcMain.handle("dataset-register", async (event, payload) => {
+    const trace = [];
+    if (!agentHarness) {
+      pushLifecycle(trace, event.sender, "error", "Dataset register rejected: harness not initialized");
+      return { ok: false, error: "Agent harness not initialized", trace };
+    }
+    try {
+      const result = await agentHarness.callMcpTool("register_dataset", {
+        label: payload?.label,
+        ab1_dir: payload?.ab1Dir,
+        gb_dir: payload?.gbDir,
+      });
+      if (result?.ok === false) {
+        return { ok: false, error: result?.error || "register_dataset failed", trace };
+      }
+      await agentHarness.refreshDatasetList();
+      pushLifecycle(trace, event.sender, "run", `Registered dataset: ${result?.id}`);
+      return { ok: true, dataset: result, trace };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, error: message, trace };
+    }
+  });
+
+  ipcMain.handle("dataset-delete", async (event, id) => {
+    const trace = [];
+    if (!agentHarness) {
+      return { ok: false, error: "Agent harness not initialized", trace };
+    }
+    try {
+      const result = await agentHarness.callMcpTool("delete_dataset", { id });
+      if (result?.ok === false) {
+        return { ok: false, error: result?.error || "delete_dataset failed", trace };
+      }
+      await agentHarness.refreshDatasetList();
+      pushLifecycle(trace, event.sender, "run", `Deleted dataset: ${id}`);
+      return { ok: true, trace };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, error: message, trace };
+    }
+  });
+
+  ipcMain.handle("dialog-pick-folder", async (_event, options) => {
+    if (!mainWindow) return { canceled: true, error: "no-window" };
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: options?.title,
+        defaultPath: options?.defaultPath,
+        properties: ["openDirectory"],
+      });
+      if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+      return { canceled: false, path: result.filePaths[0] };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { canceled: true, error: message };
+    }
+  });
+
+  ipcMain.handle("inspect-dropped-paths", async (_event, paths) => {
+    const dirs = [];
+    const files = [];
+    for (const p of Array.isArray(paths) ? paths : []) {
+      try {
+        const stat = fs.statSync(p);
+        if (stat.isDirectory()) dirs.push(p);
+        else if (stat.isFile()) files.push(p);
+      } catch {
+        // ignore
+      }
+    }
+    return { ok: true, dirs, files };
+  });
+
+  ipcMain.handle("inspect-dataset-folder", async (_event, folderPath) => {
+    try {
+      if (!folderPath || !fs.existsSync(folderPath)) {
+        return { ok: false, error: "not found" };
+      }
+      const stat = fs.statSync(folderPath);
+      if (!stat.isDirectory()) return { ok: false, error: "not a directory" };
+
+      const entries = fs.readdirSync(folderPath, { withFileTypes: true });
+      const subdirs = entries.filter((e) => e.isDirectory());
+      const ab1Sub = subdirs.find((d) => /^ab1$|^ab1_files$/i.test(d.name));
+      const gbSub = subdirs.find((d) => /^gb$|^gbk$|^genbank$/i.test(d.name));
+
+      if (ab1Sub && gbSub) {
+        return {
+          ok: true,
+          layout: "subdirs",
+          ab1Dir: path.join(folderPath, ab1Sub.name),
+          gbDir: path.join(folderPath, gbSub.name),
+        };
+      }
+
+      const files = entries.filter((e) => e.isFile());
+      const hasAb1 = files.some((f) => /\.ab1$/i.test(f.name));
+      const hasGb = files.some((f) => /\.gbk?$/i.test(f.name));
+      if (hasAb1 && hasGb) {
+        return { ok: true, layout: "flat", ab1Dir: folderPath, gbDir: folderPath };
+      }
+      // Couldn't auto-detect — return root for both, caller can prefill the
+      // dialog and let the user fix.
+      return {
+        ok: true,
+        layout: "ambiguous",
+        ab1Dir: folderPath,
+        gbDir: folderPath,
+        hasAb1,
+        hasGb,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, error: message };
     }
   });
 

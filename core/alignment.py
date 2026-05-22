@@ -48,6 +48,67 @@ def is_edge_ignored(pos, cds_start, cds_end) -> bool:
     return (pos - cds_start) < EDGE_IGNORE_BP or (cds_end - pos) < EDGE_IGNORE_BP
 
 
+def derive_quality_tags(sample: dict) -> list:
+    """Translate numeric sample features into human-readable tag ids.
+
+    Tag ids are language-neutral; the renderer maps them to localized labels
+    via i18n. Thresholds are calibrated against truth/result*.txt notes
+    ("未测通", "重叠峰", "片段缺失") and are deliberately loose — we surface
+    a hint when one fits, not a strict diagnosis.
+    """
+    import re
+
+    tags = []
+    cov = sample.get("cds_coverage") or 0.0
+    ident = sample.get("identity") or 0.0
+    q = sample.get("avg_qry_quality")
+    fs = bool(sample.get("frameshift"))
+    other_issues = bool(sample.get("other_read_issues"))
+    aa_changes = sample.get("aa_changes") or []
+    mixed_peaks = sample.get("mixed_peaks") or []
+    query_seq = sample.get("query_sequence") or ""
+
+    if ident < 0.7:
+        tags.append("alignment_failed")
+    if fs:
+        tags.append("frameshift")
+    if cov < 0.7:
+        tags.append("partial_coverage")
+    if q is not None and q < 25:
+        tags.append("low_quality")
+    if other_issues:
+        tags.append("dual_read_conflict")
+
+    # A long contiguous run of aa changes (gaps ≤ 3 codons) is the signature
+    # of an upstream indel cascading downstream — what truth files call
+    # "片段缺失" / "fragment missing". Catches promax C364-2.
+    if aa_changes:
+        positions = []
+        for aa in aa_changes:
+            m = re.search(r"\d+", str(aa))
+            if m:
+                positions.append(int(m.group()))
+        if positions:
+            positions.sort()
+            max_run = 1
+            current_run = 1
+            for i in range(1, len(positions)):
+                if positions[i] - positions[i - 1] <= 3:
+                    current_run += 1
+                    if current_run > max_run:
+                        max_run = current_run
+                else:
+                    current_run = 1
+            if max_run >= 5:
+                tags.append("large_indel_cluster")
+
+    if mixed_peaks and len(query_seq) > 0:
+        if len(mixed_peaks) / len(query_seq) > 0.05:
+            tags.append("mixed_peaks_high")
+
+    return tags
+
+
 def decide_bucket(cds_coverage: float,
                   avg_qry_quality,
                   frameshift: bool,
@@ -55,12 +116,27 @@ def decide_bucket(cds_coverage: float,
                   mutations: list,
                   has_single_read: bool,
                   cds_start=None,
-                  cds_end=None) -> str:
+                  cds_end=None,
+                  other_read_issues: bool = False) -> str:
     q = avg_qry_quality if avg_qry_quality is not None else 0.0
-    if cds_coverage < COVERAGE_UNTESTED or q < QUALITY_UNTESTED:
-        return "untested"
+
+    # Strong-failure signals fire first, even when coverage/quality are low.
+    # A trace with frameshift or aa_changes is "wrong" regardless of how
+    # incomplete the read is — we have evidence of a defect, not just an
+    # absence of evidence. (Calibrated against truth/result*.txt where
+    # frameshifted samples like promax C363-2 should land in wrong, not
+    # untested.)
     if aa_changes or frameshift:
         return "wrong"
+    # In a dual-read sample, when the secondary read flags issues that the
+    # best read did not see (e.g. partial-CDS coverage hiding a mutation in
+    # the other half), elevate to wrong. Calibrated against pro C366-3,
+    # whose [T7] read is clean but the [T7-TER] read shows defect signal.
+    if other_read_issues:
+        return "wrong"
+
+    if cds_coverage < COVERAGE_UNTESTED or q < QUALITY_UNTESTED:
+        return "untested"
     if has_single_read or cds_coverage < COVERAGE_OK or q < QUALITY_UNCERTAIN:
         return "uncertain"
     hard_subs = [
@@ -1014,6 +1090,7 @@ def analyze_dirs(gb_dir: Path, ab1_dir: Path,
                 cds_start=best.get("cds_start"),
                 cds_end=best.get("cds_end"),
             )
+            best["quality_tags"] = derive_quality_tags(best)
             results.append(best)
         else:
             # Pick best by identity; record info about other reads
@@ -1081,7 +1158,9 @@ def analyze_dirs(gb_dir: Path, ab1_dir: Path,
                 has_single_read=has_single_read,
                 cds_start=best.get("cds_start"),
                 cds_end=best.get("cds_end"),
+                other_read_issues=bool(best.get("other_read_issues")),
             )
+            best["quality_tags"] = derive_quality_tags(best)
             results.append(best)
 
     return results

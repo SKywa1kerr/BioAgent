@@ -64,6 +64,17 @@ def run_stdio_server(stdin: TextIO | None = None, stdout: TextIO | None = None) 
     input_stream = stdin or sys.stdin
     output_stream = stdout or sys.stdout
 
+    # Defensive: force UTF-8 on stdio so JSON with Chinese characters survives
+    # Windows default cp936. Electron main also sets PYTHONIOENCODING=utf-8;
+    # this is the second line of defense for direct CLI invocations.
+    for stream in (input_stream, output_stream):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8")
+            except Exception:
+                pass
+
     while True:
         raw_line = input_stream.buffer.readline() if hasattr(input_stream, "buffer") else input_stream.readline()
         if not raw_line:

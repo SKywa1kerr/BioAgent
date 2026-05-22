@@ -7,9 +7,9 @@ import {
   inferProviderFromBaseUrl,
 } from "../src/lib/providers.js";
 
-test("PROVIDERS contains expected 6 presets in order", () => {
+test("PROVIDERS contains expected 5 presets in order", () => {
   const ids = PROVIDERS.map((p) => p.id);
-  assert.deepEqual(ids, ["openai", "anthropic", "deepseek", "sjtu", "ollama", "custom"]);
+  assert.deepEqual(ids, ["openai", "anthropic", "deepseek", "ollama", "custom"]);
 });
 
 test("getProvider returns custom when id unknown", () => {
@@ -61,8 +61,8 @@ test("applyProviderSwitch preserves user-customized model", () => {
 test("inferProviderFromBaseUrl recognizes well-known hosts", () => {
   assert.equal(inferProviderFromBaseUrl("https://api.openai.com/v1"), "openai");
   assert.equal(inferProviderFromBaseUrl("https://api.deepseek.com/v1"), "deepseek");
-  assert.equal(inferProviderFromBaseUrl("https://models.sjtu.edu.cn/api/v1"), "sjtu");
   assert.equal(inferProviderFromBaseUrl("http://localhost:11434/v1"), "ollama");
   assert.equal(inferProviderFromBaseUrl("https://my-proxy.example/v1"), "custom");
+  assert.equal(inferProviderFromBaseUrl("https://models.sjtu.edu.cn/api/v1"), "custom");
   assert.equal(inferProviderFromBaseUrl(""), "custom");
 });

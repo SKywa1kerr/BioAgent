@@ -12,9 +12,9 @@ export interface AgentSettings {
 }
 
 const DEFAULTS: AgentSettings = {
-  provider: "sjtu",
+  provider: "custom",
   llmApiKey: "",
-  llmBaseUrl: "https://models.sjtu.edu.cn/api/v1",
+  llmBaseUrl: "",
   llmModel: "deepseek-chat",
   maxTokens: 2400,
 };
@@ -23,7 +23,6 @@ const ALLOWED_PROVIDERS: readonly ProviderId[] = [
   "openai",
   "anthropic",
   "deepseek",
-  "sjtu",
   "ollama",
   "custom",
 ];

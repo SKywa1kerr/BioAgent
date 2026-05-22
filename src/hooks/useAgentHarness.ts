@@ -47,6 +47,7 @@ function resolvePanelFromEvent(payload: AgentEvent): PanelResolution | null {
   }
 
   if (payload.type === "tool_result") {
+    if (payload.chained) return null;
     if (payload.tool === "detect_mutation_trends") return { panelType: "trends", panelPayload: payload.result };
     if (payload.tool === "generate_lab_suggestions") return { panelType: "suggestions", panelPayload: payload.result };
     if (payload.tool === "analyze_sequences") return { panelType: "analysis", panelPayload: payload.result };
@@ -108,6 +109,7 @@ function getLifecycleLabel(language: AppLanguage, phase: string, message: string
   if (phase === "run" && text.includes("run started")) return t(language, "app.progress.step.runStarted");
   if (phase === "run" && text.includes("run finished")) return t(language, "app.progress.step.resultReady");
   if (phase === "run" && text.includes("loaded analysis detail")) return t(language, "app.progress.step.visualReady");
+  if (phase === "run" && text.includes("loaded analysis bundle")) return t(language, "app.progress.step.visualReady");
   return message;
 }
 
@@ -124,6 +126,8 @@ export function useAgentHarness(language: AppLanguage) {
   const [statusMessage, setStatusMessage] = useState(t(language, "app.status.needInit"));
   const [progress, setProgress] = useState<ProgressState>({ phase: "idle", progress: 0, label: t(language, "app.progress.idle") });
   const [lastErrorEvent, setLastErrorEvent] = useState<LastErrorEvent | null>(null);
+  const [chainedTrends, setChainedTrends] = useState<{ token: number; result: unknown } | null>(null);
+  const [chainedSuggestions, setChainedSuggestions] = useState<{ token: number; result: unknown } | null>(null);
 
   /* ── Refs ───────────────────────────────────────────────────────────── */
   const latestEventRef = useRef<AgentEvent | null>(null);
@@ -132,6 +136,7 @@ export function useAgentHarness(language: AppLanguage) {
   const languageRef = useRef<AppLanguage>(language);
   const runTokenRef = useRef(0);
   const lastRunOpRef = useRef<{ content: string; settings: AgentSettings } | null>(null);
+  const summaryPendingMarkerRef = useRef<string | null>(null);
 
   /* ── Sync refs ──────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -246,7 +251,43 @@ export function useAgentHarness(language: AppLanguage) {
           __summaryError: reduced.kind === "failed" ? (payload.type === "summary_failed" ? payload.message : undefined) : undefined,
         });
       }
-      if (reduced.assistantText) pushAssistant(reduced.assistantText);
+      if (reduced.kind === "pending" && reduced.assistantText) {
+        const marker = `__summary_pending_${Date.now()}`;
+        const text = reduced.assistantText;
+        summaryPendingMarkerRef.current = marker;
+        assistantMessageCountRef.current += 1;
+        setMessages((current) => [
+          ...current,
+          { role: "assistant", content: maskSecrets(text), marker } as any,
+        ].slice(-MAX_MESSAGES));
+        return;
+      }
+      // ready / failed: replace the pending placeholder if it's still in the
+      // message list, otherwise just append. Keeps the chat from stacking
+      // "generating…" + final answer side by side.
+      const pendingMarker = summaryPendingMarkerRef.current;
+      summaryPendingMarkerRef.current = null;
+      if (reduced.kind === "ready" && !reduced.assistantText) {
+        if (pendingMarker) {
+          setMessages((current) => current.filter((m) => (m as any).marker !== pendingMarker));
+        }
+        return;
+      }
+      if (reduced.assistantText) {
+        const text = reduced.assistantText;
+        if (pendingMarker) {
+          setMessages((current) => {
+            const filtered = current.filter((m) => (m as any).marker !== pendingMarker);
+            return [
+              ...filtered,
+              { role: "assistant", content: maskSecrets(text) },
+            ].slice(-MAX_MESSAGES);
+          });
+          assistantMessageCountRef.current += 1;
+        } else {
+          pushAssistant(text);
+        }
+      }
       return;
     }
 
@@ -257,7 +298,10 @@ export function useAgentHarness(language: AppLanguage) {
       if (payload.phase === "init") setProgressState("init", 20, friendly);
       if (payload.phase === "ready") setProgressState("ready", 100, friendly);
       if (payload.phase === "run") {
-        const isFinished = lowered.includes("run finished") || lowered.includes("finished");
+        const isFinished =
+          lowered.includes("run finished") ||
+          lowered.includes("finished") ||
+          lowered.startsWith("loaded analysis");
         setProgressState(isFinished ? "reply" : "run", isFinished ? 100 : 45, friendly);
       }
       if (payload.phase === "error") setProgressState("error", 100, friendly);
@@ -272,6 +316,14 @@ export function useAgentHarness(language: AppLanguage) {
       setProgressState("tool_call", 82, t(lang, "app.progress.toolCall", { tool: getFriendlyToolName(payload.tool || "tool", lang) }));
     } else if (payload.type === "tool_result") {
       setProgressState("tool_result", 92, t(lang, "app.progress.done"));
+      if (payload.chained) {
+        if (payload.tool === "detect_mutation_trends" && payload.result) {
+          setChainedTrends({ token: Date.now(), result: payload.result });
+        } else if (payload.tool === "generate_lab_suggestions" && payload.result) {
+          setChainedSuggestions({ token: Date.now(), result: payload.result });
+        }
+        return;
+      }
       if (payload.tool === "analyze_sequences") {
         const result = payload.result;
         const count = result?.sample_count;
@@ -358,6 +410,7 @@ export function useAgentHarness(language: AppLanguage) {
           llmBaseUrl: settings.llmBaseUrl,
           llmModel: settings.llmModel,
           maxTokens: settings.maxTokens,
+          language: languageRef.current,
         }),
         INIT_TIMEOUT_MS,
         "Initialization",
@@ -412,6 +465,7 @@ export function useAgentHarness(language: AppLanguage) {
         llmBaseUrl: settings.llmBaseUrl,
         llmModel: settings.llmModel,
         maxTokens: settings.maxTokens,
+        language: languageRef.current,
       });
 
       if (runTokenRef.current !== currentRunToken) return;
@@ -480,5 +534,7 @@ export function useAgentHarness(language: AppLanguage) {
     clearMessages: () => setMessages([]),
     lastErrorEvent,
     retryLast,
+    chainedTrends,
+    chainedSuggestions,
   };
 }

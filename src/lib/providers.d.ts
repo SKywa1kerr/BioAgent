@@ -2,7 +2,6 @@ export type ProviderId =
   | "openai"
   | "anthropic"
   | "deepseek"
-  | "sjtu"
   | "ollama"
   | "custom";
 

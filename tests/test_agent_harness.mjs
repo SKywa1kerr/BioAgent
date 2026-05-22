@@ -373,6 +373,9 @@ test("fast-path hydrates analysis detail when analyze_sequences omits inline sam
         samples: [{ id: "P9-1", identity: 0.98 }],
       };
     }
+    if (toolName === "detect_mutation_trends" || toolName === "generate_lab_suggestions") {
+      return { ok: true, total_samples: 1 };
+    }
     throw new Error(`Unexpected tool ${toolName}`);
   };
 
@@ -382,10 +385,14 @@ test("fast-path hydrates analysis detail when analyze_sequences omits inline sam
   assert.deepEqual(toolCalls, [
     { toolName: "analyze_sequences", args: { dataset: "promax", no_llm: true } },
     { toolName: "get_analysis_detail", args: { analysis_id: "analysis-3" } },
+    { toolName: "detect_mutation_trends", args: { analysis_id: "analysis-3" } },
+    { toolName: "generate_lab_suggestions", args: { analysis_id: "analysis-3" } },
   ]);
   const toolResult = events.find((event) => event.type === "tool_result" && event.tool === "analyze_sequences");
   assert.deepEqual(toolResult.result.samples, [{ id: "P9-1", identity: 0.98 }]);
   assert.equal(toolResult.result.detail.analysis_id, "analysis-3");
+  assert.ok(events.some((e) => e.type === "tool_result" && e.tool === "detect_mutation_trends"));
+  assert.ok(events.some((e) => e.type === "tool_result" && e.tool === "generate_lab_suggestions"));
 });
 
 test("fast-path returns after tool_result without waiting for summary completion", async () => {

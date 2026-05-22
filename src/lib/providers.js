@@ -24,13 +24,6 @@ export const PROVIDERS = [
     requiresApiKey: true,
   },
   {
-    id: "sjtu",
-    label: "SJTU AI Lab",
-    defaultBaseUrl: "https://models.sjtu.edu.cn/api/v1",
-    suggestedModels: ["deepseek-chat"],
-    requiresApiKey: true,
-  },
-  {
     id: "ollama",
     label: "Ollama (Local)",
     defaultBaseUrl: "http://localhost:11434/v1",
@@ -78,7 +71,6 @@ export function inferProviderFromBaseUrl(baseUrl) {
   if (u.includes("openai.com")) return "openai";
   if (u.includes("anthropic.com")) return "anthropic";
   if (u.includes("deepseek.com")) return "deepseek";
-  if (u.includes("sjtu.edu.cn")) return "sjtu";
   if (u.includes("localhost:11434") || u.includes("127.0.0.1:11434")) return "ollama";
   return "custom";
 }

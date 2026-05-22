@@ -103,11 +103,12 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("lifecycle"), phase: z.string().optional(), message: z.string().optional() }),
   z.object({ type: z.literal("thinking") }),
   z.object({ type: z.literal("tool_calls_start") }),
-  z.object({ type: z.literal("tool_call"), tool: z.string().optional() }),
+  z.object({ type: z.literal("tool_call"), tool: z.string().optional(), chained: z.boolean().optional() }),
   z.object({
     type: z.literal("tool_result"),
     tool: z.string().optional(),
     result: AnalysisResultSchema.optional(),
+    chained: z.boolean().optional(),
   }),
   z.object({
     type: z.literal("reply"),
