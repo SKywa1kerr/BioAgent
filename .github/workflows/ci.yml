@@ -143,7 +143,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: electron-${{ matrix.os }}
-          path: release/
+          # Only ship the installers + electron-updater manifests. The
+          # `release/` directory also contains `win-unpacked/` and `mac/`
+          # — thousands of internal PyInstaller/Electron files that would
+          # otherwise be attached as release assets and trip GitHub's
+          # secondary rate limit on upload.
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
+            release/*.dmg
+            release/*.dmg.blockmap
+            release/*.zip
+            release/latest*.yml
           if-no-files-found: error
           retention-days: 14
 
@@ -168,8 +179,18 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          # Attach every file across all downloaded artifact directories.
-          files: artifacts/**/*
+          # Attach only the installer files + electron-updater manifests.
+          # `artifacts/**/*` would re-add everything inside the artifact
+          # dirs; the upload step is already filtered, but we double-pin
+          # here so a future widening of the upload doesn't accidentally
+          # pollute the release.
+          files: |
+            artifacts/**/*.exe
+            artifacts/**/*.exe.blockmap
+            artifacts/**/*.dmg
+            artifacts/**/*.dmg.blockmap
+            artifacts/**/*.zip
+            artifacts/**/latest*.yml
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
