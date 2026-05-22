@@ -7,6 +7,7 @@ node_modules/
 dist/
 dist-python/
 release/
+build-pyinstaller/
 .claude/
 .superpowers/
 
@@ -14,3 +15,7 @@ release/
 .tmp_*.txt
 temp_assistant_tool/
 temp_assistant_tool.zip
+
+# Local design notes / research dumps
+Claude_Code_Deep_Dive.md
+test-results/
