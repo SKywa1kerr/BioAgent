@@ -81,3 +81,42 @@ test("pairs are sorted by basename for deterministic output", () => {
     ["alpha", "mike", "zeta"],
   );
 });
+
+test("single .gb reference pairs with every .ab1 when no stems match (Sanger 1-to-many)", () => {
+  // Typical Sanger workflow: one plasmid reference, many trace files whose
+  // basenames bear no relation to the reference filename.
+  const r = pairAb1Gb(
+    ["traces/S1-C376.ab1", "traces/S2-C379.ab1", "traces/S3-C397.ab1"],
+    ["ref/plasmid.gb"],
+  );
+  assert.equal(r.pairs.length, 3, `expected 3 pairs, got ${r.pairs.length}`);
+  for (const p of r.pairs) {
+    assert.equal(p.gb, "ref/plasmid.gb", "all ab1s should reuse the single gb reference");
+  }
+  assert.deepEqual(r.unpairedAb1, []);
+  assert.deepEqual(r.unpairedGb, []);
+});
+
+test("1-to-many fallback does NOT trigger when at least one stem matches", () => {
+  // If even one ab1 matches the gb by stem, prefer stem-based pairing to
+  // avoid accidentally collapsing distinct references into one.
+  const r = pairAb1Gb(
+    ["traces/plasmid.ab1", "traces/unrelated.ab1"],
+    ["ref/plasmid.gb"],
+  );
+  assert.equal(r.pairs.length, 1, "only the stem-matched pair should be created");
+  assert.equal(r.pairs[0].ab1, "traces/plasmid.ab1");
+  assert.deepEqual(r.unpairedAb1, ["traces/unrelated.ab1"]);
+});
+
+test("1-to-many fallback skipped when there are multiple .gb references", () => {
+  // Multiple gb references => ambiguous which one to reuse, fall back to
+  // strict stem matching.
+  const r = pairAb1Gb(
+    ["traces/foo.ab1", "traces/bar.ab1"],
+    ["ref/a.gb", "ref/b.gb"],
+  );
+  assert.equal(r.pairs.length, 0);
+  assert.equal(r.unpairedAb1.length, 2);
+  assert.equal(r.unpairedGb.length, 2);
+});

@@ -80,15 +80,37 @@ export function pairAb1Gb(ab1Paths, gbPaths) {
   }
 
   const pairs = [];
+  const orphanedAb1 = [];  // hold off committing to unpairedAb1 until after
+                           // the 1-to-many fallback check below.
   for (const [key, ab1Path] of ab1Map) {
     const gbPath = gbMap.get(key);
     if (gbPath !== undefined) {
       pairs.push({ basename: ab1Stem.get(key), ab1: ab1Path, gb: gbPath });
       gbMap.delete(key);
     } else {
+      orphanedAb1.push({ key, ab1Path });
+    }
+  }
+
+  // 1-to-many fallback: typical Sanger workflow has ONE plasmid reference
+  // and MANY trace files whose basenames bear no relation to the reference
+  // filename. If no stem-based pair was found AND exactly one .gb remains
+  // unclaimed AND we have orphan .ab1s, reuse that single .gb for all of
+  // them. Multiple unmatched .gb files are ambiguous (we don't know which
+  // is "the reference"), so we leave those alone.
+  const remainingGbs = Array.from(gbMap.values());
+  if (pairs.length === 0 && remainingGbs.length === 1 && orphanedAb1.length > 0) {
+    const sharedGb = remainingGbs[0];
+    for (const { key, ab1Path } of orphanedAb1) {
+      pairs.push({ basename: ab1Stem.get(key), ab1: ab1Path, gb: sharedGb });
+    }
+    gbMap.clear();
+  } else {
+    for (const { ab1Path } of orphanedAb1) {
       unpairedAb1.push(ab1Path);
     }
   }
+
   for (const remaining of gbMap.values()) {
     unpairedGb.push(remaining);
   }
