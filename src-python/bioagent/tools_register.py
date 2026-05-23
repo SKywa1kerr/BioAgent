@@ -321,17 +321,24 @@ def build_lab_suggestions(*, analysis_id: str | None = None) -> dict:
 
 def list_datasets() -> dict:
     _bootstrap_from_disk()
-    builtin_root = _builtin_data_dir()
+    # Built-in datasets (base/pro/promax) were originally surfaced here for
+    # dev convenience, but they are NOT shipped with the packaged app (the
+    # data/ folder lives only in the repo). Exposing them in the sidebar
+    # confused users into clicking entries that don't exist in production.
+    # Opt-in via BIOAGENT_SHOW_BUILTINS=1 if you really want them back during
+    # local development.
     builtin = []
-    if builtin_root.is_dir():
-        from core.alignment import resolve_dataset_dirs
-        for name in DATASET_LAYOUTS.keys():
-            try:
-                gb_dir, ab1_dir = resolve_dataset_dirs(name, builtin_root)
-            except Exception:
-                continue
-            if gb_dir.exists() and ab1_dir.exists():
-                builtin.append({"id": name, "label": name, "kind": "builtin"})
+    if os.environ.get("BIOAGENT_SHOW_BUILTINS") == "1":
+        builtin_root = _builtin_data_dir()
+        if builtin_root.is_dir():
+            from core.alignment import resolve_dataset_dirs
+            for name in DATASET_LAYOUTS.keys():
+                try:
+                    gb_dir, ab1_dir = resolve_dataset_dirs(name, builtin_root)
+                except Exception:
+                    continue
+                if gb_dir.exists() and ab1_dir.exists():
+                    builtin.append({"id": name, "label": name, "kind": "builtin"})
     user = [
         {
             "id": ds.get("id"),

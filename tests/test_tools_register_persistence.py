@@ -97,9 +97,9 @@ def test_register_and_list_user_datasets(tmp_path):
     assert listing["ok"] is True
     user_ids = [d["id"] for d in listing["data"]["user"]]
     assert "my_clones" in user_ids
-    builtin_ids = [d["id"] for d in listing["data"]["builtin"]]
-    assert "base" in builtin_ids
-    assert "pro" in builtin_ids
+    # Built-in datasets are hidden by default (not bundled in production).
+    # Opt-in is gated on BIOAGENT_SHOW_BUILTINS=1; without it the list is empty.
+    assert listing["data"]["builtin"] == []
 
 
 def test_register_dataset_rejects_missing_directory(tmp_path):
