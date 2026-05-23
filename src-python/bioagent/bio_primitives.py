@@ -21,6 +21,7 @@ from Bio import SeqIO as _SeqIO
 
 from core.alignment import (
     aa_changes_from_cds as _aa_changes_from_cds,
+    analyze_dirs as _analyze_dirs,
     build_aligner as _build_aligner,
     compute_stats as _compute_stats,
     extract_mutations as _extract_mutations,
@@ -203,6 +204,33 @@ def compare_sequences(*, ref_seq: str, query_seq: str,
         "mutations": mutations,
         "aa_changes": aa_changes,
         "frameshift_indel": has_indel,
+    }
+
+
+def analyze_files_adhoc(*, ab1_dir: str, gb_dir: str,
+                        output_dir: str | None = None) -> dict:
+    ab1 = _Path(ab1_dir)
+    gb = _Path(gb_dir)
+    if not ab1.exists() or not ab1.is_dir():
+        return {"ok": False, "error": f"ab1_dir not found or not a directory: {ab1_dir}"}
+    if not gb.exists() or not gb.is_dir():
+        return {"ok": False, "error": f"gb_dir not found or not a directory: {gb_dir}"}
+
+    out = _Path(output_dir) if output_dir else (ab1.parent / "_adhoc_output")
+    try:
+        # analyze_dirs signature: (gb_dir, ab1_dir, out_html_dir)
+        samples = _analyze_dirs(gb, ab1, out)
+    except FileNotFoundError as exc:
+        return {"ok": False, "error": str(exc)}
+    except Exception as exc:
+        return {"ok": False, "error": f"analyze failed: {exc}"}
+
+    samples_list = samples if isinstance(samples, list) else []
+    return {
+        "ok": True,
+        "samples_count": len(samples_list),
+        "samples": samples_list,
+        "output_dir": str(out),
     }
 
 

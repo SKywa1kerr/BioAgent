@@ -1,5 +1,6 @@
 """Unit tests for bio_primitives wrappers used by the MCP tool layer."""
 from bioagent.bio_primitives import (
+    analyze_files_adhoc,
     compare_sequences,
     inspect_path,
     read_sequence_file,
@@ -153,3 +154,23 @@ def test_compare_sequences_identical_inputs_zero_mutations():
     assert result["ok"] is True
     assert result["mutations"] == []
     assert result["identity"] == 1.0
+
+
+def test_analyze_files_adhoc_missing_dirs():
+    result = analyze_files_adhoc(ab1_dir="/no/such", gb_dir="/no/such")
+    assert result["ok"] is False
+    assert "not found" in result["error"].lower() or "not a directory" in result["error"].lower()
+
+
+def test_analyze_files_adhoc_empty_dirs_returns_zero(tmp_path):
+    """Two existing-but-empty dirs should NOT crash; analyze_dirs will
+    raise FileNotFoundError because there are no .gb files. Wrapper must
+    catch and return an error envelope."""
+    ab1 = tmp_path / "ab1"
+    gb = tmp_path / "gb"
+    ab1.mkdir()
+    gb.mkdir()
+
+    result = analyze_files_adhoc(ab1_dir=str(ab1), gb_dir=str(gb))
+    assert result["ok"] is False
+    assert "no .gb" in result["error"].lower() or "not found" in result["error"].lower()
