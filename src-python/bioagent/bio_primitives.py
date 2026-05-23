@@ -20,7 +20,12 @@ from typing import List as _List, Union as _Union
 from Bio import SeqIO as _SeqIO
 
 from core.alignment import (
+    aa_changes_from_cds as _aa_changes_from_cds,
+    build_aligner as _build_aligner,
+    compute_stats as _compute_stats,
+    extract_mutations as _extract_mutations,
     load_genbank as _load_genbank,
+    pick_best_orientation as _pick_best_orientation,
     read_ab1_payload as _read_ab1_payload,
     translate_codon,
 )
@@ -145,6 +150,60 @@ def read_sequence_file(*, path: str, max_chars: int = 2000) -> dict:
     except Exception as exc:
         return {"ok": False, "error": f"parse failed: {exc}"}
     return {"ok": False, "error": f"unsupported extension: {ext}"}
+
+
+def compare_sequences(*, ref_seq: str, query_seq: str,
+                      ref_cds_start: int | None = None,
+                      ref_cds_end: int | None = None) -> dict:
+    if not ref_seq or not query_seq:
+        return {"ok": False, "error": "ref_seq and query_seq must both be non-empty"}
+
+    ref_seq = ref_seq.upper()
+    query_seq = query_seq.upper()
+    aligner = _build_aligner()
+
+    # Use ref doubled (ref2) for circular tolerance — mirrors analyze_dirs.
+    ref2 = ref_seq + ref_seq
+    try:
+        _orient, _aln, ref_g, qry_g, ref2_start, _ref2_end, _qry = \
+            _pick_best_orientation(ref2, query_seq, aligner)
+    except Exception as exc:
+        return {"ok": False, "error": f"alignment failed: {exc}"}
+
+    matches, aligned_both, identity, sub, ins, dele = _compute_stats(ref_g, qry_g)
+    try:
+        mutations = _extract_mutations(ref_g, qry_g, ref2_start, len(ref_seq))
+    except Exception as exc:
+        return {"ok": False, "error": f"mutation extraction failed: {exc}"}
+
+    aa_changes = None
+    has_indel = False
+    if ref_cds_start is not None and ref_cds_end is not None:
+        try:
+            # NOTE: in aa_changes_from_cds, the first return value `ok`
+            # means "no AA changes and no indels found", NOT "ran without
+            # error". We always want the changes list — it's authoritative
+            # whether ok is True or False.
+            _no_changes, changes, has_indel, _raw_n = _aa_changes_from_cds(
+                ref_seq, len(ref_seq), ref_cds_start, ref_cds_end,
+                ref_g, qry_g, ref2_start,
+            )
+            aa_changes = changes  # always a list, possibly empty
+        except Exception as exc:
+            return {"ok": False, "error": f"aa change extraction failed: {exc}"}
+
+    return {
+        "ok": True,
+        "length": aligned_both,
+        "matches": matches,
+        "identity": identity,
+        "substitutions": sub,
+        "insertions": ins,
+        "deletions": dele,
+        "mutations": mutations,
+        "aa_changes": aa_changes,
+        "frameshift_indel": has_indel,
+    }
 
 
 def translate_sequence(*, dna: str, frame: int = 0) -> dict:

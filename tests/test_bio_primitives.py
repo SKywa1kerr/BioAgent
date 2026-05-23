@@ -1,5 +1,10 @@
 """Unit tests for bio_primitives wrappers used by the MCP tool layer."""
-from bioagent.bio_primitives import inspect_path, read_sequence_file, translate_sequence
+from bioagent.bio_primitives import (
+    compare_sequences,
+    inspect_path,
+    read_sequence_file,
+    translate_sequence,
+)
 
 
 def test_translate_sequence_full_orf():
@@ -109,3 +114,42 @@ def test_read_sequence_file_unknown_extension(tmp_path):
     result = read_sequence_file(path=str(f))
     assert result["ok"] is False
     assert "unsupported" in result["error"].lower()
+
+
+def test_compare_sequences_finds_single_substitution():
+    # ref:  ATGGAATAA
+    # qry:  ATGGGATAA  (position 5: A -> G)
+    result = compare_sequences(ref_seq="ATGGAATAA", query_seq="ATGGGATAA")
+    assert result["ok"] is True
+    assert result["length"] >= 8
+    subs = [m for m in result["mutations"] if m.get("type", "").lower() == "substitution"]
+    assert subs, f"expected substitution, got {result['mutations']}"
+    sub = subs[0]
+    assert sub.get("ref_pos") == 5
+    assert sub.get("ref_base") == "A"
+    assert sub.get("qry_base") == "G"
+
+
+def test_compare_sequences_with_cds_yields_aa_changes():
+    # ref ATGGAATAA encodes M-E-*; query ATGAAATAA changes codon 2 GAA->AAA
+    # which is E -> K (a real amino-acid substitution).
+    result = compare_sequences(
+        ref_seq="ATGGAATAA",
+        query_seq="ATGAAATAA",
+        ref_cds_start=1,
+        ref_cds_end=9,
+    )
+    assert result["ok"] is True
+    assert result["aa_changes"] == ["E2K"]
+
+
+def test_compare_sequences_rejects_empty():
+    result = compare_sequences(ref_seq="", query_seq="ATG")
+    assert result["ok"] is False
+
+
+def test_compare_sequences_identical_inputs_zero_mutations():
+    result = compare_sequences(ref_seq="ATGGAATAACGTACGT", query_seq="ATGGAATAACGTACGT")
+    assert result["ok"] is True
+    assert result["mutations"] == []
+    assert result["identity"] == 1.0
