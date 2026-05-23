@@ -83,19 +83,29 @@ export function DropZone({ language, children, onRequestImport, onRequestChoose 
         else if (GB_RE.test(path)) gbPaths.push(path);
       }
 
-      // If nothing was a file extension we recognize, check whether the user
-      // dropped folders. A folder drop signals "register this as a dataset".
-      if (ab1Paths.length === 0 && gbPaths.length === 0 && allPaths.length > 0 && onRequestImport) {
+      // Always probe for folders in the drop set. Previously we only looked
+      // at folders when NO file extensions matched, which silently lost
+      // folders in mixed file+folder drops. Now we run inspect-dropped-paths
+      // unconditionally and route to the folder/dataset path when any of the
+      // dropped items is a directory.
+      let droppedDirs: string[] = [];
+      if (allPaths.length > 0) {
         try {
-          const inspect = await window.electronAPI.invoke("inspect-dropped-paths", allPaths);
-          const dirs: string[] = inspect?.dirs || [];
-          if (dirs.length === 1) {
-            // Inspect: a folder may be (a) a dataset root with `ab1/` and
-            // `gb/` subdirs (e.g. data/batch1), (b) a flat folder with both
-            // file types in it, (c) a MULTI-dataset root (e.g. data/ holding
-            // several datasets), or (d) ambiguous. The IPC returns the best
-            // guess plus a layout label.
-            const folder = dirs[0]!;
+          const inspectAll = await window.electronAPI.invoke("inspect-dropped-paths", allPaths);
+          droppedDirs = Array.isArray(inspectAll?.dirs) ? inspectAll.dirs : [];
+        } catch {
+          // ignore — fall through to file pairing logic
+        }
+      }
+
+      // If the user dropped any folders, treat that as the strong signal of
+      // intent ("import this folder as a dataset") and route through the
+      // folder-handling path. Loose files dropped alongside are ignored,
+      // which is the right call: mixed drops are almost always accidents.
+      if (droppedDirs.length > 0 && (onRequestImport || onRequestChoose)) {
+        try {
+          if (droppedDirs.length === 1) {
+            const folder = droppedDirs[0]!;
             const inspected = await window.electronAPI.invoke("inspect-dataset-folder", folder);
             if (inspected?.ok && inspected.layout === "multi" && Array.isArray(inspected.candidates) && inspected.candidates.length > 0) {
               if (onRequestChoose) {
@@ -112,10 +122,8 @@ export function DropZone({ language, children, onRequestImport, onRequestChoose 
             }
             return;
           }
-          if (dirs.length === 2) {
-            // Heuristic: if names hint at ab1/gb, route accordingly; else just
-            // hand them over and let the user finalize.
-            const [d0, d1] = dirs as [string, string];
+          if (droppedDirs.length === 2) {
+            const [d0, d1] = droppedDirs as [string, string];
             const lower0 = d0.toLowerCase();
             const lower1 = d1.toLowerCase();
             const looksAb1 = (s: string) => /ab1/.test(s);
@@ -126,15 +134,15 @@ export function DropZone({ language, children, onRequestImport, onRequestChoose 
               ab1Dir = d1;
               gbDir = d0;
             }
-            onRequestImport({ ab1Dir, gbDir });
+            onRequestImport?.({ ab1Dir, gbDir });
             return;
           }
-          if (dirs.length > 2) {
-            onRequestImport({ ab1Dir: dirs[0], gbDir: dirs[1] });
-            return;
-          }
+          // >2 dirs: too ambiguous, surface only the first two and let the
+          // user fix paths in the dialog.
+          onRequestImport?.({ ab1Dir: droppedDirs[0], gbDir: droppedDirs[1] });
+          return;
         } catch {
-          // Fall through to normal "no pairs" error path below.
+          // Fall through to file-pairing path below if folder routing throws.
         }
       }
 
