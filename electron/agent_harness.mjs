@@ -558,9 +558,19 @@ export class AgentHarness extends EventEmitter {
       if (/contextwindow|context length|maximum context|input_tokens/i.test(message)) {
         this.compactHistoryForNewTurn();
       }
-      const content = `Run failed: ${message}`;
+      // 404s and other transport-layer errors usually mean a misconfigured
+      // baseUrl or model name. The bare openai-node "404 status code (no
+      // body)" string is impossible to act on, so enrich it with what we
+      // actually sent.
+      let enriched = message;
+      if (/404|401|403|model.+not.+found|invalid.+model/i.test(message)) {
+        const baseUrl = this.settings.llmBaseUrl || "(default)";
+        const model = this.settings.llmModel || DEFAULT_MODEL;
+        enriched = `${message} | baseUrl=${baseUrl} model=${model}`;
+      }
+      const content = `Run failed: ${enriched}`;
       this.messages.push({ role: "assistant", content });
-      onEvent({ type: "error", message });
+      onEvent({ type: "error", message: enriched });
       onEvent({ type: "reply", content, uiAction: "show_text" });
     } finally {
       this.isRunning = false;
