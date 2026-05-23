@@ -16,6 +16,14 @@ from core.alignment import DATASET_LAYOUTS, analyze_dataset, analyze_dirs
 from core.evidence import format_evidence_for_llm, format_evidence_table
 from core.llm_client import call_llm, parse_llm_result
 
+from bioagent.bio_primitives import (
+    analyze_files_adhoc,
+    compare_sequences,
+    export_analysis_html,
+    inspect_path,
+    read_sequence_file,
+    translate_sequence,
+)
 from bioagent.mcp_tools import register_tool
 from bioagent.mutation_trends import analyze_mutation_trends
 from bioagent.lab_suggestions import generate_lab_suggestions
@@ -479,6 +487,131 @@ def register_initial_tools() -> None:
         },
         execute=delete_dataset,
     )
+
+    # ── Primitive (atomic) tools ──────────────────────────────────────────
+    # Lower-level operations the agent can compose to answer file/sequence
+    # questions without first registering a dataset. See bio_primitives.py
+    # for the wrappers.
+
+    register_tool(
+        name="inspect_path",
+        description=(
+            "Inspect a path or list of paths. Returns file/dir status, file "
+            "extension/size, and a dataset_hint when a directory looks like "
+            "a BioAgent ab1+gb dataset. Use this BEFORE analyze_sequences "
+            "when the user mentions a path you haven't seen before."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "paths": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "string"}},
+                    ],
+                },
+            },
+            "required": ["paths"],
+        },
+        execute=inspect_path,
+    )
+
+    register_tool(
+        name="read_sequence_file",
+        description=(
+            "Read a single AB1, GenBank, or FASTA file and return a summary "
+            "(length, sequence preview, features/CDS bounds for GenBank, "
+            "quality stats for AB1). Use for one-off file inspection without "
+            "registering a dataset."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "max_chars": {"type": "integer", "default": 2000},
+            },
+            "required": ["path"],
+        },
+        execute=read_sequence_file,
+    )
+
+    register_tool(
+        name="compare_sequences",
+        description=(
+            "Align two DNA sequences and return mutations + identity. If "
+            "ref_cds_start/end are provided, also returns amino-acid changes. "
+            "Use when the user wants to diff two sequences without going "
+            "through a full dataset analysis."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "ref_seq": {"type": "string"},
+                "query_seq": {"type": "string"},
+                "ref_cds_start": {"type": "integer"},
+                "ref_cds_end": {"type": "integer"},
+            },
+            "required": ["ref_seq", "query_seq"],
+        },
+        execute=compare_sequences,
+    )
+
+    register_tool(
+        name="translate_sequence",
+        description=(
+            "Translate a DNA sequence to protein. Frame defaults to 0; pass "
+            "1 or 2 for alternate reading frames. Returns the protein string "
+            "plus stop-codon AA positions."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "dna": {"type": "string"},
+                "frame": {"type": "integer", "enum": [0, 1, 2], "default": 0},
+            },
+            "required": ["dna"],
+        },
+        execute=translate_sequence,
+    )
+
+    register_tool(
+        name="analyze_files_adhoc",
+        description=(
+            "Run the full alignment analysis on a pair of folders WITHOUT "
+            "registering them as a dataset. Use when the user wants a "
+            "one-off look at folders they don't intend to keep."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "ab1_dir": {"type": "string"},
+                "gb_dir": {"type": "string"},
+                "output_dir": {"type": "string"},
+            },
+            "required": ["ab1_dir", "gb_dir"],
+        },
+        execute=analyze_files_adhoc,
+    )
+
+    register_tool(
+        name="export_analysis_html",
+        description=(
+            "Render the alignment of a single sample from a stored analysis "
+            "to an HTML file. Use to give the user a viewable alignment "
+            "outside the app UI."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "analysis_id": {"type": "string"},
+                "sample_id": {"type": "string"},
+                "output_path": {"type": "string"},
+            },
+            "required": ["analysis_id", "sample_id"],
+        },
+        execute=export_analysis_html,
+    )
+
     _REGISTERED = True
 
 
