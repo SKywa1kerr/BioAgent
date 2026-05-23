@@ -17,6 +17,7 @@ import { useChatColumnWidth } from "./hooks/useChatColumnWidth";
 import { DropZone } from "./components/DropZone";
 import { InitDialog } from "./components/InitDialog";
 import { ImportDatasetDialog } from "./components/ImportDatasetDialog";
+import { MultiDatasetChooserDialog, type DatasetCandidate } from "./components/MultiDatasetChooserDialog";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
 import { useAnalysisHistory } from "./hooks/useAnalysisHistory";
 import { useOnboarding } from "./hooks/useOnboarding";
@@ -190,6 +191,7 @@ export function App() {
   const [datasets, setDatasets] = useState<DatasetItem[]>([]);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importPrefill, setImportPrefill] = useState<{ ab1Dir?: string; gbDir?: string } | null>(null);
+  const [datasetCandidates, setDatasetCandidates] = useState<DatasetCandidate[] | null>(null);
 
   const refreshDatasets = useCallback(async () => {
     if (!agent.initialized) return;
@@ -643,6 +645,7 @@ export function App() {
         <DropZone
           language={language}
           onRequestImport={(prefill) => { setImportPrefill(prefill); setImportDialogOpen(true); }}
+          onRequestChoose={(candidates) => setDatasetCandidates(candidates)}
         >
           {shellContent}
         </DropZone>
@@ -702,6 +705,36 @@ export function App() {
             title: t(language, "import.toast.failed", { message }),
             durationMs: 0,
           });
+        }}
+      />
+
+      <MultiDatasetChooserDialog
+        open={datasetCandidates !== null && datasetCandidates.length > 0}
+        language={language}
+        candidates={datasetCandidates || []}
+        onCancel={() => setDatasetCandidates(null)}
+        onPick={(cand) => {
+          setDatasetCandidates(null);
+          // For "subdirs" layout the dataset folder has ab1/ + gb/ children;
+          // for "flat" both point at the folder itself. Either way the
+          // import dialog handles prefill validation.
+          if (cand.layout === "subdirs") {
+            // We could resolve the actual subdir paths here, but the IPC
+            // round-trip on the next dialog open will do that. For UX speed
+            // we hand the candidate path through and let inspect-dataset-folder
+            // get called once more inside the dialog flow.
+            void window.electronAPI.invoke("inspect-dataset-folder", cand.path).then((resolved) => {
+              if (resolved?.ok && resolved.layout === "subdirs") {
+                setImportPrefill({ ab1Dir: resolved.ab1Dir, gbDir: resolved.gbDir });
+              } else {
+                setImportPrefill({ ab1Dir: cand.path, gbDir: cand.path });
+              }
+              setImportDialogOpen(true);
+            });
+          } else {
+            setImportPrefill({ ab1Dir: cand.path, gbDir: cand.path });
+            setImportDialogOpen(true);
+          }
         }}
       />
 

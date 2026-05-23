@@ -14,6 +14,9 @@ interface DropZoneProps {
   /** Triggered when the user drops a folder (or folders) instead of files —
    *  App opens the register-dataset dialog with the path pre-filled. */
   onRequestImport?: (prefill: { ab1Dir?: string; gbDir?: string }) => void;
+  /** Triggered when the dropped folder contains several dataset-shaped
+   *  subfolders — App shows the chooser dialog instead of the import form. */
+  onRequestChoose?: (candidates: Array<{ name: string; path: string; layout: "subdirs" | "flat" }>) => void;
 }
 
 interface DroppedFilesResponse {
@@ -43,7 +46,7 @@ function dragHasFiles(event: DragEvent): boolean {
  * instant local check, and forwards the lists to the main process via the
  * `analyze-dropped-files` IPC channel. Feedback is delivered through toasts.
  */
-export function DropZone({ language, children, onRequestImport }: DropZoneProps): JSX.Element {
+export function DropZone({ language, children, onRequestImport, onRequestChoose }: DropZoneProps): JSX.Element {
   const [dragActive, setDragActive] = useState(false);
   const dragCounterRef = useRef(0);
   const toasts = useToasts();
@@ -89,14 +92,23 @@ export function DropZone({ language, children, onRequestImport }: DropZoneProps)
           if (dirs.length === 1) {
             // Inspect: a folder may be (a) a dataset root with `ab1/` and
             // `gb/` subdirs (e.g. data/batch1), (b) a flat folder with both
-            // file types in it, or (c) ambiguous. The IPC returns the best
-            // ab1Dir/gbDir guess for each.
+            // file types in it, (c) a MULTI-dataset root (e.g. data/ holding
+            // several datasets), or (d) ambiguous. The IPC returns the best
+            // guess plus a layout label.
             const folder = dirs[0]!;
             const inspected = await window.electronAPI.invoke("inspect-dataset-folder", folder);
+            if (inspected?.ok && inspected.layout === "multi" && Array.isArray(inspected.candidates) && inspected.candidates.length > 0) {
+              if (onRequestChoose) {
+                onRequestChoose(inspected.candidates);
+              } else {
+                onRequestImport?.({ ab1Dir: folder, gbDir: folder });
+              }
+              return;
+            }
             if (inspected?.ok) {
-              onRequestImport({ ab1Dir: inspected.ab1Dir, gbDir: inspected.gbDir });
+              onRequestImport?.({ ab1Dir: inspected.ab1Dir, gbDir: inspected.gbDir });
             } else {
-              onRequestImport({ ab1Dir: folder, gbDir: folder });
+              onRequestImport?.({ ab1Dir: folder, gbDir: folder });
             }
             return;
           }

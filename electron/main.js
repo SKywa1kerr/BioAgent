@@ -543,6 +543,38 @@ app.whenReady().then(async () => {
       if (hasAb1 && hasGb) {
         return { ok: true, layout: "flat", ab1Dir: folderPath, gbDir: folderPath };
       }
+
+      // Multi-dataset root: this folder contains no ab1/gb directly, but its
+      // immediate subdirectories themselves look like dataset folders (each
+      // has both an ab1 and a gb subdir, OR each is a flat ab1+gb dir).
+      // Surface the list so the caller can prompt the user to pick one.
+      const candidates = [];
+      for (const sub of subdirs) {
+        const subPath = path.join(folderPath, sub.name);
+        try {
+          const subEntries = fs.readdirSync(subPath, { withFileTypes: true });
+          const subSubdirs = subEntries.filter((e) => e.isDirectory());
+          const hasAb1Sub = subSubdirs.some((d) => /^ab1$|^ab1_files$/i.test(d.name));
+          const hasGbSub = subSubdirs.some((d) => /^gb$|^gbk$|^genbank$/i.test(d.name));
+          if (hasAb1Sub && hasGbSub) {
+            candidates.push({ name: sub.name, path: subPath, layout: "subdirs" });
+            continue;
+          }
+          const subFiles = subEntries.filter((e) => e.isFile());
+          const subHasAb1 = subFiles.some((f) => /\.ab1$/i.test(f.name));
+          const subHasGb = subFiles.some((f) => /\.gbk?$/i.test(f.name));
+          if (subHasAb1 && subHasGb) {
+            candidates.push({ name: sub.name, path: subPath, layout: "flat" });
+          }
+        } catch {
+          // ignore unreadable subdirs
+        }
+      }
+
+      if (candidates.length > 0) {
+        return { ok: true, layout: "multi", candidates };
+      }
+
       // Couldn't auto-detect — return root for both, caller can prefill the
       // dialog and let the user fix.
       return {
