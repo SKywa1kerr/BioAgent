@@ -1,5 +1,5 @@
 """Unit tests for bio_primitives wrappers used by the MCP tool layer."""
-from bioagent.bio_primitives import inspect_path, translate_sequence
+from bioagent.bio_primitives import inspect_path, read_sequence_file, translate_sequence
 
 
 def test_translate_sequence_full_orf():
@@ -67,3 +67,45 @@ def test_inspect_path_accepts_list(tmp_path):
     result = inspect_path(paths=[str(tmp_path / "a.txt"), str(tmp_path / "b.txt")])
     assert result["ok"] is True
     assert len(result["items"]) == 2
+
+
+def test_read_sequence_file_genbank(tmp_path):
+    gb = tmp_path / "tiny.gb"
+    gb.write_text(
+        "LOCUS       tiny    9 bp    DNA     linear   UNK 01-JAN-2026\n"
+        "FEATURES             Location/Qualifiers\n"
+        "     CDS             1..9\n"
+        '                     /gene="X"\n'
+        "ORIGIN\n"
+        "        1 atggaataa\n"
+        "//\n"
+    )
+    result = read_sequence_file(path=str(gb))
+    assert result["ok"] is True
+    assert result["format"] == "genbank"
+    assert result["length"] == 9
+    assert result["sequence_preview"].startswith("ATGGAATAA")
+    assert result["features"], "expected at least one CDS feature"
+
+
+def test_read_sequence_file_fasta(tmp_path):
+    fa = tmp_path / "x.fa"
+    fa.write_text(">seq1\nATGCATGC\n")
+    result = read_sequence_file(path=str(fa))
+    assert result["ok"] is True
+    assert result["format"] == "fasta"
+    assert result["length"] == 8
+
+
+def test_read_sequence_file_missing(tmp_path):
+    result = read_sequence_file(path=str(tmp_path / "missing.gb"))
+    assert result["ok"] is False
+    assert "not found" in result["error"].lower()
+
+
+def test_read_sequence_file_unknown_extension(tmp_path):
+    f = tmp_path / "weird.xyz"
+    f.write_text("x")
+    result = read_sequence_file(path=str(f))
+    assert result["ok"] is False
+    assert "unsupported" in result["error"].lower()

@@ -17,7 +17,13 @@ from __future__ import annotations
 from pathlib import Path as _Path
 from typing import List as _List, Union as _Union
 
-from core.alignment import translate_codon
+from Bio import SeqIO as _SeqIO
+
+from core.alignment import (
+    load_genbank as _load_genbank,
+    read_ab1_payload as _read_ab1_payload,
+    translate_codon,
+)
 
 
 _AB1_SUBDIRS = ("ab1", "ab1_files")
@@ -77,6 +83,68 @@ def inspect_path(*, paths: _Union[str, _List[str]]) -> dict:
                 "size": size,
             })
     return {"ok": True, "items": items}
+
+
+def read_sequence_file(*, path: str, max_chars: int = 2000) -> dict:
+    p = _Path(path)
+    if not p.exists():
+        return {"ok": False, "error": f"file not found: {path}"}
+    if not p.is_file():
+        return {"ok": False, "error": f"not a file: {path}"}
+
+    ext = p.suffix.lower()
+    try:
+        if ext == ".ab1":
+            seq, qual, _ = _read_ab1_payload(p, do_trim=False)
+            return {
+                "ok": True,
+                "format": "ab1",
+                "length": len(seq),
+                "sequence_preview": seq[:max_chars],
+                "quality_stats": {
+                    "min": min(qual) if qual else None,
+                    "max": max(qual) if qual else None,
+                    "mean": (sum(qual) / len(qual)) if qual else None,
+                },
+            }
+        if ext in (".gb", ".gbk"):
+            rec, ref_seq, ref_len, cds_start, cds_end = _load_genbank(p)
+            features = []
+            for feat in rec.features:
+                if feat.type in ("CDS", "gene", "misc_feature"):
+                    label = ""
+                    if "label" in feat.qualifiers:
+                        label = str(feat.qualifiers["label"][0])
+                    elif "gene" in feat.qualifiers:
+                        label = str(feat.qualifiers["gene"][0])
+                    features.append({
+                        "type": feat.type,
+                        "start": int(feat.location.start) + 1,
+                        "end": int(feat.location.end),
+                        "label": label,
+                    })
+            return {
+                "ok": True,
+                "format": "genbank",
+                "length": ref_len,
+                "sequence_preview": ref_seq[:max_chars],
+                "features": features,
+                "cds_start": cds_start,
+                "cds_end": cds_end,
+            }
+        if ext in (".fa", ".fasta", ".fna"):
+            rec = _SeqIO.read(str(p), "fasta")
+            seq = str(rec.seq).upper()
+            return {
+                "ok": True,
+                "format": "fasta",
+                "length": len(seq),
+                "sequence_preview": seq[:max_chars],
+                "id": rec.id,
+            }
+    except Exception as exc:
+        return {"ok": False, "error": f"parse failed: {exc}"}
+    return {"ok": False, "error": f"unsupported extension: {ext}"}
 
 
 def translate_sequence(*, dna: str, frame: int = 0) -> dict:
