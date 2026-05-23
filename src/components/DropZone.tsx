@@ -74,14 +74,25 @@ export function DropZone({ language, children, onRequestImport, onRequestChoose 
       for (let i = 0; i < fileList.length; i += 1) {
         const file = fileList.item(i);
         if (!file) continue;
-        // Electron exposes `path` on dropped File objects; the standard DOM
-        // type does not, so we narrow via a runtime check.
-        const path = (file as File & { path?: unknown }).path;
-        if (typeof path !== "string" || path.length === 0) continue;
+        // Electron 32+ removed File.path. The preload bridge exposes
+        // webUtils.getPathForFile as electronAPI.getDroppedFilePath; older
+        // builds may still surface file.path so we fall back to it.
+        let path = "";
+        const bridge = window.electronAPI as { getDroppedFilePath?: (f: File) => string };
+        if (typeof bridge.getDroppedFilePath === "function") {
+          path = bridge.getDroppedFilePath(file) || "";
+        }
+        if (!path) {
+          const legacy = (file as File & { path?: unknown }).path;
+          if (typeof legacy === "string") path = legacy;
+        }
+        if (path.length === 0) continue;
         allPaths.push(path);
         if (AB1_RE.test(path)) ab1Paths.push(path);
         else if (GB_RE.test(path)) gbPaths.push(path);
       }
+      // eslint-disable-next-line no-console
+      console.log("[DropZone] drop received:", { allPaths, ab1Paths, gbPaths, fileCount: fileList.length });
 
       // Always probe for folders in the drop set. Previously we only looked
       // at folders when NO file extensions matched, which silently lost
@@ -93,8 +104,11 @@ export function DropZone({ language, children, onRequestImport, onRequestChoose 
         try {
           const inspectAll = await window.electronAPI.invoke("inspect-dropped-paths", allPaths);
           droppedDirs = Array.isArray(inspectAll?.dirs) ? inspectAll.dirs : [];
-        } catch {
-          // ignore — fall through to file pairing logic
+          // eslint-disable-next-line no-console
+          console.log("[DropZone] inspect-dropped-paths →", { allPaths, droppedDirs });
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[DropZone] inspect-dropped-paths threw:", err);
         }
       }
 
@@ -107,7 +121,11 @@ export function DropZone({ language, children, onRequestImport, onRequestChoose 
           if (droppedDirs.length === 1) {
             const folder = droppedDirs[0]!;
             const inspected = await window.electronAPI.invoke("inspect-dataset-folder", folder);
+            // eslint-disable-next-line no-console
+            console.log("[DropZone] inspect-dataset-folder →", { folder, inspected });
             if (inspected?.ok && inspected.layout === "multi" && Array.isArray(inspected.candidates) && inspected.candidates.length > 0) {
+              // eslint-disable-next-line no-console
+              console.log("[DropZone] routing to chooser with", inspected.candidates.length, "candidates");
               if (onRequestChoose) {
                 onRequestChoose(inspected.candidates);
               } else {
@@ -141,8 +159,9 @@ export function DropZone({ language, children, onRequestImport, onRequestChoose 
           // user fix paths in the dialog.
           onRequestImport?.({ ab1Dir: droppedDirs[0], gbDir: droppedDirs[1] });
           return;
-        } catch {
-          // Fall through to file-pairing path below if folder routing throws.
+        } catch (err) {
+          // eslint-disable-next-line no-console
+          console.error("[DropZone] folder routing threw, falling through to file pairing:", err);
         }
       }
 

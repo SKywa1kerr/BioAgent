@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 
 contextBridge.exposeInMainWorld("electronAPI", {
   invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
@@ -6,6 +6,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("agent-event", listener);
     return () => ipcRenderer.removeListener("agent-event", listener);
+  },
+  // Electron 32+ removed File.path for security. The renderer must call
+  // webUtils.getPathForFile(file) instead to recover the absolute path of
+  // a dropped/selected file. Expose it through the bridge because webUtils
+  // isn't available in the renderer's global scope under contextIsolation.
+  getDroppedFilePath: (file) => {
+    try {
+      return webUtils.getPathForFile(file) || "";
+    } catch {
+      return "";
+    }
   },
 });
 
