@@ -84,11 +84,21 @@ body,
 }
 
 .app-shell.canvas-collapsed .app-shell-content {
-  grid-template-columns: var(--sidebar-w) var(--chat-w) 1px 56px;
+  /* Chat expands to 1fr so the user's saved --chat-w (set as an inline style
+     when the splitter was dragged) doesn't leave a dead gap between the chat
+     panel and the canvas rail. */
+  grid-template-columns: var(--sidebar-w) 1fr 1px 56px;
 }
 
 .app-shell.chat-collapsed.canvas-collapsed .app-shell-content {
-  grid-template-columns: var(--sidebar-w) 32px 1px 56px;
+  /* Both panels collapsed: canvas-rail soaks up the remaining width. The
+     button itself is constrained via a max-width below so the icon stays
+     in a sensible place. */
+  grid-template-columns: var(--sidebar-w) 32px 1px 1fr;
+}
+
+.app-shell.chat-collapsed.canvas-collapsed .canvas-rail {
+  max-width: 56px;
 }
 
 .canvas-rail {
