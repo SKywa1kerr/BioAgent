@@ -29,6 +29,7 @@ from core.alignment import (
     pick_best_orientation as _pick_best_orientation,
     read_ab1_payload as _read_ab1_payload,
     translate_codon,
+    write_alignment_html as _write_alignment_html,
 )
 
 
@@ -232,6 +233,56 @@ def analyze_files_adhoc(*, ab1_dir: str, gb_dir: str,
         "samples": samples_list,
         "output_dir": str(out),
     }
+
+
+def export_analysis_html(*, analysis_id: str, sample_id: str,
+                         output_path: str | None = None) -> dict:
+    # Local import: tools_register imports bio_primitives, so a top-level
+    # import here would create a circular dependency.
+    from bioagent.tools_register import _ANALYSIS_DETAILS
+
+    detail = _ANALYSIS_DETAILS.get(analysis_id)
+    if not detail:
+        return {"ok": False, "error": f"analysis not found: {analysis_id}"}
+    samples = detail.get("samples") or []
+    sample = next((s for s in samples if s.get("id") == sample_id), None)
+    if sample is None:
+        return {"ok": False, "error": f"sample not found in analysis: {sample_id}"}
+
+    ref_g = sample.get("aligned_ref_g")
+    qry_g = sample.get("aligned_query_g")
+    ref_seq = sample.get("ref_sequence")
+    ref_length = sample.get("ref_length") or (len(ref_seq) if ref_seq else None)
+    if not ref_g or not qry_g or not ref_length:
+        return {
+            "ok": False,
+            "error": "sample missing aligned_ref_g / aligned_query_g / ref_length needed for HTML render",
+        }
+
+    # Recover ref2_start by re-running the orientation pick on the stored
+    # ref/query pair. This is the same logic analyze_sample used originally.
+    ref2_start = 0
+    query_seq = sample.get("query_sequence")
+    if ref_seq and query_seq:
+        try:
+            aligner = _build_aligner()
+            _orient, _aln, _rg, _qg, ref2_start, _re, _qry = \
+                _pick_best_orientation(ref_seq + ref_seq, query_seq, aligner)
+        except Exception:
+            ref2_start = 0  # fall back; HTML positions may be slightly off
+
+    out = _Path(output_path) if output_path else \
+          _Path.cwd() / f"alignment_{analysis_id}_{sample_id}.html"
+    try:
+        _write_alignment_html(
+            out,
+            title=f"{analysis_id} / {sample_id}",
+            ref_g=ref_g, qry_g=qry_g,
+            ref2_start=ref2_start, ref_len=ref_length,
+        )
+    except Exception as exc:
+        return {"ok": False, "error": f"html write failed: {exc}"}
+    return {"ok": True, "html_path": str(out)}
 
 
 def translate_sequence(*, dna: str, frame: int = 0) -> dict:

@@ -2,6 +2,7 @@
 from bioagent.bio_primitives import (
     analyze_files_adhoc,
     compare_sequences,
+    export_analysis_html,
     inspect_path,
     read_sequence_file,
     translate_sequence,
@@ -174,3 +175,38 @@ def test_analyze_files_adhoc_empty_dirs_returns_zero(tmp_path):
     result = analyze_files_adhoc(ab1_dir=str(ab1), gb_dir=str(gb))
     assert result["ok"] is False
     assert "no .gb" in result["error"].lower() or "not found" in result["error"].lower()
+
+
+def test_export_analysis_html_unknown_analysis():
+    import bioagent.tools_register  # ensure module loaded so conftest reset hits it
+    result = export_analysis_html(analysis_id="nope", sample_id="x")
+    assert result["ok"] is False
+    assert "analysis" in result["error"].lower()
+
+
+def test_export_analysis_html_writes_file(tmp_path):
+    import bioagent.tools_register as tools_register
+    tools_register._ANALYSIS_DETAILS["test_aid"] = {
+        "analysis_id": "test_aid",
+        "samples": [
+            {
+                "id": "S1",
+                "ref_sequence": "ATGGAATAACGTACGT",
+                "query_sequence": "ATGGAATAACGTACGT",
+                "ref_length": 16,
+                "aligned_ref_g": "ATGGAATAACGTACGT",
+                "aligned_query_g": "ATGGAATAACGTACGT",
+            },
+        ],
+    }
+
+    out_path = tmp_path / "alignment.html"
+    result = export_analysis_html(
+        analysis_id="test_aid",
+        sample_id="S1",
+        output_path=str(out_path),
+    )
+    assert result["ok"] is True, result
+    assert out_path.exists()
+    body = out_path.read_text()
+    assert "ATGGAATAA" in body or "REF" in body
