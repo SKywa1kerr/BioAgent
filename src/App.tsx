@@ -158,6 +158,17 @@ export function App() {
   /* ── Panel history cache ──────────────────────────────────────────── */
 
   const [panelCache, setPanelCache] = useState<Record<string, any>>({});
+  const canvasHasContent = !!(panelCache.analysis || panelCache.trends || panelCache.suggestions);
+  const [canvasOpen, setCanvasOpen] = useState(false);
+  const prevCanvasHasContentRef = useRef(false);
+  useEffect(() => {
+    // Auto-open the canvas the moment content arrives where there was none.
+    // After that the user controls open/closed via the rail / collapse btn.
+    if (canvasHasContent && !prevCanvasHasContentRef.current) {
+      setCanvasOpen(true);
+    }
+    prevCanvasHasContentRef.current = canvasHasContent;
+  }, [canvasHasContent]);
   const [activeTab, setActiveTab] = useState<PanelType>("text");
 
   useEffect(() => {
@@ -610,16 +621,38 @@ export function App() {
       />
 
       <main className="canvas-panel" aria-label="Analysis canvas">
-        <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
-          {renderTabBar()}
-          {renderCompactProgress()}
-          <ErrorBoundary
-            fallbackTitle={t(language, "app.ready.title")}
-            retryLabel={language === "zh" ? "重试" : "Retry"}
+        {canvasOpen ? (
+          <SmartCanvas title={t(language, "app.canvasTitle")} panelType={activeTab}>
+            <button
+              type="button"
+              className="canvas-collapse-btn"
+              onClick={() => setCanvasOpen(false)}
+              aria-label={t(language, "canvas.collapse")}
+              title={t(language, "canvas.collapse")}
+            >
+              ✕
+            </button>
+            {renderTabBar()}
+            {renderCompactProgress()}
+            <ErrorBoundary
+              fallbackTitle={t(language, "app.ready.title")}
+              retryLabel={language === "zh" ? "重试" : "Retry"}
+            >
+              {renderPanel()}
+            </ErrorBoundary>
+          </SmartCanvas>
+        ) : (
+          <button
+            type="button"
+            className="canvas-rail"
+            onClick={() => setCanvasOpen(true)}
+            aria-label={t(language, "canvas.expand")}
+            title={t(language, canvasHasContent ? "canvas.expand.hasContent" : "canvas.expand")}
           >
-            {renderPanel()}
-          </ErrorBoundary>
-        </SmartCanvas>
+            <span className="canvas-rail-icon" aria-hidden>📊</span>
+            {canvasHasContent ? <span className="canvas-rail-dot" aria-hidden /> : null}
+          </button>
+        )}
       </main>
     </div>
   );
@@ -627,7 +660,8 @@ export function App() {
   const shellClass =
     "app-shell" +
     (sidebarCollapsed ? " sidebar-collapsed" : "") +
-    (chatWidth.collapsed ? " chat-collapsed" : "");
+    (chatWidth.collapsed ? " chat-collapsed" : "") +
+    (canvasOpen ? "" : " canvas-collapsed");
 
   return (
     <div className={shellClass}>

@@ -83,6 +83,77 @@ body,
   grid-template-columns: var(--sidebar-w) 32px 1px 1fr;
 }
 
+.app-shell.canvas-collapsed .app-shell-content {
+  grid-template-columns: var(--sidebar-w) var(--chat-w) 1px 56px;
+}
+
+.app-shell.chat-collapsed.canvas-collapsed .app-shell-content {
+  grid-template-columns: var(--sidebar-w) 32px 1px 56px;
+}
+
+.canvas-rail {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 0;
+  background: var(--bg-canvas);
+  border: none;
+  border-left: 1px solid var(--border-soft);
+  cursor: pointer;
+  color: var(--text-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.canvas-rail:hover {
+  background: var(--surface-1, var(--bg-canvas));
+  color: var(--text-main);
+}
+
+.canvas-rail-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.canvas-rail-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent, #c97a3a);
+}
+
+.canvas-collapse-btn {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1;
+  z-index: 2;
+}
+
+.canvas-collapse-btn:hover {
+  background: var(--surface-1, transparent);
+  color: var(--text-main);
+  border-color: var(--border-soft);
+}
+
+.canvas-panel {
+  position: relative;
+}
+
 .chat-panel,
 .canvas-panel {
   display: flex;
