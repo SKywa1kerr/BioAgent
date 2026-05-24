@@ -310,3 +310,88 @@ def translate_sequence(*, dna: str, frame: int = 0) -> dict:
         "protein": "".join(protein_chars),
         "stop_codons": stop_positions,
     }
+
+
+def compare_analyses(*, analysis_id_a: str, analysis_id_b: str) -> dict:
+    """Compute a side-by-side comparison summary for two prior analyses.
+
+    Pulls each analysis's stored samples and reports per-dataset:
+      - total_samples / wrong_count / wrong_rate
+      - frameshift_count / frameshift_rate
+      - mean_identity / mean_coverage
+      - top_mutation_positions (top 5 by frequency)
+
+    Plus a small delta block highlighting which dataset has a higher
+    wrong-rate, etc., so the LLM can summarise without redoing the
+    arithmetic.
+    """
+    from bioagent.tools_register import _ANALYSIS_DETAILS
+
+    def collect(aid: str) -> dict | None:
+        detail = _ANALYSIS_DETAILS.get(aid)
+        if not detail:
+            return None
+        samples = detail.get("samples") or []
+        if not samples:
+            return {
+                "analysis_id": aid,
+                "dataset": detail.get("dataset"),
+                "total_samples": 0,
+                "wrong_count": 0,
+                "wrong_rate": 0.0,
+                "frameshift_count": 0,
+                "frameshift_rate": 0.0,
+                "mean_identity": None,
+                "mean_coverage": None,
+                "top_mutation_positions": [],
+            }
+        wrong = sum(1 for s in samples if s.get("status") == "wrong")
+        frameshift = sum(1 for s in samples if s.get("frameshift"))
+        identities = [s.get("identity") for s in samples if isinstance(s.get("identity"), (int, float))]
+        coverages = [s.get("coverage") for s in samples if isinstance(s.get("coverage"), (int, float))]
+        position_counts: dict[int, int] = {}
+        for s in samples:
+            for mut in s.get("mutations") or []:
+                pos = mut.get("position") or mut.get("ref_pos")
+                if isinstance(pos, int):
+                    position_counts[pos] = position_counts.get(pos, 0) + 1
+        top_positions = sorted(position_counts.items(), key=lambda kv: -kv[1])[:5]
+        n = len(samples)
+        return {
+            "analysis_id": aid,
+            "dataset": detail.get("dataset"),
+            "total_samples": n,
+            "wrong_count": wrong,
+            "wrong_rate": (wrong / n) if n else 0.0,
+            "frameshift_count": frameshift,
+            "frameshift_rate": (frameshift / n) if n else 0.0,
+            "mean_identity": (sum(identities) / len(identities)) if identities else None,
+            "mean_coverage": (sum(coverages) / len(coverages)) if coverages else None,
+            "top_mutation_positions": [{"position": p, "count": c} for p, c in top_positions],
+        }
+
+    a = collect(analysis_id_a)
+    b = collect(analysis_id_b)
+    if a is None:
+        return {"ok": False, "error": f"analysis not found: {analysis_id_a}"}
+    if b is None:
+        return {"ok": False, "error": f"analysis not found: {analysis_id_b}"}
+
+    def delta(field: str) -> dict:
+        va, vb = a.get(field), b.get(field)
+        if va is None or vb is None:
+            return {"a": va, "b": vb, "diff": None}
+        return {"a": va, "b": vb, "diff": vb - va}
+
+    return {
+        "ok": True,
+        "a": a,
+        "b": b,
+        "delta": {
+            "wrong_rate": delta("wrong_rate"),
+            "frameshift_rate": delta("frameshift_rate"),
+            "mean_identity": delta("mean_identity"),
+            "mean_coverage": delta("mean_coverage"),
+            "total_samples": delta("total_samples"),
+        },
+    }

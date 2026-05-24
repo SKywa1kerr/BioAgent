@@ -303,6 +303,7 @@ export class AgentHarness extends EventEmitter {
       "- translate_sequence: DNA -> protein.",
       "- analyze_files_adhoc: one-off folder analysis without polluting the dataset registry.",
       "- export_analysis_html: render a stored sample's alignment to an HTML file the user can open.",
+      "- compare_analyses: side-by-side stats for two prior analyses (wrong rate, frameshift rate, mean identity, top mutation positions). Use when the user asks to compare datasets; call query_history first if you need to find their analysis_ids.",
       "Prefer the primitive tools when the user's question is narrow (e.g. \"what's in this file?\", \"translate this sequence\", \"diff these two sequences\"). Use the full analyze_sequences + register_dataset path only when the user is starting a multi-sample investigation they'll want to revisit.",
       datasetHint,
       "When the user asks to analyze a dataset, ALWAYS call analyze_sequences first, then in the SAME turn call detect_mutation_trends and generate_lab_suggestions for the resulting analysis_id so all three views populate together.",

@@ -18,6 +18,7 @@ from core.llm_client import call_llm, parse_llm_result
 
 from bioagent.bio_primitives import (
     analyze_files_adhoc,
+    compare_analyses,
     compare_sequences,
     export_analysis_html,
     inspect_path,
@@ -625,6 +626,27 @@ def register_initial_tools() -> None:
             "required": ["analysis_id", "sample_id"],
         },
         execute=export_analysis_html,
+    )
+
+    register_tool(
+        name="compare_analyses",
+        description=(
+            "Compare two previously-run analyses side by side. Pulls samples "
+            "from each by analysis_id and returns per-dataset stats "
+            "(total_samples, wrong_rate, frameshift_rate, mean_identity, "
+            "mean_coverage, top_mutation_positions) plus a delta block. "
+            "Use when the user asks to compare datasets (e.g. 'base vs pro') "
+            "— first call query_history if you need to look up analysis_ids."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "analysis_id_a": {"type": "string"},
+                "analysis_id_b": {"type": "string"},
+            },
+            "required": ["analysis_id_a", "analysis_id_b"],
+        },
+        execute=compare_analyses,
     )
 
     _REGISTERED = True

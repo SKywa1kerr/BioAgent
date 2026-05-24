@@ -210,3 +210,49 @@ def test_export_analysis_html_writes_file(tmp_path):
     assert out_path.exists()
     body = out_path.read_text()
     assert "ATGGAATAA" in body or "REF" in body
+
+
+def test_compare_analyses_basic():
+    import bioagent.tools_register as tools_register
+    from bioagent.bio_primitives import compare_analyses
+
+    tools_register._ANALYSIS_DETAILS["aid_a"] = {
+        "analysis_id": "aid_a",
+        "dataset": "base",
+        "samples": [
+            {"id": "s1", "status": "ok", "identity": 0.99, "coverage": 0.95,
+             "frameshift": False, "mutations": []},
+            {"id": "s2", "status": "wrong", "identity": 0.85, "coverage": 0.9,
+             "frameshift": True,
+             "mutations": [{"position": 100, "type": "substitution"},
+                           {"position": 200, "type": "substitution"}]},
+        ],
+    }
+    tools_register._ANALYSIS_DETAILS["aid_b"] = {
+        "analysis_id": "aid_b",
+        "dataset": "pro",
+        "samples": [
+            {"id": "s3", "status": "ok", "identity": 0.97, "coverage": 0.96,
+             "frameshift": False, "mutations": []},
+        ],
+    }
+
+    result = compare_analyses(analysis_id_a="aid_a", analysis_id_b="aid_b")
+    assert result["ok"] is True
+    assert result["a"]["total_samples"] == 2
+    assert result["a"]["wrong_count"] == 1
+    assert result["a"]["wrong_rate"] == 0.5
+    assert result["a"]["frameshift_rate"] == 0.5
+    assert result["b"]["total_samples"] == 1
+    assert result["b"]["wrong_rate"] == 0.0
+    # Delta should report b lower than a on wrong_rate (negative diff).
+    assert result["delta"]["wrong_rate"]["a"] == 0.5
+    assert result["delta"]["wrong_rate"]["b"] == 0.0
+
+
+def test_compare_analyses_unknown():
+    from bioagent.bio_primitives import compare_analyses
+
+    result = compare_analyses(analysis_id_a="missing-a", analysis_id_b="missing-b")
+    assert result["ok"] is False
+    assert "missing-a" in result["error"]
