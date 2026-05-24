@@ -3,6 +3,23 @@ const path = require("path");
 const fs = require("fs");
 const { pathToFileURL } = require("url");
 const { autoUpdater } = require("electron-updater");
+const contextMenu = require("electron-context-menu");
+const windowStateKeeper = require("electron-window-state");
+
+// Silence the noisy "Unable to create cache" / "Gpu Cache Creation failed"
+// log spam Chromium prints on Windows when the user's profile sits on a
+// path the GPU process can't write to. Cosmetic — no behavioral change.
+app.commandLine.appendSwitch("disable-gpu-shader-disk-cache");
+
+// Install a contextual menu (Cut / Copy / Paste / Select All / spellcheck
+// suggestions) on every focusable input + textarea in the renderer.
+// Electron renderers don't get one by default, which is the most common
+// "this app feels broken" complaint on Windows.
+contextMenu({
+  showSaveImageAs: false,
+  showInspectElement: false,
+  showSearchWithGoogle: false,
+});
 
 let mainWindow = null;
 let agentHarness = null;
@@ -18,9 +35,18 @@ function createWindow() {
     ? { titleBarStyle: "hiddenInset", trafficLightPosition: { x: 16, y: 12 } }
     : { frame: false };
 
+  // Remember the window's size + position across restarts so power users
+  // who prefer a particular layout don't have to redo it every launch.
+  const windowState = windowStateKeeper({
+    defaultWidth: 1440,
+    defaultHeight: 920,
+  });
+
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 920,
+    x: windowState.x,
+    y: windowState.y,
+    width: windowState.width,
+    height: windowState.height,
     minWidth: 1100,
     minHeight: 760,
     ...chromeOptions,
@@ -28,8 +54,11 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      spellcheck: true,
     },
   });
+
+  windowState.manage(mainWindow);
 
   // Broadcast maximize state changes so the renderer can keep its
   // titlebar maximize/restore icon in sync without polling.

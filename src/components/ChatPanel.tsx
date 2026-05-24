@@ -744,7 +744,8 @@ export function ChatPanel({
           placeholder={t(language, "app.input.placeholder")}
           aria-label={t(language, "app.input.placeholder")}
           title={t(language, "shortcut.focusChat")}
-          disabled={!initialized || isRunning}
+          disabled={!initialized}
+          spellCheck
         />
         <button
           className="composer-send"
