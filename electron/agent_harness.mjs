@@ -95,17 +95,58 @@ function buildAnalysisSummaryPrompt(result, language) {
   ].join("\n");
 }
 
-async function createAnalysisSummary(client, model, timeout, result, language) {
+async function createAnalysisSummary(client, model, timeout, result, language, onChunk) {
+  // Try streaming first when the caller supplied an onChunk handler.
+  // We hand the same create() call stream: true. If the returned value
+  // exposes an async iterator we consume it and emit deltas to onChunk;
+  // if it returns a regular completion (provider doesn't support stream,
+  // or a test stub) we fall back to reading .choices[0].message.content
+  // without making a second API call.
+  if (typeof onChunk === "function") {
+    let response;
+    try {
+      response = await client.chat.completions.create({
+        model,
+        temperature: 0,
+        max_tokens: 400,
+        timeout,
+        stream: true,
+        messages: [
+          { role: "user", content: buildAnalysisSummaryPrompt(result, language) },
+        ],
+      });
+    } catch (error) {
+      // Surface; the outer caller turns this into summary_failed.
+      throw error;
+    }
+
+    if (response && typeof response[Symbol.asyncIterator] === "function") {
+      let accumulated = "";
+      for await (const chunk of response) {
+        const delta = chunk?.choices?.[0]?.delta?.content;
+        if (typeof delta === "string" && delta.length > 0) {
+          accumulated += delta;
+          try { onChunk(delta, accumulated); } catch { /* ignore */ }
+        }
+      }
+      return accumulated || "Analysis completed.";
+    }
+
+    // Non-streaming response (test stub or provider that ignored stream:true):
+    // pass it through onChunk once so the renderer still shows the final
+    // text immediately, no extra API roundtrip.
+    const content = response?.choices?.[0]?.message?.content || "Analysis completed.";
+    try { onChunk(content, content); } catch { /* ignore */ }
+    return content;
+  }
+
   const response = await client.chat.completions.create({
     model,
     temperature: 0,
     max_tokens: 400,
     timeout,
     messages: [
-      {
-        role: "user",
-        content: buildAnalysisSummaryPrompt(result, language),
-      },
+      { role: "user", content: buildAnalysisSummaryPrompt(result, language) },
     ],
   });
 
@@ -364,6 +405,12 @@ export class AgentHarness extends EventEmitter {
           this.settings.llmTimeoutMs || LLM_TIMEOUT_MS,
           result,
           this.language,
+          (_delta, accumulated) => {
+            if (!this.isCurrentTurn(turnId)) return;
+            // Emit incremental chunks so the renderer can grow the
+            // pending placeholder bubble in real time.
+            onEvent({ type: "summary_chunk", content: accumulated, ...summaryMeta });
+          },
         );
 
         if (!this.isCurrentTurn(turnId)) return;

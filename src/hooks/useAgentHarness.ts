@@ -241,6 +241,25 @@ export function useAgentHarness(language: AppLanguage) {
     latestEventRef.current = payload;
     const lang = languageRef.current;
 
+    if (payload.type === "summary_chunk") {
+      // Stream wrap-up: replace the pending placeholder bubble with the
+      // growing assistant text. Keeps a stable marker so subsequent
+      // chunks update the same message instead of stacking.
+      const marker = summaryPendingMarkerRef.current || `__summary_streaming_${Date.now()}`;
+      summaryPendingMarkerRef.current = marker;
+      const text = typeof payload.content === "string" ? payload.content : "";
+      setMessages((current) => {
+        const filtered = current.filter((m) => (m as any).marker !== marker && (m as any).marker !== `${marker}_pending`);
+        // also drop the original 'pending' placeholder if present
+        const cleaned = filtered.filter((m) => !(m as any).marker || (m as any).marker !== summaryPendingMarkerRef.current);
+        return [
+          ...cleaned,
+          { role: "assistant", content: maskSecrets(text), marker } as any,
+        ].slice(-MAX_MESSAGES);
+      });
+      return;
+    }
+
     if (payload.type === "summary_pending" || payload.type === "summary_ready" || payload.type === "summary_failed") {
       const reduced = reduceSummaryEvent(payload, { lang });
       if (!reduced) return;

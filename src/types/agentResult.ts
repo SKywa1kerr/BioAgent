@@ -125,6 +125,12 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     dataset: z.string().optional(),
   }),
   z.object({
+    type: z.literal("summary_chunk"),
+    analysis_id: z.string().optional(),
+    dataset: z.string().optional(),
+    content: z.string().optional(),
+  }),
+  z.object({
     type: z.literal("summary_ready"),
     analysis_id: z.string().optional(),
     dataset: z.string().optional(),
