@@ -357,12 +357,20 @@ def register_dataset(*, label: str, ab1_dir: str, gb_dir: str) -> dict:
     _bootstrap_from_disk()
     if not label or not ab1_dir or not gb_dir:
         raise ToolExecutionError("label, ab1_dir, and gb_dir are required.")
+    # Reject labels that are only whitespace or only punctuation (e.g. "·",
+    # "---"). Without this the sidebar shows a phantom row with no readable
+    # name and clicking it prefills a malformed "分析 · 数据集" prompt.
+    label_str = str(label).strip()
+    if not any(c.isalnum() for c in label_str):
+        raise ToolExecutionError(
+            "label must contain at least one letter, digit, or CJK character."
+        )
     if not Path(ab1_dir).is_dir():
         raise ToolExecutionError(f"ab1_dir does not exist or is not a directory: {ab1_dir}")
     if not Path(gb_dir).is_dir():
         raise ToolExecutionError(f"gb_dir does not exist or is not a directory: {gb_dir}")
 
-    base = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(label).strip().lower())[:32] or "dataset"
+    base = "".join(c if c.isalnum() or c in "-_" else "_" for c in label_str.lower())[:32] or "dataset"
     existing_ids = {ds.get("id") for ds in _USER_DATASETS}
     candidate = base
     i = 1
@@ -372,7 +380,7 @@ def register_dataset(*, label: str, ab1_dir: str, gb_dir: str) -> dict:
 
     entry = {
         "id": candidate,
-        "label": label,
+        "label": label_str,
         "ab1_dir": str(ab1_dir),
         "gb_dir": str(gb_dir),
         "created_at": datetime.now(timezone.utc).isoformat(),

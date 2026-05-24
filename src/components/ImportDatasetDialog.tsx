@@ -76,7 +76,11 @@ export function ImportDatasetDialog({
     }
   }
 
-  const canSubmit = label.trim().length > 0 && ab1Dir.trim().length > 0 && gbDir.trim().length > 0 && !submitting;
+  // Match the backend (tools_register.register_dataset) which requires at
+  // least one alphanumeric or CJK character — block submission early so
+  // the user gets immediate feedback instead of a server-side rejection.
+  const labelHasContent = /[A-Za-z0-9\u4e00-\u9fff]/.test(label);
+  const canSubmit = labelHasContent && ab1Dir.trim().length > 0 && gbDir.trim().length > 0 && !submitting;
 
   return (
     <div

@@ -313,6 +313,7 @@
   "sidebar.datasets.add": "导入新数据集",
   "sidebar.datasets.builtin": "内置数据集",
   "sidebar.datasets.user": "已注册的本地数据集",
+  "sidebar.datasets.unnamed": "（未命名）",
   "sidebar.panels": "面板",
   "sidebar.settings": "设置",
   "splitter.collapseChat": "折叠对话",

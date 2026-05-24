@@ -142,7 +142,7 @@ export function Sidebar({
                   title={d.kind === "user" ? t(language, "sidebar.datasets.user") : t(language, "sidebar.datasets.builtin")}
                 >
                   <Database size={13} className={styles.icon} aria-hidden="true" />
-                  <span className={styles.rowMain}>{d.label}</span>
+                  <span className={styles.rowMain}>{(d.label && d.label.trim()) || d.id || t(language, "sidebar.datasets.unnamed")}</span>
                   {d.kind === "user" ? <span className={styles.meta}>·</span> : null}
                 </button>
               ))}

@@ -313,6 +313,7 @@
   "sidebar.datasets.add": "Import new dataset",
   "sidebar.datasets.builtin": "Built-in dataset",
   "sidebar.datasets.user": "Registered local dataset",
+  "sidebar.datasets.unnamed": "(unnamed)",
   "sidebar.panels": "Panels",
   "sidebar.settings": "Settings",
   "splitter.collapseChat": "Collapse chat",
