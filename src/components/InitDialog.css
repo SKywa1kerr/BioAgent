@@ -192,3 +192,68 @@
     transition: none;
   }
 }
+
+/* ImportDatasetDialog button row — actions live inside a settings-modal
+ * wrapper so we use a separate set of classes for the buttons. */
+.init-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-default);
+}
+
+.init-dialog-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 18px;
+  background: var(--accent);
+  color: #ffffff;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.init-dialog-primary:hover:not(:disabled) {
+  background: var(--accent-hover, var(--accent));
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.init-dialog-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.init-dialog-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  background: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.init-dialog-secondary:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.init-dialog-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

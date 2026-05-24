@@ -1,10 +1,7 @@
 import { useMemo } from "react";
 import {
-  ChartLine,
   Database,
-  FlaskConical,
   History,
-  Lightbulb,
   MessageSquare,
   Plus,
   Settings as SettingsIcon,
@@ -250,33 +247,6 @@ export function Sidebar({
             </>
           )}
         </section>
-
-        <section className={styles.section} aria-labelledby="sidebar-panels">
-          <div className={styles.label} id="sidebar-panels">
-            {t(language, "sidebar.panels")}
-          </div>
-          <PanelButton
-            label={t(language, "panel.tab.analysis")}
-            icon={<FlaskConical size={13} className={styles.icon} aria-hidden="true" />}
-            active={activeTab === "analysis"}
-            disabled={!hasAnalysisCache}
-            onClick={() => onSelectTab("analysis")}
-          />
-          <PanelButton
-            label={t(language, "panel.tab.trends")}
-            icon={<ChartLine size={13} className={styles.icon} aria-hidden="true" />}
-            active={activeTab === "trends"}
-            disabled={!hasTrendsCache}
-            onClick={() => onSelectTab("trends")}
-          />
-          <PanelButton
-            label={t(language, "panel.tab.suggestions")}
-            icon={<Lightbulb size={13} className={styles.icon} aria-hidden="true" />}
-            active={activeTab === "suggestions"}
-            disabled={!hasSuggestionsCache}
-            onClick={() => onSelectTab("suggestions")}
-          />
-        </section>
       </div>
 
       <div className={styles.footer}>
@@ -292,32 +262,5 @@ export function Sidebar({
         </button>
       </div>
     </aside>
-  );
-}
-
-interface PanelButtonProps {
-  label: string;
-  icon: JSX.Element;
-  active: boolean;
-  disabled: boolean;
-  onClick: () => void;
-}
-
-function PanelButton({ label, icon, active, disabled, onClick }: PanelButtonProps): JSX.Element {
-  // Clicking always switches the active tab — even with no cache, the canvas
-  // will fall back to the "Ready" empty state which gives clear feedback.
-  // The disabled flag dims the row to indicate "no data yet" without locking
-  // the click out, since the original gate (cache!=null) isn't a hard rule
-  // for navigation.
-  return (
-    <button
-      type="button"
-      className={`${styles.row}${active ? ` ${styles.active}` : ""}`}
-      onClick={onClick}
-      style={disabled && !active ? { opacity: 0.55 } : undefined}
-    >
-      {icon}
-      <span className={styles.rowMain}>{label}</span>
-    </button>
   );
 }

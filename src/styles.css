@@ -9,11 +9,22 @@ body,
   width: 100%;
   height: 100%;
   font-family: var(--font-ui);
+  /* Slight bump up from the implicit 14px default so chat / sidebar /
+     dialogs feel more readable. Canvas overrides this back via
+     .canvas-shell to keep dense data tables compact. */
+  font-size: 15px;
+  line-height: 1.45;
   background: var(--bg-app);
   color: var(--text-main);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: "cv11", "ss01", "ss03";
+}
+
+.canvas-shell,
+.canvas-panel {
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 * {
@@ -980,27 +991,14 @@ button:focus-visible {
   gap: 8px;
 }
 
-.typing-dots {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.message-pending-spinner {
+  animation: pending-spin 1s linear infinite;
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
-.typing-dots i {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: currentColor;
-  opacity: 0.42;
-  animation: typing-bounce 1s ease-in-out infinite;
-}
-
-.typing-dots i:nth-child(2) {
-  animation-delay: 120ms;
-}
-
-.typing-dots i:nth-child(3) {
-  animation-delay: 240ms;
+@keyframes pending-spin {
+  to { transform: rotate(360deg); }
 }
 
 .chat-progress-inline {

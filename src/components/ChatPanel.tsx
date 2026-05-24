@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Paperclip } from "lucide-react";
+import { Loader2, Paperclip } from "lucide-react";
 import { ModelPicker } from "./ModelPicker";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
@@ -349,19 +349,11 @@ export function ChatPanel({
         })}
         {isRunning ? (
           <div className="message message-assistant message-pending">
+            <Loader2 size={14} strokeWidth={1.8} className="message-pending-spinner" aria-hidden="true" />
             <span>{t(language, "app.assistant.pending")}</span>
-            <span className="typing-dots" aria-hidden="true"><i /><i /><i /></span>
           </div>
         ) : null}
       </div>
-
-      {showProgress ? (
-        <div className="chat-progress-inline" aria-live="polite">
-          <div className="chat-progress-inline-track">
-            <div className="chat-progress-inline-fill" style={{ width: `${Math.max(10, progress.progress)}%` }} />
-          </div>
-        </div>
-      ) : null}
 
       <div className="composer" role="form" aria-label="Message composer">
         {onAttach ? (

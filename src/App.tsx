@@ -178,7 +178,13 @@ export function App() {
     const payload = agent.panelPayload;
     if (payload && (type === "analysis" || type === "trends" || type === "suggestions")) {
       setPanelCache((prev) => ({ ...prev, [type]: payload }));
-      setActiveTab(type);
+      // Only auto-switch to the analysis tab. Trends / suggestions arrive
+      // chained after the first analysis call and silently filling their
+      // cache (rather than yanking the user's focus) matches what users
+      // actually want — they'll click the chip when they want to see them.
+      if (type === "analysis") {
+        setActiveTab(type);
+      }
     }
   }, [agent.panelType, agent.panelPayload]);
 
@@ -497,17 +503,11 @@ export function App() {
 
   /* ── Compact progress bar (inside canvas) ─────────────────────────── */
 
+  // Per user request: progress bars are removed. The pending-spinner in
+  // the chat header already conveys "agent is working" and the canvas
+  // doesn't need its own bar.
   function renderCompactProgress() {
-    const running = ["run", "thinking", "tool_calls", "tool_call", "tool_result"].includes(agent.progress.phase) && agent.progress.progress < 100;
-    if (!running) return null;
-    return (
-      <div className="compact-progress">
-        <div className="compact-progress-label">{agent.progress.label}</div>
-        <div className="compact-progress-track">
-          <div className="compact-progress-fill" style={{ width: `${Math.max(8, agent.progress.progress)}%` }} />
-        </div>
-      </div>
-    );
+    return null;
   }
 
   /* ── Panel tab bar ────────────────────────────────────────────────── */
