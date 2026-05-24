@@ -263,7 +263,7 @@ body,
   border-radius: 14px;
   box-shadow: var(--shadow-sm);
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 8px;
   align-items: end;
   transition: border-color var(--duration-base) var(--easing-standard),
@@ -273,6 +273,32 @@ body,
 .composer:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.composer-attach {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.composer-attach:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-soft);
+}
+
+.composer-attach:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .composer textarea {

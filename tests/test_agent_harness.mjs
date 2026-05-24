@@ -136,12 +136,61 @@ test("runTurn emits fallback error and reply when max turns are exhausted withou
     },
   });
 
-  harness.callMcpTool = async () => ({ ok: true, data: {} });
+  // Tool *failure* on every call: no lastSuccessfulTool is recorded, so we
+  // expect the original loud-failure path — both an error event and a
+  // Run-failed reply.
+  harness.callMcpTool = async () => ({ ok: false, error: "stub failure" });
 
   await harness.runTurn("hello", (payload) => events.push(payload));
 
   assert.ok(events.some((event) => event.type === "error"));
-  assert.ok(events.some((event) => event.type === "reply"));
+  const failReply = events.find((event) => event.type === "reply");
+  assert.ok(failReply);
+  assert.match(failReply.content, /Run failed/);
+});
+
+test("runTurn degrades gracefully when max turns exhaust but a tool already succeeded", async () => {
+  // New behavior: if any tool ran successfully during the turn (its result
+  // is already on the canvas), MAX_TURNS exhaustion should NOT surface as
+  // a scary "Run failed" — the analysis is fine, only the wrap-up text
+  // is missing.
+  const harness = createHarness();
+  const events = [];
+
+  harness.getClient = () => ({
+    chat: {
+      completions: {
+        create: async () => ({
+          choices: [
+            {
+              message: {
+                content: "",
+                tool_calls: [
+                  {
+                    id: "call-1",
+                    type: "function",
+                    function: { name: "analyze_sequences", arguments: "{}" },
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      },
+    },
+  });
+
+  harness.callMcpTool = async () => ({ ok: true, data: {} });
+
+  await harness.runTurn("hello", (payload) => events.push(payload));
+
+  // No loud "error" event because the tool succeeded.
+  assert.ok(!events.some((event) => event.type === "error"),
+    "should NOT emit error when a tool succeeded");
+  const reply = events.find((event) => event.type === "reply");
+  assert.ok(reply, "should still emit a reply");
+  assert.equal(reply.uiAction, "show_analysis");
+  assert.match(reply.content, /analyze_sequences/);
 });
 
 test("runTurn fast-paths explicit dataset analysis without first LLM routing call", async () => {

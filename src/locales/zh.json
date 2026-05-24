@@ -315,6 +315,7 @@
   "sidebar.datasets.user": "已注册的本地数据集",
   "sidebar.datasets.unnamed": "（未命名）",
   "sidebar.datasets.delete": "从侧边栏移除",
+  "composer.attach": "添加文件或文件夹",
   "sidebar.panels": "面板",
   "sidebar.settings": "设置",
   "splitter.collapseChat": "折叠对话",

@@ -315,6 +315,7 @@
   "sidebar.datasets.user": "Registered local dataset",
   "sidebar.datasets.unnamed": "(unnamed)",
   "sidebar.datasets.delete": "Remove from sidebar",
+  "composer.attach": "Attach files or a folder",
   "sidebar.panels": "Panels",
   "sidebar.settings": "Settings",
   "splitter.collapseChat": "Collapse chat",

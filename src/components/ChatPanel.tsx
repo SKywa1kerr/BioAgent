@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Paperclip } from "lucide-react";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
 import { Icon } from "./ui/Icon";
@@ -25,6 +26,11 @@ interface ChatPanelProps {
   onPrefillConsumed?: () => void;
   inputRef?: React.RefObject<HTMLTextAreaElement>;
   onOpenPalette?: () => void;
+  /** Optional paperclip-attach handler. Invoked when the user clicks the
+   *  📎 button in the input area; the host (App) opens the file/folder
+   *  picker and routes the chosen paths through the same import flow as
+   *  drag-and-drop. Hide the button when this is undefined. */
+  onAttach?: () => void;
 }
 
 function renderInlineRichText(text: string): ReactNode[] {
@@ -116,7 +122,7 @@ function formatTime(ts: number): string {
 export function ChatPanel({
   messages, isRunning, progress, language, initialized,
   onSend, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
-  prefillText, onPrefillConsumed, inputRef, onOpenPalette,
+  prefillText, onPrefillConsumed, inputRef, onOpenPalette, onAttach,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [expandedMessageKeys, setExpandedMessageKeys] = useState<Set<string>>(new Set());
@@ -277,6 +283,18 @@ export function ChatPanel({
       ) : null}
 
       <div className="composer" role="form" aria-label="Message composer">
+        {onAttach ? (
+          <button
+            type="button"
+            className="composer-attach"
+            onClick={onAttach}
+            disabled={!initialized || isRunning}
+            aria-label={t(language, "composer.attach")}
+            title={t(language, "composer.attach")}
+          >
+            <Paperclip size={16} strokeWidth={1.7} aria-hidden="true" />
+          </button>
+        ) : null}
         <textarea
           ref={inputRef}
           value={input}

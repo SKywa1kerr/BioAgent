@@ -500,6 +500,31 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Variant of the picker used by the chat input's paperclip button.
+  // Accepts files OR a directory in one shot and returns the full list of
+  // selected paths, so the renderer can route the choice through the same
+  // logic as a drag-drop (inspect-dropped-paths → multi/single/flat folder
+  // routing).
+  ipcMain.handle("dialog-pick-attach", async (_event, options) => {
+    if (!mainWindow) return { canceled: true, error: "no-window" };
+    try {
+      const result = await dialog.showOpenDialog(mainWindow, {
+        title: options?.title,
+        defaultPath: options?.defaultPath,
+        properties: ["openFile", "openDirectory", "multiSelections"],
+        filters: [
+          { name: "Sequence files", extensions: ["ab1", "gb", "gbk", "fa", "fasta", "fna"] },
+          { name: "All files", extensions: ["*"] },
+        ],
+      });
+      if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+      return { canceled: false, paths: result.filePaths };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { canceled: true, error: message };
+    }
+  });
+
   ipcMain.handle("inspect-dropped-paths", async (_event, paths) => {
     const dirs = [];
     const files = [];

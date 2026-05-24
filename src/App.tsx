@@ -636,6 +636,70 @@ export function App() {
           onPrefillConsumed={() => setPrefillText(null)}
           inputRef={chatInputRef}
           onOpenPalette={() => setPaletteOpen(true)}
+          onAttach={async () => {
+            // Paperclip flow mirrors drag-drop: open the system picker for
+            // files OR a folder, then route through inspect-dropped-paths
+            // → inspect-dataset-folder so the user gets the same
+            // multi-dataset chooser, prefilled import dialog, or analyze
+            // path that they would by dropping the same selection.
+            const picked = await window.electronAPI.invoke("dialog-pick-attach", {
+              title: t(language, "composer.attach"),
+            });
+            if (!picked || picked.canceled) return;
+            const paths: string[] = Array.isArray(picked.paths) ? picked.paths : [];
+            if (paths.length === 0) return;
+
+            try {
+              const inspect = await window.electronAPI.invoke("inspect-dropped-paths", paths);
+              const dirs: string[] = Array.isArray(inspect?.dirs) ? inspect.dirs : [];
+              if (dirs.length === 1) {
+                const folder = dirs[0]!;
+                const inspected = await window.electronAPI.invoke("inspect-dataset-folder", folder);
+                if (inspected?.ok && inspected.layout === "multi" && Array.isArray(inspected.candidates) && inspected.candidates.length > 0) {
+                  setDatasetCandidates(inspected.candidates);
+                  return;
+                }
+                if (inspected?.ok) {
+                  setImportPrefill({ ab1Dir: inspected.ab1Dir, gbDir: inspected.gbDir });
+                } else {
+                  setImportPrefill({ ab1Dir: folder, gbDir: folder });
+                }
+                setImportDialogOpen(true);
+                return;
+              }
+              if (dirs.length >= 2) {
+                const [d0, d1] = dirs as [string, string];
+                const looksAb1 = (s: string) => /ab1/i.test(s);
+                const looksGb = (s: string) => /\bgb\b|gbk/i.test(s);
+                let ab1Dir = d0;
+                let gbDir = d1;
+                if (looksAb1(d1) || looksGb(d0)) {
+                  ab1Dir = d1;
+                  gbDir = d0;
+                }
+                setImportPrefill({ ab1Dir, gbDir });
+                setImportDialogOpen(true);
+                return;
+              }
+              // Files only — hand off to analyze-dropped-files like the
+              // drag-drop path does. Separate ab1/gb extensions first.
+              const ab1Paths = paths.filter((p) => /\.ab1$/i.test(p));
+              const gbPaths = paths.filter((p) => /\.gbk?$/i.test(p));
+              if (ab1Paths.length === 0 && gbPaths.length === 0) {
+                toasts.pushToast({
+                  kind: "warning",
+                  title: language === "zh"
+                    ? "未识别到 .ab1 或 .gb 文件"
+                    : "No .ab1 or .gb files in selection",
+                });
+                return;
+              }
+              await window.electronAPI.invoke("analyze-dropped-files", { ab1Paths, gbPaths });
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : String(err);
+              toasts.pushToast({ kind: "error", title: msg, durationMs: 0 });
+            }
+          }}
         />
       )}
 
