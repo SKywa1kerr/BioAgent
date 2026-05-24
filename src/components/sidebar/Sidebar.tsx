@@ -117,6 +117,7 @@ export function Sidebar({
             ) : (
               conversationSlice.map((c) => {
                 const isActive = c.id === currentConversationId;
+                const tsIso = new Date(c.updatedAt).toISOString();
                 return (
                   <div key={c.id} className={styles.datasetRowWrap}>
                     <button
@@ -127,6 +128,7 @@ export function Sidebar({
                     >
                       <MessageSquare size={13} className={styles.icon} aria-hidden="true" />
                       <span className={styles.rowMain}>{c.title}</span>
+                      <span className={styles.meta}>{formatRelative(tsIso, language)}</span>
                     </button>
                     {onDeleteConversation ? (
                       <button

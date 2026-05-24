@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Loader2, Paperclip } from "lucide-react";
+import { ArrowUp, Loader2, Paperclip } from "lucide-react";
 import { ModelPicker } from "./ModelPicker";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
@@ -286,6 +286,18 @@ export function ChatPanel({
       </div>
 
       <div className="message-list" ref={messageListRef} role="log" aria-live="polite" aria-label="Messages">
+        {messages.length === 0 && !isRunning ? (
+          <div className="chat-empty-hero" aria-hidden="true">
+            <div className="chat-empty-greeting">
+              {language === "zh" ? "今天分析点什么？" : "What shall we analyze today?"}
+            </div>
+            <div className="chat-empty-hint">
+              {language === "zh"
+                ? "拖入文件夹、点 📎 添加文件，或直接输入指令开始。"
+                : "Drop a folder, click 📎 to attach files, or just type to begin."}
+            </div>
+          </div>
+        ) : null}
         {messages.map((message, index) => {
           const stableId = stableIdsRef.current[index] ?? `msg-fallback-${index}`;
           const ts = timestampsRef.current.get(stableId);
@@ -378,8 +390,18 @@ export function ChatPanel({
           title={t(language, "shortcut.focusChat")}
           disabled={!initialized || isRunning}
         />
-        <button onClick={handleSendClick} disabled={!initialized || isRunning}>
-          {isRunning ? t(language, "app.action.sending") : t(language, "app.action.send")}
+        <button
+          className="composer-send"
+          onClick={handleSendClick}
+          disabled={!initialized || isRunning}
+          aria-label={isRunning ? t(language, "app.action.sending") : t(language, "app.action.send")}
+          title={isRunning ? t(language, "app.action.sending") : t(language, "app.action.send")}
+        >
+          {isRunning ? (
+            <Loader2 size={16} strokeWidth={2} className="message-pending-spinner" aria-hidden="true" />
+          ) : (
+            <ArrowUp size={16} strokeWidth={2.2} aria-hidden="true" />
+          )}
         </button>
       </div>
     </aside>

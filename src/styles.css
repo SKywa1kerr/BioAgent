@@ -241,6 +241,35 @@ body,
   gap: 14px;
 }
 
+/* Empty hero — shown when the conversation has no messages yet. Centered
+   greeting + hint that nudges the user toward attaching files. */
+.chat-empty-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px 24px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.chat-empty-greeting {
+  font-family: var(--font-display, var(--font-ui));
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--text-main);
+}
+
+.chat-empty-hint {
+  font-size: 14px;
+  max-width: 360px;
+  line-height: 1.55;
+}
+
 .message {
   max-width: 88%;
   padding: 12px 14px;
@@ -249,21 +278,34 @@ body,
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .message-user {
   background: var(--accent-soft);
   color: var(--text-main);
   align-self: flex-end;
+  max-width: 78%;
+  border-bottom-right-radius: 6px;  /* subtle "tail" toward speaker */
 }
 
 .message-assistant {
-  background: var(--surface);
+  /* Full-width, borderless block — OpenWebUI-style. The visual weight
+     comes from the renderStructuredMessage typography (headings, lists,
+     code blocks) rather than a chat-bubble container. */
+  background: transparent;
   color: var(--text-main);
-  border: 1px solid var(--border-soft);
-  align-self: flex-start;
-  box-shadow: var(--shadow-sm);
+  border: none;
+  align-self: stretch;
+  box-shadow: none;
+  max-width: 100%;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.message-assistant.message-pending {
+  background: transparent;
+  border: none;
 }
 
 .composer {
@@ -271,7 +313,7 @@ body,
   padding: 10px 12px 10px 14px;
   border: 1px solid var(--border-default);
   background: var(--surface);
-  border-radius: 14px;
+  border-radius: 22px;
   box-shadow: var(--shadow-sm);
   display: grid;
   grid-template-columns: auto 1fr auto;
@@ -458,6 +500,42 @@ body,
   color: var(--text-subtle);
 }
 
+/* Send button — ArrowUp icon in a rounded square, OpenWebUI style. */
+.composer button.composer-send {
+  align-self: end;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.composer button.composer-send:hover:not(:disabled) {
+  background: var(--accent-hover, var(--accent));
+}
+
+.composer button.composer-send:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.composer button.composer-send:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.composer button.composer-send svg {
+  display: block;
+}
+
+/* Fallback for any composer button that doesn't take a more specific class. */
 .composer button {
   align-self: end;
   border: 0;
