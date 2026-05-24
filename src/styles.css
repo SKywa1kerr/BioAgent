@@ -1121,6 +1121,75 @@ button:focus-visible {
   background: color-mix(in srgb, var(--message-assistant-bg) 72%, transparent);
 }
 
+/* Hover-only actions on user messages — copy stays out of the way until
+   the user actually points at the bubble. */
+.message-actions-user {
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+
+.message-user:hover .message-actions-user,
+.message-user:focus-within .message-actions-user {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Fenced code blocks (OpenWebUI-style: language tag + copy button) */
+.md-codeblock {
+  position: relative;
+  margin: 8px 0;
+  padding: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  overflow: hidden;
+  font-family: var(--font-mono, ui-monospace, "JetBrains Mono", "Source Code Pro", monospace);
+}
+
+.md-codeblock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-bottom: 1px solid var(--border-default);
+  font-size: 11px;
+}
+
+.md-codeblock-lang {
+  text-transform: lowercase;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+.md-codeblock-copy {
+  background: transparent;
+  border: 0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.md-codeblock-copy:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.md-codeblock code {
+  display: block;
+  padding: 10px 12px;
+  white-space: pre;
+  overflow-x: auto;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-main);
+  background: transparent;
+}
+
 .message-timestamp {
   font-size: 10px;
   color: var(--text-muted);

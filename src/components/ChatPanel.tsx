@@ -53,26 +53,69 @@ function renderInlineRichText(text: string): ReactNode[] {
   });
 }
 
+/** Fenced code block: ```lang\n...\n``` */
+function CodeBlock({ lang, code }: { lang: string; code: string }): JSX.Element {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    void navigator.clipboard?.writeText(code).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <pre className="md-codeblock">
+      <div className="md-codeblock-header">
+        <span className="md-codeblock-lang">{lang || "code"}</span>
+        <button
+          type="button"
+          className="md-codeblock-copy"
+          onClick={handleCopy}
+          aria-label="Copy code"
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <code>{code}</code>
+    </pre>
+  );
+}
+
 function renderStructuredMessage(content: string): ReactNode[] {
   const lines = content.replace(/\r\n/g, "\n").split("\n");
   const blocks: ReactNode[] = [];
   let i = 0;
 
   while (i < lines.length) {
-    const line = (lines[i] ?? "").trim();
-    if (!line) {
+    const line = lines[i] ?? "";
+    const trimmed = line.trim();
+
+    // Fenced code block: ```optional-lang ... ```
+    if (trimmed.startsWith("```")) {
+      const lang = trimmed.replace(/^```\s*/, "").trim();
+      const codeLines: string[] = [];
+      let j = i + 1;
+      while (j < lines.length && !(lines[j] ?? "").trim().startsWith("```")) {
+        codeLines.push(lines[j] ?? "");
+        j += 1;
+      }
+      blocks.push(<CodeBlock key={`code-${i}`} lang={lang} code={codeLines.join("\n")} />);
+      i = j + 1; // skip closing fence
+      continue;
+    }
+
+    if (!trimmed) {
       i += 1;
       continue;
     }
 
-    if (line.startsWith("### ") || line.startsWith("## ")) {
-      const heading = line.replace(/^#{2,3}\s+/, "");
+    if (trimmed.startsWith("### ") || trimmed.startsWith("## ")) {
+      const heading = trimmed.replace(/^#{2,3}\s+/, "");
       blocks.push(<h4 key={`h-${i}`}>{renderInlineRichText(heading)}</h4>);
       i += 1;
       continue;
     }
 
-    if (/^\d+\.\s+/.test(line)) {
+    if (/^\d+\.\s+/.test(trimmed)) {
       const items: ReactNode[] = [];
       let j = i;
       while (j < lines.length && /^\d+\.\s+/.test((lines[j] ?? "").trim())) {
@@ -85,7 +128,7 @@ function renderStructuredMessage(content: string): ReactNode[] {
       continue;
     }
 
-    if (line.startsWith("- ") || line.startsWith("* ")) {
+    if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       const items: ReactNode[] = [];
       let j = i;
       while (j < lines.length) {
@@ -103,7 +146,7 @@ function renderStructuredMessage(content: string): ReactNode[] {
     let j = i;
     while (j < lines.length) {
       const cur = (lines[j] ?? "").trim();
-      if (!cur || cur.startsWith("## ") || cur.startsWith("### ") || /^\d+\.\s+/.test(cur) || cur.startsWith("- ") || cur.startsWith("* ")) break;
+      if (!cur || cur.startsWith("## ") || cur.startsWith("### ") || cur.startsWith("```") || /^\d+\.\s+/.test(cur) || cur.startsWith("- ") || cur.startsWith("* ")) break;
       paragraph.push(cur);
       j += 1;
     }
@@ -286,7 +329,21 @@ export function ChatPanel({
                     </button>
                   </div>
                 </>
-              ) : message.content}
+              ) : (
+                <>
+                  <div className="message-content message-content-user">{message.content}</div>
+                  <div className="message-actions message-actions-user">
+                    <button
+                      type="button"
+                      className="message-copy-button"
+                      onClick={() => handleCopy(stableId, message.content)}
+                      title={t(language, "chat.copy")}
+                    >
+                      {copiedId === stableId ? t(language, "chat.copied") : t(language, "chat.copy")}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           );
         })}
