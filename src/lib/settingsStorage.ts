@@ -9,6 +9,11 @@ export interface AgentSettings {
   llmBaseUrl: string;
   llmModel: string;
   maxTokens: number;
+  /** Optional CSS hex like "#d97757" to override the accent color.
+   *  Empty string = use the theme default. */
+  accentColor?: string;
+  /** Whether to show per-message token usage in the chat. Default off. */
+  showTokenUsage?: boolean;
 }
 
 const DEFAULTS: AgentSettings = {
@@ -17,6 +22,8 @@ const DEFAULTS: AgentSettings = {
   llmBaseUrl: "",
   llmModel: "deepseek-chat",
   maxTokens: 2400,
+  accentColor: "",
+  showTokenUsage: false,
 };
 
 const ALLOWED_PROVIDERS: readonly ProviderId[] = [
@@ -46,6 +53,8 @@ export function loadSettings(): AgentSettings {
       llmBaseUrl,
       llmModel: typeof parsed.m === "string" ? parsed.m : DEFAULTS.llmModel,
       maxTokens: typeof parsed.t === "number" ? parsed.t : DEFAULTS.maxTokens,
+      accentColor: typeof parsed.a === "string" ? parsed.a : DEFAULTS.accentColor,
+      showTokenUsage: typeof parsed.tu === "boolean" ? parsed.tu : DEFAULTS.showTokenUsage,
     };
   } catch {
     return { ...DEFAULTS };
@@ -62,6 +71,8 @@ export function saveSettings(settings: AgentSettings): void {
         u: settings.llmBaseUrl,
         m: settings.llmModel,
         t: settings.maxTokens,
+        a: settings.accentColor || "",
+        tu: !!settings.showTokenUsage,
       }),
     );
   } catch {

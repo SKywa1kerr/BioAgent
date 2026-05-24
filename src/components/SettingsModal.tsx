@@ -140,6 +140,46 @@ export function SettingsModal({
             />
           </label>
 
+          <label className="init-dialog-field">
+            <span className="init-dialog-field-label">{t(language, "settings.accentColor")}</span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                type="color"
+                value={draft.accentColor || "#d97757"}
+                onChange={(e) => setDraft((prev) => ({ ...prev, accentColor: e.target.value }))}
+                style={{ width: 36, height: 34, padding: 0, border: "1px solid var(--border-default)", borderRadius: 6, background: "transparent", cursor: "pointer" }}
+              />
+              <input
+                type="text"
+                value={draft.accentColor || ""}
+                onChange={(e) => setDraft((prev) => ({ ...prev, accentColor: e.target.value }))}
+                placeholder="#d97757"
+                style={{ flex: 1 }}
+              />
+              {draft.accentColor ? (
+                <button
+                  type="button"
+                  className="init-dialog-secondary"
+                  onClick={() => setDraft((prev) => ({ ...prev, accentColor: "" }))}
+                  title={t(language, "settings.accentColor.reset")}
+                  style={{ padding: "6px 10px", fontSize: 12 }}
+                >
+                  {t(language, "settings.accentColor.reset")}
+                </button>
+              ) : null}
+            </div>
+          </label>
+
+          <label className="init-dialog-field" style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <input
+              type="checkbox"
+              checked={!!draft.showTokenUsage}
+              onChange={(e) => setDraft((prev) => ({ ...prev, showTokenUsage: e.target.checked }))}
+              style={{ width: 16, height: 16 }}
+            />
+            <span className="init-dialog-field-label" style={{ flex: 1 }}>{t(language, "settings.showTokenUsage")}</span>
+          </label>
+
           <div className="settings-quick-row">
             <button
               type="button"

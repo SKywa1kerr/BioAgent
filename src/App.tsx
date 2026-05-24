@@ -307,6 +307,25 @@ export function App() {
     try { window.localStorage.setItem("bioagent-theme", theme); } catch { /* ignore */ }
   }, [theme]);
 
+  // Apply user-customized accent color (A6). When empty, remove the
+  // inline overrides so token defaults from styles/tokens.css win.
+  useEffect(() => {
+    const root = document.documentElement;
+    const color = (settings.accentColor || "").trim();
+    if (!color) {
+      root.style.removeProperty("--accent");
+      root.style.removeProperty("--accent-hover");
+      root.style.removeProperty("--accent-soft");
+      return;
+    }
+    root.style.setProperty("--accent", color);
+    // Lighter / darker variants for hover and soft backgrounds. Browsers
+    // with color-mix support get a clean derivation; the rest fall back
+    // to the same color (still readable, just less polished).
+    root.style.setProperty("--accent-hover", `color-mix(in srgb, ${color} 82%, #000 18%)`);
+    root.style.setProperty("--accent-soft", `color-mix(in srgb, ${color} 14%, transparent)`);
+  }, [settings.accentColor]);
+
   useEffect(() => {
     try { window.localStorage.setItem("bioagent-language", language); } catch { /* ignore */ }
   }, [language]);
