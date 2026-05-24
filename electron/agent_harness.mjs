@@ -463,6 +463,12 @@ export class AgentHarness extends EventEmitter {
     this.messages.push({ role: "user", content: userMessage });
 
     let replied = false;
+    // Track whether a meaningful tool actually ran this turn. If the
+    // follow-up LLM call (the one asking for a natural-language reply
+    // AFTER tools have already executed and rendered to the canvas) fails,
+    // we still want the user to know their analysis succeeded — degrade
+    // gracefully instead of surfacing a scary "Run failed" alone.
+    let lastSuccessfulTool = null;
 
     try {
       const explicitIntent = matchDatasetAnalysisIntent(userMessage);
@@ -529,6 +535,9 @@ export class AgentHarness extends EventEmitter {
               }
             }
             onEvent({ type: "tool_result", tool: toolName, result });
+            if (result && result.ok !== false) {
+              lastSuccessfulTool = toolName;
+            }
             this.messages.push({
               role: "tool",
               tool_call_id: toolCall.id,
@@ -568,10 +577,25 @@ export class AgentHarness extends EventEmitter {
         const model = this.settings.llmModel || DEFAULT_MODEL;
         enriched = `${message} | baseUrl=${baseUrl} model=${model}`;
       }
-      const content = `Run failed: ${enriched}`;
-      this.messages.push({ role: "assistant", content });
-      onEvent({ type: "error", message: enriched });
-      onEvent({ type: "reply", content, uiAction: "show_text" });
+
+      // Graceful degradation: if a tool already ran successfully this turn
+      // (data is already in the canvas), the failed LLM call was just the
+      // natural-language wrap-up. Tell the user the analysis succeeded and
+      // surface the API problem as a non-blocking note, instead of pretending
+      // the whole turn failed.
+      if (lastSuccessfulTool && !replied) {
+        const successText = this.language === "zh"
+          ? `已完成 ${lastSuccessfulTool}，结果在右侧画布中。\n\n（注意：助手文字总结生成失败 — ${enriched}）`
+          : `${lastSuccessfulTool} succeeded; results are in the canvas on the right.\n\n(Note: assistant text summary failed — ${enriched})`;
+        this.messages.push({ role: "assistant", content: successText });
+        onEvent({ type: "error", message: enriched });
+        onEvent({ type: "reply", content: successText, uiAction: "show_analysis" });
+      } else {
+        const content = `Run failed: ${enriched}`;
+        this.messages.push({ role: "assistant", content });
+        onEvent({ type: "error", message: enriched });
+        onEvent({ type: "reply", content, uiAction: "show_text" });
+      }
     } finally {
       this.isRunning = false;
     }
