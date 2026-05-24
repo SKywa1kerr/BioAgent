@@ -115,6 +115,11 @@ export const AgentEventSchema = z.discriminatedUnion("type", [
     content: z.string().optional(),
     uiAction: z.string().optional(),
     result: AnalysisResultSchema.optional(),
+    usage: z.object({
+      prompt_tokens: z.number().optional(),
+      completion_tokens: z.number().optional(),
+      total_tokens: z.number().optional(),
+    }).optional(),
   }),
   z.object({ type: z.literal("busy"), message: z.string().optional() }),
   z.object({ type: z.literal("error"), message: z.string().optional() }),

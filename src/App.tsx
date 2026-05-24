@@ -700,6 +700,7 @@ export function App() {
           language={language}
           initialized={agent.initialized}
           onSend={handleSend}
+          showTokenUsage={!!settings.showTokenUsage}
           onCancel={() => void agent.cancel()}
           onResend={(text) => handleSend(text)}
           onExportMarkdown={() => {

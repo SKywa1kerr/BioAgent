@@ -607,7 +607,16 @@ export class AgentHarness extends EventEmitter {
         const content = message.content || "Analysis completed.";
         this.messages.push({ role: "assistant", content });
         const uiAction = this.inferUiAction(content);
-        onEvent({ type: "reply", content, uiAction });
+        // Forward provider token usage (when present) so the renderer can
+        // attach a per-message badge if the user enabled that setting.
+        const usage = response?.usage
+          ? {
+              prompt_tokens: response.usage.prompt_tokens,
+              completion_tokens: response.usage.completion_tokens,
+              total_tokens: response.usage.total_tokens,
+            }
+          : undefined;
+        onEvent({ type: "reply", content, uiAction, usage });
         replied = true;
         break;
       }

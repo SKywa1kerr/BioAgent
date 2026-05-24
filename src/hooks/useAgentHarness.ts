@@ -123,10 +123,17 @@ export interface ToolCallMessageMeta {
   error?: string;
 }
 
+export interface UsageMeta {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}
+
 export type ChatMessage = {
   role: string;
   content: string;
   _tool?: ToolCallMessageMeta;
+  _usage?: UsageMeta;
   marker?: string;
 };
 
@@ -164,9 +171,12 @@ export function useAgentHarness(language: AppLanguage) {
 
   /* ── Internal helpers ──────────────────────────────────────────────── */
 
-  function pushAssistant(text: string) {
+  function pushAssistant(text: string, extra?: Partial<ChatMessage>) {
     assistantMessageCountRef.current += 1;
-    setMessages((current) => [...current, { role: "assistant", content: maskSecrets(text) }].slice(-MAX_MESSAGES));
+    setMessages((current) => [
+      ...current,
+      { role: "assistant", content: maskSecrets(text), ...extra } as ChatMessage,
+    ].slice(-MAX_MESSAGES));
   }
 
   function setProgressState(phase: string, value: number, label: string) {
@@ -435,7 +445,10 @@ export function useAgentHarness(language: AppLanguage) {
       const content = payload.type === "reply" ? payload.content : undefined;
       const message = payload.type === "busy" ? payload.message : undefined;
       const text = content || message;
-      if (text) pushAssistant(text);
+      if (text) {
+        const usage = payload.type === "reply" ? (payload as { usage?: UsageMeta }).usage : undefined;
+        pushAssistant(text, usage ? { _usage: usage } : undefined);
+      }
     }
 
     const resolved = resolvePanelFromEvent(payload);

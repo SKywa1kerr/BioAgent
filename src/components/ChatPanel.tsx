@@ -17,10 +17,17 @@ interface ToolMessageMeta {
   error?: string;
 }
 
+interface UsageMeta {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  total_tokens?: number;
+}
+
 interface ChatMessage {
   role: string;
   content: string;
   _tool?: ToolMessageMeta;
+  _usage?: UsageMeta;
   marker?: string;
 }
 
@@ -52,6 +59,8 @@ interface ChatPanelProps {
   onPrefillConsumed?: () => void;
   inputRef?: React.RefObject<HTMLTextAreaElement>;
   onOpenPalette?: () => void;
+  /** Show per-message token usage badge under assistant replies. */
+  showTokenUsage?: boolean;
   /** Optional paperclip-attach handler. Invoked when the user clicks the
    *  📎 button in the input area; the host (App) opens the file/folder
    *  picker and routes the chosen paths through the same import flow as
@@ -352,7 +361,7 @@ function formatTime(ts: number): string {
 export function ChatPanel({
   messages, isRunning, progress, language, initialized,
   onSend, onCancel, onResend, onEdit, onExportDebug, onExportMarkdown, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
-  prefillText, onPrefillConsumed, inputRef, onOpenPalette, onAttach, modelPicker,
+  prefillText, onPrefillConsumed, inputRef, onOpenPalette, onAttach, modelPicker, showTokenUsage,
 }: ChatPanelProps) {
   const [input, setInput] = useState(() => {
     try {
@@ -609,6 +618,15 @@ export function ChatPanel({
                     <div className={`message-content${isLong && !expanded ? " message-content-collapsed" : ""}`}>
                       {renderStructuredMessage(message.content)}
                     </div>
+                    {showTokenUsage && message._usage ? (
+                      <div className="message-usage" aria-label="token usage">
+                        <span title="prompt tokens">in {message._usage.prompt_tokens ?? "?"}</span>
+                        <span className="message-usage-sep">·</span>
+                        <span title="completion tokens">out {message._usage.completion_tokens ?? "?"}</span>
+                        <span className="message-usage-sep">·</span>
+                        <span title="total tokens">{message._usage.total_tokens ?? "?"}</span>
+                      </div>
+                    ) : null}
                     <div className="message-actions">
                       {isLong ? (
                         <button

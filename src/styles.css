@@ -1426,6 +1426,21 @@ button:focus-visible {
   margin-top: 6px;
 }
 
+.message-usage {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.message-usage-sep {
+  opacity: 0.5;
+}
+
 .message-copy-button {
   border: 1px solid var(--message-assistant-border);
   background: transparent;
