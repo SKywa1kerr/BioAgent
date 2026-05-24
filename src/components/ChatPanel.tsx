@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUp, Loader2, Paperclip } from "lucide-react";
+import { ArrowDown, ArrowUp, Loader2, Paperclip } from "lucide-react";
 import { ModelPicker } from "./ModelPicker";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
@@ -51,6 +51,42 @@ function renderInlineRichText(text: string): ReactNode[] {
     if (idx % 2 === 1) return <strong key={`strong-${idx}`}>{withCode}</strong>;
     return <span key={`span-${idx}`}>{withCode}</span>;
   });
+}
+
+/** Markdown table helpers — detect `| a | b |` header rows and `| --- |`
+ *  separator rows. Permissive: we accept rows with or without leading/
+ *  trailing pipes and trim whitespace per cell. */
+function isMdTableHeader(line: string): boolean {
+  if (!line.includes("|")) return false;
+  // Reject lines that are obviously not table-like (e.g. just "|").
+  const stripped = line.replace(/^\||\|$/g, "").trim();
+  if (!stripped) return false;
+  // Must have at least one pipe in the stripped middle.
+  return stripped.includes("|");
+}
+
+function isMdTableSeparator(line: string): boolean {
+  if (!line.includes("|")) return false;
+  const cells = line.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+  if (cells.length === 0) return false;
+  return cells.every((c) => /^:?-{3,}:?$/.test(c));
+}
+
+function splitMdRow(line: string): string[] {
+  return line.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+}
+
+function parseMdTableAlignments(separator: string, columnCount: number): Array<"left" | "right" | "center" | undefined> {
+  const cells = separator.replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+  const out: Array<"left" | "right" | "center" | undefined> = [];
+  for (let i = 0; i < columnCount; i += 1) {
+    const c = cells[i] || "";
+    if (c.startsWith(":") && c.endsWith(":")) out.push("center");
+    else if (c.endsWith(":")) out.push("right");
+    else if (c.startsWith(":")) out.push("left");
+    else out.push(undefined);
+  }
+  return out;
 }
 
 /** Fenced code block: ```lang\n...\n``` */
@@ -128,6 +164,51 @@ function renderStructuredMessage(content: string): ReactNode[] {
       continue;
     }
 
+    // Markdown table detection: a header row of cells separated by `|`
+    // followed by a separator row whose cells are dashes (with optional
+    // colons for alignment). Anything else falls through to the
+    // paragraph/list branches below.
+    if (isMdTableHeader(trimmed) && isMdTableSeparator((lines[i + 1] ?? "").trim())) {
+      const headerCells = splitMdRow(trimmed);
+      const aligns = parseMdTableAlignments((lines[i + 1] ?? "").trim(), headerCells.length);
+      const bodyRows: string[][] = [];
+      let j = i + 2;
+      while (j < lines.length) {
+        const cur = (lines[j] ?? "").trim();
+        if (!isMdTableHeader(cur)) break;
+        bodyRows.push(splitMdRow(cur));
+        j += 1;
+      }
+      blocks.push(
+        <div className="md-table-wrap" key={`tbl-${i}`}>
+          <table className="md-table">
+            <thead>
+              <tr>
+                {headerCells.map((cell, idx) => (
+                  <th key={`th-${idx}`} style={aligns[idx] ? { textAlign: aligns[idx] } : undefined}>
+                    {renderInlineRichText(cell)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {bodyRows.map((row, ri) => (
+                <tr key={`tr-${ri}`}>
+                  {row.map((cell, ci) => (
+                    <td key={`td-${ri}-${ci}`} style={aligns[ci] ? { textAlign: aligns[ci] } : undefined}>
+                      {renderInlineRichText(cell)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      i = j;
+      continue;
+    }
+
     if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
       const items: ReactNode[] = [];
       let j = i;
@@ -146,7 +227,7 @@ function renderStructuredMessage(content: string): ReactNode[] {
     let j = i;
     while (j < lines.length) {
       const cur = (lines[j] ?? "").trim();
-      if (!cur || cur.startsWith("## ") || cur.startsWith("### ") || cur.startsWith("```") || /^\d+\.\s+/.test(cur) || cur.startsWith("- ") || cur.startsWith("* ")) break;
+      if (!cur || cur.startsWith("## ") || cur.startsWith("### ") || cur.startsWith("```") || /^\d+\.\s+/.test(cur) || cur.startsWith("- ") || cur.startsWith("* ") || (isMdTableHeader(cur) && isMdTableSeparator((lines[j + 1] ?? "").trim()))) break;
       paragraph.push(cur);
       j += 1;
     }
@@ -180,6 +261,27 @@ export function ChatPanel({
   const [expandedMessageKeys, setExpandedMessageKeys] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
+  // Tracks whether the user is scrolled away from the bottom so we can show
+  // a floating "↓ jump to latest" button.
+  const [scrolledAway, setScrolledAway] = useState(false);
+
+  useEffect(() => {
+    const node = messageListRef.current;
+    if (!node) return;
+    const onScroll = () => {
+      const distance = node.scrollHeight - node.scrollTop - node.clientHeight;
+      setScrolledAway(distance > 120);
+    };
+    node.addEventListener("scroll", onScroll, { passive: true });
+    onScroll();
+    return () => node.removeEventListener("scroll", onScroll);
+  }, []);
+
+  const scrollToBottom = () => {
+    const node = messageListRef.current;
+    if (!node) return;
+    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
+  };
 
   useEffect(() => {
     if (prefillText != null) {
@@ -366,6 +468,18 @@ export function ChatPanel({
           </div>
         ) : null}
       </div>
+
+      {scrolledAway && messages.length > 0 ? (
+        <button
+          type="button"
+          className="chat-scroll-bottom"
+          onClick={scrollToBottom}
+          aria-label={t(language, "chat.scrollToBottom")}
+          title={t(language, "chat.scrollToBottom")}
+        >
+          <ArrowDown size={16} strokeWidth={2} aria-hidden="true" />
+        </button>
+      ) : null}
 
       <div className="composer" role="form" aria-label="Message composer">
         {onAttach ? (

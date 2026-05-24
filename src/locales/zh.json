@@ -323,6 +323,7 @@
   "sidebar.conversations.empty": "暂无保存的对话",
   "sidebar.conversations.new": "新建对话",
   "sidebar.conversations.delete": "删除对话",
+  "chat.scrollToBottom": "跳到最新消息",
   "sidebar.panels": "面板",
   "sidebar.settings": "设置",
   "splitter.collapseChat": "折叠对话",

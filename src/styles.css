@@ -270,6 +270,78 @@ body,
   line-height: 1.55;
 }
 
+/* Markdown tables — assistant messages can render `| col | col |` blocks */
+.md-table-wrap {
+  overflow-x: auto;
+  margin: 8px 0;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.md-table th,
+.md-table td {
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.md-table thead th {
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  font-weight: 600;
+  color: var(--text-main);
+  border-bottom: 1px solid var(--border-default);
+}
+
+.md-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.md-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--accent-soft) 35%, transparent);
+}
+
+/* Floating "↓ jump to latest" button — shows when user scrolls up */
+.chat-scroll-bottom {
+  position: absolute;
+  right: 28px;
+  bottom: 96px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-main);
+  box-shadow: var(--shadow-md, 0 4px 14px rgba(0,0,0,0.18));
+  cursor: pointer;
+  z-index: 10;
+  transition: background 0.12s ease, transform 0.1s ease, border-color 0.12s ease;
+}
+
+.chat-scroll-bottom:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.chat-scroll-bottom:active {
+  transform: scale(0.92);
+}
+
+.chat-panel {
+  position: relative;
+}
+
 .message {
   max-width: 88%;
   padding: 12px 14px;

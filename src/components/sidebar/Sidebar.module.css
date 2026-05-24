@@ -23,7 +23,7 @@
 }
 
 .label {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-faint);
@@ -94,13 +94,13 @@
 }
 
 .emptyCtaTitle {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: inherit;
 }
 
 .emptyCtaHint {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-faint);
   line-height: 1.4;
 }
@@ -118,7 +118,7 @@
   color: var(--text-faint);
   cursor: pointer;
   font-family: inherit;
-  font-size: 11px;
+  font-size: 13px;
   text-align: left;
   transition: background var(--duration-fast) var(--easing-standard),
               color var(--duration-fast) var(--easing-standard);
@@ -134,9 +134,9 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 7px 8px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   background: transparent;
   border: 0;
@@ -163,7 +163,7 @@
   color: var(--text-faint);
   cursor: not-allowed;
   padding: 6px 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-style: italic;
 }
 
@@ -177,7 +177,7 @@
 
 .meta {
   margin-left: auto;
-  font-size: 9px;
+  font-size: 11px;
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
@@ -204,9 +204,9 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 6px 8px;
+  padding: 7px 8px;
   border-radius: 6px;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--text-muted);
   background: transparent;
   border: 0;
@@ -229,7 +229,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-faint);
 }
 

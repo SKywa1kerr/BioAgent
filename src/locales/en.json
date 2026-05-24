@@ -323,6 +323,7 @@
   "sidebar.conversations.empty": "No saved conversations yet",
   "sidebar.conversations.new": "Start a new conversation",
   "sidebar.conversations.delete": "Delete conversation",
+  "chat.scrollToBottom": "Jump to latest",
   "sidebar.panels": "Panels",
   "sidebar.settings": "Settings",
   "splitter.collapseChat": "Collapse chat",
