@@ -26,6 +26,8 @@
     "@tanstack/react-virtual": "^3.13.24",
     "electron-updater": "^6.3.0",
     "framer-motion": "^11.11.11",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.17.0",
     "lucide-react": "^1.14.0",
     "openai": "^4.104.0",
     "pdfmake": "^0.3.7",

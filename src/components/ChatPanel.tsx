@@ -1,5 +1,9 @@
-import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useRef, useEffect, useState, useMemo, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Bot, Download, Loader2, Paperclip, Pencil, RotateCcw, Square, User } from "lucide-react";
+import hljs from "highlight.js/lib/common";
+import katex from "katex";
+import "katex/dist/katex.min.css";
+import "highlight.js/styles/github-dark.css";
 import { ModelPicker } from "./ModelPicker";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
@@ -65,12 +69,25 @@ interface ChatPanelProps {
 
 function renderInlineRichText(text: string): ReactNode[] {
   return text.split("**").map((chunk, idx) => {
-    const withCode = chunk.split("`").map((part, codeIdx) => {
-      if (codeIdx % 2 === 1) return <code key={`code-${idx}-${codeIdx}`}>{part}</code>;
-      return <span key={`txt-${idx}-${codeIdx}`}>{part}</span>;
+    const withMath = chunk.split(/(\$[^$\n]+\$)/g).map((part, mathIdx) => {
+      // Inline math: $...$ (single dollars; no newlines inside)
+      if (/^\$[^$\n]+\$$/.test(part)) {
+        const tex = part.slice(1, -1);
+        try {
+          const html = katex.renderToString(tex, { throwOnError: false });
+          return <span key={`m-${idx}-${mathIdx}`} dangerouslySetInnerHTML={{ __html: html }} />;
+        } catch {
+          return <span key={`m-${idx}-${mathIdx}`}>{part}</span>;
+        }
+      }
+      const withCode = part.split("`").map((sub, codeIdx) => {
+        if (codeIdx % 2 === 1) return <code key={`c-${idx}-${mathIdx}-${codeIdx}`}>{sub}</code>;
+        return <span key={`t-${idx}-${mathIdx}-${codeIdx}`}>{sub}</span>;
+      });
+      return <span key={`p-${idx}-${mathIdx}`}>{withCode}</span>;
     });
-    if (idx % 2 === 1) return <strong key={`strong-${idx}`}>{withCode}</strong>;
-    return <span key={`span-${idx}`}>{withCode}</span>;
+    if (idx % 2 === 1) return <strong key={`strong-${idx}`}>{withMath}</strong>;
+    return <span key={`span-${idx}`}>{withMath}</span>;
   });
 }
 
@@ -113,6 +130,20 @@ function parseMdTableAlignments(separator: string, columnCount: number): Array<"
 /** Fenced code block: ```lang\n...\n``` */
 function CodeBlock({ lang, code }: { lang: string; code: string }): JSX.Element {
   const [copied, setCopied] = useState(false);
+  // Memoize the highlight output so re-renders don't re-tokenize on every
+  // keystroke (long code blocks were noticeably laggy without this).
+  const html = useMemo(() => {
+    const normalizedLang = (lang || "").toLowerCase();
+    try {
+      if (normalizedLang && hljs.getLanguage(normalizedLang)) {
+        return hljs.highlight(code, { language: normalizedLang, ignoreIllegals: true }).value;
+      }
+      // Auto-detect when no language given.
+      return hljs.highlightAuto(code).value;
+    } catch {
+      return null;  // fall back to plain text
+    }
+  }, [code, lang]);
   const handleCopy = () => {
     void navigator.clipboard?.writeText(code).then(() => {
       setCopied(true);
@@ -132,9 +163,25 @@ function CodeBlock({ lang, code }: { lang: string; code: string }): JSX.Element 
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
-      <code>{code}</code>
+      {html ? (
+        <code className="hljs" dangerouslySetInnerHTML={{ __html: html }} />
+      ) : (
+        <code>{code}</code>
+      )}
     </pre>
   );
+}
+
+/** Block math: render `$$...$$` via KaTeX. */
+function MathBlock({ tex }: { tex: string }): JSX.Element {
+  const html = useMemo(() => {
+    try {
+      return katex.renderToString(tex, { displayMode: true, throwOnError: false });
+    } catch {
+      return tex;
+    }
+  }, [tex]);
+  return <div className="md-mathblock" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 function renderStructuredMessage(content: string): ReactNode[] {
@@ -157,6 +204,35 @@ function renderStructuredMessage(content: string): ReactNode[] {
       }
       blocks.push(<CodeBlock key={`code-${i}`} lang={lang} code={codeLines.join("\n")} />);
       i = j + 1; // skip closing fence
+      continue;
+    }
+
+    // Block math: $$...$$ (closing $$ may be on the same line or later)
+    if (trimmed.startsWith("$$")) {
+      // Same-line: "$$ x = y $$"
+      const sameLine = trimmed.match(/^\$\$(.+)\$\$$/);
+      if (sameLine && sameLine[1]) {
+        blocks.push(<MathBlock key={`math-${i}`} tex={sameLine[1].trim()} />);
+        i += 1;
+        continue;
+      }
+      // Multi-line: collect until a line that ends with $$
+      const texLines: string[] = [];
+      const opener = trimmed.replace(/^\$\$/, "");
+      if (opener) texLines.push(opener);
+      let j = i + 1;
+      while (j < lines.length) {
+        const cur = (lines[j] ?? "").trimEnd();
+        if (cur.endsWith("$$")) {
+          texLines.push(cur.slice(0, -2));
+          j += 1;
+          break;
+        }
+        texLines.push(lines[j] ?? "");
+        j += 1;
+      }
+      blocks.push(<MathBlock key={`math-${i}`} tex={texLines.join("\n").trim()} />);
+      i = j;
       continue;
     }
 
@@ -248,7 +324,7 @@ function renderStructuredMessage(content: string): ReactNode[] {
     let j = i;
     while (j < lines.length) {
       const cur = (lines[j] ?? "").trim();
-      if (!cur || cur.startsWith("## ") || cur.startsWith("### ") || cur.startsWith("```") || /^\d+\.\s+/.test(cur) || cur.startsWith("- ") || cur.startsWith("* ") || (isMdTableHeader(cur) && isMdTableSeparator((lines[j + 1] ?? "").trim()))) break;
+      if (!cur || cur.startsWith("## ") || cur.startsWith("### ") || cur.startsWith("```") || cur.startsWith("$$") || /^\d+\.\s+/.test(cur) || cur.startsWith("- ") || cur.startsWith("* ") || (isMdTableHeader(cur) && isMdTableSeparator((lines[j + 1] ?? "").trim()))) break;
       paragraph.push(cur);
       j += 1;
     }

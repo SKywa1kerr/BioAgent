@@ -1542,6 +1542,33 @@ button:focus-visible {
   background: transparent;
 }
 
+/* highlight.js theme override — use dark theme regardless of app theme
+   so syntax colors stay legible. Tweak the bg to match our code-block
+   container instead of the default near-black. */
+.md-codeblock .hljs {
+  background: transparent !important;
+  color: var(--text-main);
+  padding: 10px 12px;
+}
+
+/* KaTeX block math — keep it horizontally centered with a tasteful tint. */
+.md-mathblock {
+  display: block;
+  margin: 10px 0;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  overflow-x: auto;
+  text-align: center;
+}
+.md-mathblock .katex-display {
+  margin: 0;
+}
+.md-mathblock .katex {
+  font-size: 16px;
+}
+
 .message-timestamp {
   font-size: 10px;
   color: var(--text-muted);
