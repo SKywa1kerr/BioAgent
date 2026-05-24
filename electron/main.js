@@ -514,6 +514,7 @@ app.whenReady().then(async () => {
         properties: ["openFile", "openDirectory", "multiSelections"],
         filters: [
           { name: "Sequence files", extensions: ["ab1", "gb", "gbk", "fa", "fasta", "fna"] },
+          { name: "PDF documents", extensions: ["pdf"] },
           { name: "All files", extensions: ["*"] },
         ],
       });

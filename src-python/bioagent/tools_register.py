@@ -22,6 +22,7 @@ from bioagent.bio_primitives import (
     compare_sequences,
     export_analysis_html,
     inspect_path,
+    read_pdf,
     read_sequence_file,
     translate_sequence,
 )
@@ -647,6 +648,27 @@ def register_initial_tools() -> None:
             "required": ["analysis_id_a", "analysis_id_b"],
         },
         execute=compare_analyses,
+    )
+
+    register_tool(
+        name="read_pdf",
+        description=(
+            "Extract text from a local PDF (a research paper, protocol, "
+            "supplementary file…). Returns up to max_chars characters from "
+            "up to max_pages pages, plus metadata (title, total_pages, "
+            "truncated flag). Use when the user attaches a PDF or asks "
+            "you to read one on disk."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "path": {"type": "string"},
+                "max_chars": {"type": "integer", "default": 20000},
+                "max_pages": {"type": "integer", "default": 30},
+            },
+            "required": ["path"],
+        },
+        execute=read_pdf,
     )
 
     _REGISTERED = True

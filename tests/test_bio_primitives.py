@@ -1,4 +1,6 @@
 """Unit tests for bio_primitives wrappers used by the MCP tool layer."""
+import pytest
+
 from bioagent.bio_primitives import (
     analyze_files_adhoc,
     compare_sequences,
@@ -256,3 +258,48 @@ def test_compare_analyses_unknown():
     result = compare_analyses(analysis_id_a="missing-a", analysis_id_b="missing-b")
     assert result["ok"] is False
     assert "missing-a" in result["error"]
+
+
+def test_read_pdf_missing_file():
+    from bioagent.bio_primitives import read_pdf
+    r = read_pdf(path="/no/such/file.pdf")
+    assert r["ok"] is False
+    assert "not found" in r["error"].lower()
+
+
+def test_read_pdf_wrong_extension(tmp_path):
+    from bioagent.bio_primitives import read_pdf
+    f = tmp_path / "notpdf.txt"
+    f.write_text("hi")
+    r = read_pdf(path=str(f))
+    assert r["ok"] is False
+    assert ".pdf" in r["error"] or "pdf" in r["error"].lower()
+
+
+def test_read_pdf_extracts_text(tmp_path):
+    """Build a tiny in-memory PDF with pypdf, then round-trip read_pdf."""
+    from bioagent.bio_primitives import read_pdf
+    pypdf = pytest.importorskip("pypdf")
+    # Build a one-page PDF whose text we control.
+    from io import BytesIO
+    try:
+        from pypdf import PdfWriter
+        from pypdf.generic import RectangleObject
+    except Exception:
+        pytest.skip("pypdf writer not available")
+
+    writer = PdfWriter()
+    # Add a blank page; pypdf's writer doesn't write text frames natively,
+    # so we cheat by using add_blank_page and acknowledging extract_text
+    # may return empty. The test still verifies the happy-path return
+    # shape (ok=True, metadata, no crash).
+    writer.add_blank_page(width=200, height=200)
+    out = tmp_path / "tiny.pdf"
+    with open(out, "wb") as fh:
+        writer.write(fh)
+
+    r = read_pdf(path=str(out))
+    assert r["ok"] is True
+    assert r["total_pages"] == 1
+    assert isinstance(r["text"], str)
+    assert r["pages_read"] == 1

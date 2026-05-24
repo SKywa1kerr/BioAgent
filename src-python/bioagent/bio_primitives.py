@@ -395,3 +395,74 @@ def compare_analyses(*, analysis_id_a: str, analysis_id_b: str) -> dict:
             "total_samples": delta("total_samples"),
         },
     }
+
+
+def read_pdf(*, path: str, max_chars: int = 20000, max_pages: int = 30) -> dict:
+    """Extract text from a PDF.
+
+    Lazy-import pypdf so the rest of bio_primitives keeps loading even
+    when pypdf isn't installed (e.g. on a stripped-down sidecar build).
+    Caps total output at max_chars to keep tool-result tokens manageable;
+    caps pages read at max_pages so a 500-page thesis doesn't stall the
+    sidecar. Both caps surface via fields in the returned dict.
+    """
+    p = _Path(path)
+    if not p.exists():
+        return {"ok": False, "error": f"file not found: {path}"}
+    if not p.is_file():
+        return {"ok": False, "error": f"not a file: {path}"}
+    if p.suffix.lower() != ".pdf":
+        return {"ok": False, "error": f"not a .pdf: {p.suffix}"}
+
+    try:
+        import pypdf
+    except ImportError:
+        return {"ok": False, "error": "pypdf is not available in the sidecar"}
+
+    try:
+        reader = pypdf.PdfReader(str(p))
+    except Exception as exc:
+        return {"ok": False, "error": f"pdf parse failed: {exc}"}
+
+    total_pages = len(reader.pages)
+    pages_read = min(total_pages, max(1, int(max_pages)))
+    chunks: list[str] = []
+    used_chars = 0
+    truncated = False
+    for i in range(pages_read):
+        try:
+            text = reader.pages[i].extract_text() or ""
+        except Exception:
+            text = ""
+        if not text:
+            continue
+        remaining = max_chars - used_chars
+        if remaining <= 0:
+            truncated = True
+            break
+        if len(text) > remaining:
+            chunks.append(text[:remaining])
+            used_chars += remaining
+            truncated = True
+            break
+        chunks.append(text)
+        used_chars += len(text)
+
+    title = ""
+    try:
+        meta = reader.metadata
+        if meta and getattr(meta, "title", None):
+            title = str(meta.title)
+    except Exception:
+        title = ""
+
+    return {
+        "ok": True,
+        "path": str(p),
+        "title": title,
+        "total_pages": total_pages,
+        "pages_read": pages_read,
+        "truncated": truncated or (pages_read < total_pages),
+        "text": "\n\n".join(chunks),
+        "char_count": used_chars,
+    }

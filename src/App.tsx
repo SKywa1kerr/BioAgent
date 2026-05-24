@@ -811,20 +811,33 @@ export function App() {
                 setImportDialogOpen(true);
                 return;
               }
-              // Files only — hand off to analyze-dropped-files like the
-              // drag-drop path does. Separate ab1/gb extensions first.
+              // Files only — bucket by type. PDFs become a chat prompt that
+              // names the file paths so the agent calls read_pdf on them.
+              // Sequence files go through the existing analyze pipeline.
               const ab1Paths = paths.filter((p) => /\.ab1$/i.test(p));
               const gbPaths = paths.filter((p) => /\.gbk?$/i.test(p));
-              if (ab1Paths.length === 0 && gbPaths.length === 0) {
+              const pdfPaths = paths.filter((p) => /\.pdf$/i.test(p));
+              if (pdfPaths.length > 0) {
+                const promptIntro = language === "zh"
+                  ? "请帮我读一下并总结这些 PDF："
+                  : "Please read and summarize these PDFs:";
+                const listing = pdfPaths.map((p) => `- ${p}`).join("\n");
+                setPrefillText(`${promptIntro}\n${listing}`);
+                chatInputRef.current?.focus();
+                if (ab1Paths.length === 0 && gbPaths.length === 0) return;
+              }
+              if (ab1Paths.length === 0 && gbPaths.length === 0 && pdfPaths.length === 0) {
                 toasts.pushToast({
                   kind: "warning",
                   title: language === "zh"
-                    ? "未识别到 .ab1 或 .gb 文件"
-                    : "No .ab1 or .gb files in selection",
+                    ? "未识别到 .ab1、.gb 或 .pdf 文件"
+                    : "No .ab1, .gb, or .pdf files in selection",
                 });
                 return;
               }
-              await window.electronAPI.invoke("analyze-dropped-files", { ab1Paths, gbPaths });
+              if (ab1Paths.length > 0 || gbPaths.length > 0) {
+                await window.electronAPI.invoke("analyze-dropped-files", { ab1Paths, gbPaths });
+              }
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               toasts.pushToast({ kind: "error", title: msg, durationMs: 0 });
