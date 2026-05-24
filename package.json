@@ -1,7 +1,7 @@
 {
   "name": "ultimate-bioagent",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Ultimate BioAgent desktop app",
   "main": "electron/main.js",
   "scripts": {
