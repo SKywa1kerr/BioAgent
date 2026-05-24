@@ -314,6 +314,7 @@
   "sidebar.datasets.builtin": "Built-in dataset",
   "sidebar.datasets.user": "Registered local dataset",
   "sidebar.datasets.unnamed": "(unnamed)",
+  "sidebar.datasets.delete": "Remove from sidebar",
   "sidebar.panels": "Panels",
   "sidebar.settings": "Settings",
   "splitter.collapseChat": "Collapse chat",

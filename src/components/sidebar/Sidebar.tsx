@@ -7,6 +7,7 @@ import {
   Lightbulb,
   Plus,
   Settings as SettingsIcon,
+  X,
 } from "lucide-react";
 import { t, type AppLanguage } from "../../i18n";
 import type { PanelType } from "../SmartCanvas";
@@ -35,6 +36,7 @@ interface SidebarProps {
   onOpenSettings: () => void;
   onSelectDataset?: (name: string) => void;
   onAddDataset?: () => void;
+  onDeleteDataset?: (id: string, label: string) => void;
 }
 
 function formatRelative(iso: string | undefined, language: AppLanguage): string {
@@ -70,6 +72,7 @@ export function Sidebar({
   onOpenSettings,
   onSelectDataset,
   onAddDataset,
+  onDeleteDataset,
 }: SidebarProps): JSX.Element {
   const recentSlice = useMemo(() => history.slice(0, 8), [history]);
 
@@ -134,17 +137,32 @@ export function Sidebar({
           ) : (
             <>
               {datasets.map((d) => (
-                <button
-                  key={d.id}
-                  type="button"
-                  className={styles.row}
-                  onClick={() => onSelectDataset?.(d.label || d.id)}
-                  title={d.kind === "user" ? t(language, "sidebar.datasets.user") : t(language, "sidebar.datasets.builtin")}
-                >
-                  <Database size={13} className={styles.icon} aria-hidden="true" />
-                  <span className={styles.rowMain}>{(d.label && d.label.trim()) || d.id || t(language, "sidebar.datasets.unnamed")}</span>
-                  {d.kind === "user" ? <span className={styles.meta}>·</span> : null}
-                </button>
+                <div key={d.id} className={styles.datasetRowWrap}>
+                  <button
+                    type="button"
+                    className={styles.row}
+                    onClick={() => onSelectDataset?.(d.label || d.id)}
+                    title={d.kind === "user" ? t(language, "sidebar.datasets.user") : t(language, "sidebar.datasets.builtin")}
+                  >
+                    <Database size={13} className={styles.icon} aria-hidden="true" />
+                    <span className={styles.rowMain}>{(d.label && d.label.trim()) || d.id || t(language, "sidebar.datasets.unnamed")}</span>
+                    {d.kind === "user" ? <span className={styles.meta}>·</span> : null}
+                  </button>
+                  {d.kind === "user" && onDeleteDataset ? (
+                    <button
+                      type="button"
+                      className={styles.rowDelete}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteDataset(d.id, (d.label && d.label.trim()) || d.id);
+                      }}
+                      aria-label={t(language, "sidebar.datasets.delete")}
+                      title={t(language, "sidebar.datasets.delete")}
+                    >
+                      <X size={12} aria-hidden="true" />
+                    </button>
+                  ) : null}
+                </div>
               ))}
               {onAddDataset && !datasets.some((d) => d.kind === "user") ? (
                 <button

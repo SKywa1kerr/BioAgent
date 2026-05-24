@@ -3,7 +3,7 @@ import { spawn } from "child_process";
 import { EventEmitter } from "events";
 
 const DEFAULT_MODEL = "deepseek-chat";
-const MAX_TURNS = 3;
+const MAX_TURNS = 5;
 const MAX_TOOL_CALLS_PER_TURN = 3;
 const LLM_TIMEOUT_MS = 45000;
 const MAX_HISTORY_NON_TOOL_MESSAGES = 6;
@@ -557,10 +557,24 @@ export class AgentHarness extends EventEmitter {
 
       if (!replied) {
         const message = `No final reply after ${MAX_TURNS} turns. Retry or switch model.`;
-        const content = `Run failed: ${message}`;
-        this.messages.push({ role: "assistant", content });
-        onEvent({ type: "error", message });
-        onEvent({ type: "reply", content, uiAction: "show_text" });
+        // Graceful degrade: same logic as the catch block — if a tool
+        // already populated the canvas, don't pretend the whole turn
+        // failed. Many providers (e.g. deepseek-chat) emit only one
+        // tool_call per turn, so 3 tools = 3 turns and the wrap-up
+        // turn gets clipped. Bumping MAX_TURNS to 5 helps but isn't
+        // a guarantee; this fallback keeps the analysis visible either way.
+        if (lastSuccessfulTool) {
+          const successText = this.language === "zh"
+            ? `已完成 ${lastSuccessfulTool}，结果在右侧画布中。\n\n（注意：助手在 ${MAX_TURNS} 轮内未生成总结文字。可尝试更换模型或重新点击。）`
+            : `${lastSuccessfulTool} succeeded; results are in the canvas on the right.\n\n(Note: the assistant did not produce a wrap-up reply in ${MAX_TURNS} turns. Try retrying or switching model.)`;
+          this.messages.push({ role: "assistant", content: successText });
+          onEvent({ type: "reply", content: successText, uiAction: "show_analysis" });
+        } else {
+          const content = `Run failed: ${message}`;
+          this.messages.push({ role: "assistant", content });
+          onEvent({ type: "error", message });
+          onEvent({ type: "reply", content, uiAction: "show_text" });
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

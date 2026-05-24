@@ -589,6 +589,31 @@ export function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onSelectDataset={(name) => setPrefillText(`分析 ${name} 数据集`)}
         onAddDataset={() => { setImportPrefill(null); setImportDialogOpen(true); }}
+        onDeleteDataset={async (id, label) => {
+          const confirmMsg = language === "zh"
+            ? `确定要删除数据集「${label}」吗？仅移除注册，不会删除磁盘上的文件。`
+            : `Delete the dataset "${label}"? This only removes the registration; the files on disk are untouched.`;
+          if (!confirm(confirmMsg)) return;
+          try {
+            const resp = await window.electronAPI.invoke("dataset-delete", id);
+            if (resp?.ok) {
+              void refreshDatasets();
+              toasts.pushToast({
+                kind: "success",
+                title: language === "zh" ? `已删除：${label}` : `Deleted: ${label}`,
+              });
+            } else {
+              toasts.pushToast({
+                kind: "error",
+                title: resp?.error || (language === "zh" ? "删除失败" : "Delete failed"),
+                durationMs: 0,
+              });
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            toasts.pushToast({ kind: "error", title: msg, durationMs: 0 });
+          }
+        }}
       />
 
       {chatWidth.collapsed ? (
