@@ -21,6 +21,34 @@ body,
   font-feature-settings: "cv11", "ss01", "ss03";
 }
 
+/* Smooth dark/light theme transition (E4). Limited to color / bg /
+   border so we don't accidentally animate layout-affecting props. */
+*,
+*::before,
+*::after {
+  transition: background-color 220ms ease, color 220ms ease,
+              border-color 220ms ease, box-shadow 220ms ease;
+}
+
+/* Opt out of the global transition for elements that animate other
+   things at higher frequency (avoids visible "stutter" double-tween). */
+.message-pending-spinner,
+.composer button.composer-send svg,
+.chat-scroll-bottom,
+.canvas-rail-dot,
+.composer-attach svg {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
 .canvas-shell,
 .canvas-panel {
   font-size: 13px;
@@ -343,41 +371,89 @@ body,
 }
 
 .message {
-  max-width: 88%;
-  padding: 12px 14px;
-  border-radius: 14px;
+  /* Two-column layout: avatar | body. Reused by user (avatar right) and
+     assistant (avatar left) via direction reversal. */
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  max-width: 100%;
+  padding: 0;
+  background: transparent;
+  border: 0;
   line-height: 1.65;
-  white-space: pre-wrap;
+  white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
   font-size: 14px;
 }
 
-.message-user {
-  background: var(--accent-soft);
+.message-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.message-avatar-assistant {
+  background: var(--accent);
+}
+
+.message-avatar-user {
+  background: var(--surface);
   color: var(--text-main);
-  align-self: flex-end;
-  max-width: 78%;
-  border-bottom-right-radius: 6px;  /* subtle "tail" toward speaker */
+  border: 1px solid var(--border-default);
+}
+
+.message-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.message-user {
+  /* User row: avatar on the right of the body. */
+  grid-template-columns: 1fr 28px;
+  direction: ltr;
+}
+.message-user .message-avatar {
+  order: 2;
+}
+.message-user .message-body {
+  order: 1;
+  align-items: flex-end;
+  text-align: left;
+}
+
+.message-user .message-content-user {
+  background: var(--accent-soft);
+  padding: 10px 14px;
+  border-radius: 14px;
+  border-bottom-right-radius: 6px;
+  max-width: 100%;
+  white-space: pre-wrap;
 }
 
 .message-assistant {
-  /* Full-width, borderless block — OpenWebUI-style. The visual weight
-     comes from the renderStructuredMessage typography (headings, lists,
-     code blocks) rather than a chat-bubble container. */
+  /* Assistant row: full content width left-aligned. */
   background: transparent;
-  color: var(--text-main);
   border: none;
-  align-self: stretch;
   box-shadow: none;
-  max-width: 100%;
-  padding-left: 0;
-  padding-right: 0;
 }
 
-.message-assistant.message-pending {
+.message-assistant .message-content {
   background: transparent;
-  border: none;
+  padding: 0;
+}
+
+.message-assistant.message-pending .message-body {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
 
 .composer {
@@ -1267,6 +1343,37 @@ button:focus-visible {
 
 .message-copy-button:hover {
   background: color-mix(in srgb, var(--message-assistant-bg) 72%, transparent);
+}
+
+/* Compact icon-style action buttons used by user + assistant rows in the
+   "actions" footer below each message. Replace text "Copy" with a small
+   pill that takes either an icon or short text. */
+.message-icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.message-icon-button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.message-icon-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* Hover-only actions on user messages — copy stays out of the way until

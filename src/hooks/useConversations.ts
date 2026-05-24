@@ -98,6 +98,8 @@ export interface UseConversationsResult {
   newConversation: () => string;
   /** Drop a conversation by id. If it was current, current resets to null. */
   remove: (id: string) => void;
+  /** Rename a conversation by id (blank/whitespace falls back to current). */
+  rename: (id: string, title: string) => void;
 }
 
 export function useConversations(): UseConversationsResult {
@@ -166,6 +168,14 @@ export function useConversations(): UseConversationsResult {
     setCurrentIdState((prev) => (prev === id ? null : prev));
   }, []);
 
+  const rename = useCallback((id: string, title: string) => {
+    const trimmed = String(title || "").trim();
+    if (!trimmed) return;
+    setConversations((current) =>
+      current.map((c) => (c.id === id ? { ...c, title: trimmed, updatedAt: Date.now() } : c)),
+    );
+  }, []);
+
   return {
     conversations,
     currentId,
@@ -173,5 +183,6 @@ export function useConversations(): UseConversationsResult {
     syncMessages,
     newConversation,
     remove,
+    rename,
   };
 }

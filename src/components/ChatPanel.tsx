@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, Loader2, Paperclip } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, Loader2, Paperclip, Pencil, RotateCcw, User } from "lucide-react";
 import { ModelPicker } from "./ModelPicker";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
@@ -17,6 +17,12 @@ interface ChatPanelProps {
   language: AppLanguage;
   initialized: boolean;
   onSend: (text: string) => void;
+  /** Resend a previous user message verbatim. */
+  onResend?: (text: string) => void;
+  /** Pull a previous user message back into the composer for editing.
+   *  Host should also trim subsequent assistant messages so the edit
+   *  is the new "tail" of the conversation. */
+  onEdit?: (index: number, text: string) => void;
   onExportDebug: () => void;
   onToggleLanguage: () => void;
   onToggleTheme: () => void;
@@ -254,7 +260,7 @@ function formatTime(ts: number): string {
 
 export function ChatPanel({
   messages, isRunning, progress, language, initialized,
-  onSend, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
+  onSend, onResend, onEdit, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
   prefillText, onPrefillConsumed, inputRef, onOpenPalette, onAttach, modelPicker,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
@@ -409,62 +415,99 @@ export function ChatPanel({
 
           return (
             <div key={stableId} className={`message message-${message.role}`}>
-              {ts != null && (
-                <div className="message-timestamp">{formatTime(ts)}</div>
-              )}
-              {isAssistant ? (
-                <>
-                  <div className={`message-content${isLong && !expanded ? " message-content-collapsed" : ""}`}>
-                    {renderStructuredMessage(message.content)}
-                  </div>
-                  <div className="message-actions">
-                    {isLong ? (
+              {/* Avatar — small circle to the left (assistant) or right (user). */}
+              <div className={`message-avatar message-avatar-${message.role}`} aria-hidden="true">
+                {isAssistant ? <Bot size={14} strokeWidth={1.8} /> : <User size={14} strokeWidth={1.8} />}
+              </div>
+              <div className="message-body">
+                {ts != null && (
+                  <div className="message-timestamp">{formatTime(ts)}</div>
+                )}
+                {isAssistant ? (
+                  <>
+                    <div className={`message-content${isLong && !expanded ? " message-content-collapsed" : ""}`}>
+                      {renderStructuredMessage(message.content)}
+                    </div>
+                    <div className="message-actions">
+                      {isLong ? (
+                        <button
+                          type="button"
+                          className="message-expand-button"
+                          onClick={() => {
+                            setExpandedMessageKeys((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(stableId)) next.delete(stableId);
+                              else next.add(stableId);
+                              return next;
+                            });
+                          }}
+                        >
+                          {expanded ? t(language, "app.message.collapse") : t(language, "app.message.expand")}
+                        </button>
+                      ) : null}
                       <button
                         type="button"
-                        className="message-expand-button"
-                        onClick={() => {
-                          setExpandedMessageKeys((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(stableId)) next.delete(stableId);
-                            else next.add(stableId);
-                            return next;
-                          });
-                        }}
+                        className="message-icon-button"
+                        onClick={() => handleCopy(stableId, message.content)}
+                        title={copiedId === stableId ? t(language, "chat.copied") : t(language, "chat.copy")}
+                        aria-label={t(language, "chat.copy")}
                       >
-                        {expanded ? t(language, "app.message.collapse") : t(language, "app.message.expand")}
+                        {copiedId === stableId ? "✓" : t(language, "chat.copy")}
                       </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className="message-copy-button"
-                      onClick={() => handleCopy(stableId, message.content)}
-                    >
-                      {copiedId === stableId ? t(language, "chat.copied") : t(language, "chat.copy")}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="message-content message-content-user">{message.content}</div>
-                  <div className="message-actions message-actions-user">
-                    <button
-                      type="button"
-                      className="message-copy-button"
-                      onClick={() => handleCopy(stableId, message.content)}
-                      title={t(language, "chat.copy")}
-                    >
-                      {copiedId === stableId ? t(language, "chat.copied") : t(language, "chat.copy")}
-                    </button>
-                  </div>
-                </>
-              )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="message-content message-content-user">{message.content}</div>
+                    <div className="message-actions message-actions-user">
+                      <button
+                        type="button"
+                        className="message-icon-button"
+                        onClick={() => handleCopy(stableId, message.content)}
+                        title={copiedId === stableId ? t(language, "chat.copied") : t(language, "chat.copy")}
+                        aria-label={t(language, "chat.copy")}
+                      >
+                        {copiedId === stableId ? "✓" : t(language, "chat.copy")}
+                      </button>
+                      {onEdit ? (
+                        <button
+                          type="button"
+                          className="message-icon-button"
+                          onClick={() => onEdit(index, message.content)}
+                          title={t(language, "chat.edit")}
+                          aria-label={t(language, "chat.edit")}
+                        >
+                          <Pencil size={12} strokeWidth={1.8} aria-hidden="true" />
+                        </button>
+                      ) : null}
+                      {onResend ? (
+                        <button
+                          type="button"
+                          className="message-icon-button"
+                          onClick={() => onResend(message.content)}
+                          title={t(language, "chat.resend")}
+                          aria-label={t(language, "chat.resend")}
+                          disabled={isRunning}
+                        >
+                          <RotateCcw size={12} strokeWidth={1.8} aria-hidden="true" />
+                        </button>
+                      ) : null}
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           );
         })}
         {isRunning ? (
           <div className="message message-assistant message-pending">
-            <Loader2 size={14} strokeWidth={1.8} className="message-pending-spinner" aria-hidden="true" />
-            <span>{t(language, "app.assistant.pending")}</span>
+            <div className="message-avatar message-avatar-assistant" aria-hidden="true">
+              <Bot size={14} strokeWidth={1.8} />
+            </div>
+            <div className="message-body">
+              <Loader2 size={14} strokeWidth={1.8} className="message-pending-spinner" aria-hidden="true" />
+              <span>{t(language, "app.assistant.pending")}</span>
+            </div>
           </div>
         ) : null}
       </div>

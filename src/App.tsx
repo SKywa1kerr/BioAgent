@@ -661,6 +661,14 @@ export function App() {
             Promise.resolve().then(() => { swappingConversationRef.current = false; });
           }
         }}
+        onRenameConversation={(id, currentTitle) => {
+          const next = window.prompt(
+            language === "zh" ? "新的对话标题：" : "New conversation title:",
+            currentTitle,
+          );
+          if (next == null) return;  // cancelled
+          conversations.rename(id, next);
+        }}
       />
 
       {chatWidth.collapsed ? (
@@ -673,6 +681,17 @@ export function App() {
           language={language}
           initialized={agent.initialized}
           onSend={handleSend}
+          onResend={(text) => handleSend(text)}
+          onEdit={(idx, text) => {
+            // Truncate the message list to right before this user message,
+            // then drop the prompt back into the composer so the user can
+            // tweak it. Subsequent assistant responses are discarded; the
+            // edit becomes the new tail of the conversation.
+            const truncated = agent.messages.slice(0, idx);
+            agent.loadMessages(truncated);
+            setPrefillText(text);
+            chatInputRef.current?.focus();
+          }}
           onExportDebug={() => void agent.exportDebugLog()}
           onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
           onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}

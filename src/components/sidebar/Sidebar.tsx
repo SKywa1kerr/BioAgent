@@ -3,6 +3,7 @@ import {
   Database,
   History,
   MessageSquare,
+  Pencil,
   Plus,
   Settings as SettingsIcon,
   SquarePen,
@@ -48,6 +49,7 @@ interface SidebarProps {
   onNewConversation?: () => void;
   onSelectConversation?: (id: string) => void;
   onDeleteConversation?: (id: string, title: string) => void;
+  onRenameConversation?: (id: string, currentTitle: string) => void;
 }
 
 function formatRelative(iso: string | undefined, language: AppLanguage): string {
@@ -89,6 +91,7 @@ export function Sidebar({
   onNewConversation,
   onSelectConversation,
   onDeleteConversation,
+  onRenameConversation,
 }: SidebarProps): JSX.Element {
   const recentSlice = useMemo(() => history.slice(0, 8), [history]);
   const conversationSlice = useMemo(() => (conversations ?? []).slice(0, 12), [conversations]);
@@ -130,6 +133,20 @@ export function Sidebar({
                       <span className={styles.rowMain}>{c.title}</span>
                       <span className={styles.meta}>{formatRelative(tsIso, language)}</span>
                     </button>
+                    {onRenameConversation ? (
+                      <button
+                        type="button"
+                        className={styles.rowRename}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRenameConversation(c.id, c.title);
+                        }}
+                        aria-label={t(language, "sidebar.conversations.rename")}
+                        title={t(language, "sidebar.conversations.rename")}
+                      >
+                        <Pencil size={11} aria-hidden="true" />
+                      </button>
+                    ) : null}
                     {onDeleteConversation ? (
                       <button
                         type="button"
