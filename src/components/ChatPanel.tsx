@@ -5,9 +5,19 @@ import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
 import { Icon } from "./ui/Icon";
 
+interface ToolMessageMeta {
+  toolName: string;
+  args: unknown;
+  status: "running" | "ok" | "error";
+  result?: unknown;
+  error?: string;
+}
+
 interface ChatMessage {
   role: string;
   content: string;
+  _tool?: ToolMessageMeta;
+  marker?: string;
 }
 
 interface ChatPanelProps {
@@ -442,8 +452,71 @@ export function ChatPanel({
           const stableId = stableIdsRef.current[index] ?? `msg-fallback-${index}`;
           const ts = timestampsRef.current.get(stableId);
           const isAssistant = message.role === "assistant";
+          const isTool = message.role === "tool" && message._tool;
           const isLong = isAssistant && isLongAssistantMessage(message.content);
           const expanded = isLong && expandedMessageKeys.has(stableId);
+
+          if (isTool && message._tool) {
+            const open = expandedMessageKeys.has(stableId);
+            const status = message._tool.status;
+            const argsText = (() => {
+              try { return JSON.stringify(message._tool.args, null, 2); } catch { return "{}"; }
+            })();
+            const resultText = (() => {
+              try { return JSON.stringify(message._tool.result, null, 2); } catch { return ""; }
+            })();
+            return (
+              <div key={stableId} className={`message message-tool tool-card-row`}>
+                <div className={`message-avatar message-avatar-assistant`} aria-hidden="true">
+                  <Bot size={14} strokeWidth={1.8} />
+                </div>
+                <div className="tool-card">
+                  <button
+                    type="button"
+                    className="tool-card-header"
+                    onClick={() => setExpandedMessageKeys((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(stableId)) next.delete(stableId);
+                      else next.add(stableId);
+                      return next;
+                    })}
+                    aria-expanded={open}
+                  >
+                    <span className={`tool-card-status tool-card-status-${status}`} aria-hidden="true">
+                      {status === "running" ? (
+                        <Loader2 size={11} className="message-pending-spinner" />
+                      ) : status === "ok" ? "✓" : "✕"}
+                    </span>
+                    <span className="tool-card-name">{message._tool.toolName}</span>
+                    <span className="tool-card-summary">
+                      {status === "running"
+                        ? t(language, "chat.tool.running")
+                        : status === "ok"
+                        ? t(language, "chat.tool.done")
+                        : t(language, "chat.tool.failed")}
+                    </span>
+                    <span className="tool-card-chevron" aria-hidden="true">{open ? "▾" : "▸"}</span>
+                  </button>
+                  {open ? (
+                    <div className="tool-card-body">
+                      <div className="tool-card-section">
+                        <div className="tool-card-section-label">{t(language, "chat.tool.args")}</div>
+                        <pre className="tool-card-pre">{argsText}</pre>
+                      </div>
+                      {resultText ? (
+                        <div className="tool-card-section">
+                          <div className="tool-card-section-label">
+                            {status === "error" ? t(language, "chat.tool.error") : t(language, "chat.tool.result")}
+                          </div>
+                          <pre className="tool-card-pre">{resultText}</pre>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div key={stableId} className={`message message-${message.role}`}>

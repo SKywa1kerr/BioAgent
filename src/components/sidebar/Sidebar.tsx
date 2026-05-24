@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Database,
   History,
   MessageSquare,
   Pencil,
   Plus,
+  Search,
   Settings as SettingsIcon,
   SquarePen,
   X,
@@ -94,7 +95,15 @@ export function Sidebar({
   onRenameConversation,
 }: SidebarProps): JSX.Element {
   const recentSlice = useMemo(() => history.slice(0, 8), [history]);
-  const conversationSlice = useMemo(() => (conversations ?? []).slice(0, 12), [conversations]);
+  const [conversationFilter, setConversationFilter] = useState("");
+  const conversationSlice = useMemo(() => {
+    const all = conversations ?? [];
+    const query = conversationFilter.trim().toLowerCase();
+    const filtered = query
+      ? all.filter((c) => c.title.toLowerCase().includes(query))
+      : all;
+    return filtered.slice(0, 12);
+  }, [conversations, conversationFilter]);
 
   return (
     <aside className={styles.sidebar} aria-label="navigation">
@@ -115,6 +124,18 @@ export function Sidebar({
                 <SquarePen size={13} aria-hidden="true" />
               </button>
             </div>
+            {(conversations?.length || 0) > 4 ? (
+              <div className={styles.conversationSearchWrap}>
+                <Search size={12} aria-hidden="true" className={styles.conversationSearchIcon} />
+                <input
+                  type="text"
+                  className={styles.conversationSearch}
+                  placeholder={t(language, "sidebar.conversations.searchPlaceholder")}
+                  value={conversationFilter}
+                  onChange={(e) => setConversationFilter(e.target.value)}
+                />
+              </div>
+            ) : null}
             {conversationSlice.length === 0 ? (
               <div className={styles.rowDisabled}>{t(language, "sidebar.conversations.empty")}</div>
             ) : (

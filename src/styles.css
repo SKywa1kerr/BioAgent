@@ -456,6 +456,103 @@ body,
   gap: 8px;
 }
 
+/* Tool-call cards — collapsed by default; click header to expand args/result. */
+.tool-card-row {
+  /* Same 2-col grid as other messages so the avatar lines up. */
+}
+
+.tool-card {
+  width: 100%;
+  border: 1px solid var(--border-default);
+  border-radius: 10px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.tool-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-main);
+  text-align: left;
+}
+
+.tool-card-header:hover {
+  background: color-mix(in srgb, var(--accent-soft) 60%, transparent);
+}
+
+.tool-card-status {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.tool-card-status-running { color: var(--text-muted); }
+.tool-card-status-ok { color: #2c8a3a; }
+.tool-card-status-error { color: #c64f4f; }
+
+.tool-card-name {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 12.5px;
+  color: var(--text-main);
+}
+
+.tool-card-summary {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.tool-card-chevron {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.tool-card-body {
+  border-top: 1px solid var(--border-default);
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tool-card-section-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: 4px;
+}
+
+.tool-card-pre {
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-main);
+  overflow-x: auto;
+  max-height: 240px;
+  overflow-y: auto;
+  white-space: pre;
+}
+
 .composer {
   margin: 14px 18px 18px;
   padding: 10px 12px 10px 14px;

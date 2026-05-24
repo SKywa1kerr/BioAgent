@@ -115,9 +115,24 @@ function getLifecycleLabel(language: AppLanguage, phase: string, message: string
 
 /* ── Hook ─────────────────────────────────────────────────────────────── */
 
+export interface ToolCallMessageMeta {
+  toolName: string;
+  args: unknown;
+  status: "running" | "ok" | "error";
+  result?: unknown;
+  error?: string;
+}
+
+export type ChatMessage = {
+  role: string;
+  content: string;
+  _tool?: ToolCallMessageMeta;
+  marker?: string;
+};
+
 export function useAgentHarness(language: AppLanguage) {
   /* ── State ──────────────────────────────────────────────────────────── */
-  const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [initialized, setInitialized] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [panelType, setPanelType] = useState<PanelType>("text");
@@ -333,8 +348,45 @@ export function useAgentHarness(language: AppLanguage) {
       setProgressState("tool_calls", 70, t(lang, "app.progress.tools"));
     } else if (payload.type === "tool_call") {
       setProgressState("tool_call", 82, t(lang, "app.progress.toolCall", { tool: getFriendlyToolName(payload.tool || "tool", lang) }));
+      // Push a tool-message stub into the chat history so the user can
+      // see exactly which tools the agent is invoking. The matching
+      // tool_result event below will update this message in place.
+      const toolName = payload.tool || "tool";
+      const args = (payload as { args?: unknown }).args;
+      setMessages((current) => [
+        ...current,
+        {
+          role: "tool",
+          content: "",
+          _tool: { toolName, args, status: "running" },
+        } as ChatMessage,
+      ].slice(-MAX_MESSAGES));
     } else if (payload.type === "tool_result") {
       setProgressState("tool_result", 92, t(lang, "app.progress.done"));
+      const toolName = payload.tool || "tool";
+      // Patch the most recent matching running tool-message with its result.
+      setMessages((current) => {
+        for (let i = current.length - 1; i >= 0; i -= 1) {
+          const m = current[i];
+          if (m && m.role === "tool" && m._tool && m._tool.toolName === toolName && m._tool.status === "running") {
+            const result = (payload as { result?: { ok?: boolean; error?: string } }).result;
+            const ok = result && typeof result === "object" ? result.ok !== false : true;
+            const error = result && typeof result === "object" && typeof result.error === "string" ? result.error : undefined;
+            const next = current.slice();
+            next[i] = {
+              ...m,
+              _tool: {
+                ...m._tool,
+                status: ok ? "ok" : "error",
+                result,
+                error,
+              },
+            };
+            return next;
+          }
+        }
+        return current;
+      });
       if (payload.chained) {
         if (payload.tool === "detect_mutation_trends" && payload.result) {
           setChainedTrends({ token: Date.now(), result: payload.result });
