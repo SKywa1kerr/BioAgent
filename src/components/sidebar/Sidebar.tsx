@@ -5,8 +5,10 @@ import {
   FlaskConical,
   History,
   Lightbulb,
+  MessageSquare,
   Plus,
   Settings as SettingsIcon,
+  SquarePen,
   X,
 } from "lucide-react";
 import { t, type AppLanguage } from "../../i18n";
@@ -19,6 +21,12 @@ export interface DatasetItem {
   label: string;
   kind?: "builtin" | "user";
   count?: number;
+}
+
+export interface ConversationSummary {
+  id: string;
+  title: string;
+  updatedAt: number;
 }
 
 interface SidebarProps {
@@ -37,6 +45,12 @@ interface SidebarProps {
   onSelectDataset?: (name: string) => void;
   onAddDataset?: () => void;
   onDeleteDataset?: (id: string, label: string) => void;
+  /** OpenWebUI-style conversation list at the top of the sidebar. */
+  conversations?: readonly ConversationSummary[];
+  currentConversationId?: string | null;
+  onNewConversation?: () => void;
+  onSelectConversation?: (id: string) => void;
+  onDeleteConversation?: (id: string, title: string) => void;
 }
 
 function formatRelative(iso: string | undefined, language: AppLanguage): string {
@@ -73,12 +87,71 @@ export function Sidebar({
   onSelectDataset,
   onAddDataset,
   onDeleteDataset,
+  conversations,
+  currentConversationId,
+  onNewConversation,
+  onSelectConversation,
+  onDeleteConversation,
 }: SidebarProps): JSX.Element {
   const recentSlice = useMemo(() => history.slice(0, 8), [history]);
+  const conversationSlice = useMemo(() => (conversations ?? []).slice(0, 12), [conversations]);
 
   return (
     <aside className={styles.sidebar} aria-label="navigation">
       <div className={styles.body}>
+        {onNewConversation ? (
+          <section className={styles.section} aria-labelledby="sidebar-conversations">
+            <div className={styles.labelRow}>
+              <span className={styles.label} id="sidebar-conversations">
+                {t(language, "sidebar.conversations")}
+              </span>
+              <button
+                type="button"
+                className={styles.addButton}
+                onClick={onNewConversation}
+                aria-label={t(language, "sidebar.conversations.new")}
+                title={t(language, "sidebar.conversations.new")}
+              >
+                <SquarePen size={13} aria-hidden="true" />
+              </button>
+            </div>
+            {conversationSlice.length === 0 ? (
+              <div className={styles.rowDisabled}>{t(language, "sidebar.conversations.empty")}</div>
+            ) : (
+              conversationSlice.map((c) => {
+                const isActive = c.id === currentConversationId;
+                return (
+                  <div key={c.id} className={styles.datasetRowWrap}>
+                    <button
+                      type="button"
+                      className={`${styles.row} ${isActive ? styles.rowActive : ""}`.trim()}
+                      onClick={() => onSelectConversation?.(c.id)}
+                      title={c.title}
+                    >
+                      <MessageSquare size={13} className={styles.icon} aria-hidden="true" />
+                      <span className={styles.rowMain}>{c.title}</span>
+                    </button>
+                    {onDeleteConversation ? (
+                      <button
+                        type="button"
+                        className={styles.rowDelete}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteConversation(c.id, c.title);
+                        }}
+                        aria-label={t(language, "sidebar.conversations.delete")}
+                        title={t(language, "sidebar.conversations.delete")}
+                      >
+                        <X size={12} aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </section>
+        ) : null}
+
         <section className={styles.section} aria-labelledby="sidebar-recent">
           <div className={styles.label} id="sidebar-recent">
             {t(language, "sidebar.recent")}

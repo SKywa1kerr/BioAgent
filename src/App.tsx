@@ -20,6 +20,7 @@ import { ImportDatasetDialog } from "./components/ImportDatasetDialog";
 import { MultiDatasetChooserDialog, type DatasetCandidate } from "./components/MultiDatasetChooserDialog";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
 import { useAnalysisHistory } from "./hooks/useAnalysisHistory";
+import { useConversations, type Conversation } from "./hooks/useConversations";
 import { useOnboarding } from "./hooks/useOnboarding";
 import { useUpdater, type UpdaterPhase } from "./hooks/useUpdater";
 import { useToasts } from "./components/ui/ToastProvider";
@@ -234,6 +235,17 @@ export function App() {
   /* ── Recent analyses rail (history) ───────────────────────────────── */
 
   const historyApi = useAnalysisHistory({ enabled: agent.initialized, limit: 20 });
+  const conversations = useConversations();
+
+  // Auto-sync: whenever the in-flight messages change, push them to the
+  // current conversation (creates one on first message). Skip during the
+  // brief moment when we're swapping conversations to avoid clobbering.
+  const swappingConversationRef = useRef(false);
+  useEffect(() => {
+    if (swappingConversationRef.current) return;
+    if (!agent.initialized) return;
+    conversations.syncMessages(agent.messages);
+  }, [agent.messages, agent.initialized, conversations]);
   const lastSeenAnalysisIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -613,6 +625,40 @@ export function App() {
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             toasts.pushToast({ kind: "error", title: msg, durationMs: 0 });
+          }
+        }}
+        conversations={conversations.conversations.map((c) => ({
+          id: c.id,
+          title: c.title,
+          updatedAt: c.updatedAt,
+        }))}
+        currentConversationId={conversations.currentId}
+        onNewConversation={() => {
+          swappingConversationRef.current = true;
+          conversations.newConversation();
+          agent.clearMessages();
+          // Release the swap guard on the next tick so the syncMessages
+          // effect doesn't immediately repopulate the just-cleared list.
+          Promise.resolve().then(() => { swappingConversationRef.current = false; });
+        }}
+        onSelectConversation={(id) => {
+          if (id === conversations.currentId) return;
+          swappingConversationRef.current = true;
+          conversations.setCurrent(id);
+          const target = conversations.conversations.find((c) => c.id === id);
+          agent.loadMessages(target?.messages || []);
+          Promise.resolve().then(() => { swappingConversationRef.current = false; });
+        }}
+        onDeleteConversation={(id, title) => {
+          const ok = confirm(language === "zh"
+            ? `确定删除对话「${title}」吗？`
+            : `Delete conversation "${title}"?`);
+          if (!ok) return;
+          conversations.remove(id);
+          if (conversations.currentId === id) {
+            swappingConversationRef.current = true;
+            agent.clearMessages();
+            Promise.resolve().then(() => { swappingConversationRef.current = false; });
           }
         }}
       />

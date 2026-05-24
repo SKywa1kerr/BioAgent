@@ -301,3 +301,38 @@
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px 4px;
+}
+
+.labelRow .label {
+  padding: 0;
+}
+
+.addButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.addButton:hover {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.rowActive {
+  background: var(--accent-soft) !important;
+  color: var(--accent) !important;
+}

@@ -532,6 +532,10 @@ export function useAgentHarness(language: AppLanguage) {
     exportDebugLog,
     setPanelType,
     clearMessages: () => setMessages([]),
+    loadMessages: (loaded: Array<{ role: string; content: string }>) => {
+      setMessages(loaded.slice(-MAX_MESSAGES));
+      assistantMessageCountRef.current = loaded.filter((m) => m.role === "assistant").length;
+    },
     lastErrorEvent,
     retryLast,
     chainedTrends,
