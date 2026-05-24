@@ -501,17 +501,18 @@ app.whenReady().then(async () => {
   });
 
   // Variant of the picker used by the chat input's paperclip button.
-  // Accepts files OR a directory in one shot and returns the full list of
-  // selected paths, so the renderer can route the choice through the same
-  // logic as a drag-drop (inspect-dropped-paths → multi/single/flat folder
-  // routing).
+  // FILES ONLY (multi-select). Windows' showOpenDialog can't combine
+  // openFile + openDirectory in one dialog — the combo silently falls
+  // back to folder-only, which is what the user kept hitting. Folder
+  // imports already have two clear entry points (drag-and-drop +
+  // sidebar "+ Import dataset"), so 📎 stays focused on files.
   ipcMain.handle("dialog-pick-attach", async (_event, options) => {
     if (!mainWindow) return { canceled: true, error: "no-window" };
     try {
       const result = await dialog.showOpenDialog(mainWindow, {
         title: options?.title,
         defaultPath: options?.defaultPath,
-        properties: ["openFile", "openDirectory", "multiSelections"],
+        properties: ["openFile", "multiSelections"],
         filters: [
           { name: "Sequence files", extensions: ["ab1", "gb", "gbk", "fa", "fasta", "fna"] },
           { name: "PDF documents", extensions: ["pdf"] },

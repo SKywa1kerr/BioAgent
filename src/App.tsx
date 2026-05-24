@@ -814,11 +814,9 @@ export function App() {
             },
           }}
           onAttach={async () => {
-            // Paperclip flow mirrors drag-drop: open the system picker for
-            // files OR a folder, then route through inspect-dropped-paths
-            // → inspect-dataset-folder so the user gets the same
-            // multi-dataset chooser, prefilled import dialog, or analyze
-            // path that they would by dropping the same selection.
+            // Paperclip flow: files-only (multi-select). Folder import has
+            // dedicated entry points (drag-drop + sidebar + button) since
+            // Windows can't show a combined file+folder dialog.
             const picked = await window.electronAPI.invoke("dialog-pick-attach", {
               title: t(language, "composer.attach"),
             });
@@ -827,64 +825,52 @@ export function App() {
             if (paths.length === 0) return;
 
             try {
-              const inspect = await window.electronAPI.invoke("inspect-dropped-paths", paths);
-              const dirs: string[] = Array.isArray(inspect?.dirs) ? inspect.dirs : [];
-              if (dirs.length === 1) {
-                const folder = dirs[0]!;
-                const inspected = await window.electronAPI.invoke("inspect-dataset-folder", folder);
-                if (inspected?.ok && inspected.layout === "multi" && Array.isArray(inspected.candidates) && inspected.candidates.length > 0) {
-                  setDatasetCandidates(inspected.candidates);
-                  return;
-                }
-                if (inspected?.ok) {
-                  setImportPrefill({ ab1Dir: inspected.ab1Dir, gbDir: inspected.gbDir });
-                } else {
-                  setImportPrefill({ ab1Dir: folder, gbDir: folder });
-                }
-                setImportDialogOpen(true);
-                return;
-              }
-              if (dirs.length >= 2) {
-                const [d0, d1] = dirs as [string, string];
-                const looksAb1 = (s: string) => /ab1/i.test(s);
-                const looksGb = (s: string) => /\bgb\b|gbk/i.test(s);
-                let ab1Dir = d0;
-                let gbDir = d1;
-                if (looksAb1(d1) || looksGb(d0)) {
-                  ab1Dir = d1;
-                  gbDir = d0;
-                }
-                setImportPrefill({ ab1Dir, gbDir });
-                setImportDialogOpen(true);
-                return;
-              }
-              // Files only — bucket by type. PDFs become a chat prompt that
-              // names the file paths so the agent calls read_pdf on them.
-              // Sequence files go through the existing analyze pipeline.
+              // Bucket by type. PDFs / unrecognized files become a chat
+              // prompt that names the file paths so the agent calls
+              // read_pdf or read_sequence_file on them. Sequence files
+              // (.ab1 + .gb pairs) go through the analyze pipeline.
               const ab1Paths = paths.filter((p) => /\.ab1$/i.test(p));
               const gbPaths = paths.filter((p) => /\.gbk?$/i.test(p));
               const pdfPaths = paths.filter((p) => /\.pdf$/i.test(p));
-              if (pdfPaths.length > 0) {
-                const promptIntro = language === "zh"
-                  ? "请帮我读一下并总结这些 PDF："
-                  : "Please read and summarize these PDFs:";
-                const listing = pdfPaths.map((p) => `- ${p}`).join("\n");
-                setPrefillText(`${promptIntro}\n${listing}`);
+              const otherPaths = paths.filter((p) =>
+                !/\.ab1$/i.test(p) && !/\.gbk?$/i.test(p) && !/\.pdf$/i.test(p),
+              );
+
+              // Mixed-bag / single-file fallback: prefill the composer so
+              // the agent can pick which tool to call. Covers PDFs, lone
+              // ab1 / gb files without a pair, and anything unrecognized.
+              const shouldPrefill =
+                pdfPaths.length > 0 ||
+                otherPaths.length > 0 ||
+                (ab1Paths.length > 0 && gbPaths.length === 0) ||
+                (gbPaths.length > 0 && ab1Paths.length === 0);
+
+              if (shouldPrefill) {
+                const intro = language === "zh"
+                  ? (pdfPaths.length === paths.length
+                      ? "请帮我读一下并总结这些 PDF："
+                      : "请帮我看一下这些文件：")
+                  : (pdfPaths.length === paths.length
+                      ? "Please read and summarize these PDFs:"
+                      : "Please take a look at these files:");
+                const all = [...pdfPaths, ...ab1Paths, ...gbPaths, ...otherPaths];
+                setPrefillText(`${intro}\n${all.map((p) => `- ${p}`).join("\n")}`);
                 chatInputRef.current?.focus();
-                if (ab1Paths.length === 0 && gbPaths.length === 0) return;
-              }
-              if (ab1Paths.length === 0 && gbPaths.length === 0 && pdfPaths.length === 0) {
-                toasts.pushToast({
-                  kind: "warning",
-                  title: language === "zh"
-                    ? "未识别到 .ab1、.gb 或 .pdf 文件"
-                    : "No .ab1, .gb, or .pdf files in selection",
-                });
                 return;
               }
-              if (ab1Paths.length > 0 || gbPaths.length > 0) {
+
+              // Both .ab1 and .gb present → standard analyze pipeline.
+              if (ab1Paths.length > 0 && gbPaths.length > 0) {
                 await window.electronAPI.invoke("analyze-dropped-files", { ab1Paths, gbPaths });
+                return;
               }
+
+              toasts.pushToast({
+                kind: "warning",
+                title: language === "zh"
+                  ? "未识别到可处理的文件"
+                  : "No supported files in selection",
+              });
             } catch (err) {
               const msg = err instanceof Error ? err.message : String(err);
               toasts.pushToast({ kind: "error", title: msg, durationMs: 0 });
