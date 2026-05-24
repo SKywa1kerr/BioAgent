@@ -25,6 +25,7 @@ import { useUpdater, type UpdaterPhase } from "./hooks/useUpdater";
 import { useToasts } from "./components/ui/ToastProvider";
 import { registerCommand } from "./lib/commands/registry";
 import { loadSettings, saveSettings, type AgentSettings } from "./lib/settingsStorage";
+import { getProvider } from "./lib/providers.js";
 import { t, type AppLanguage } from "./i18n";
 
 const CANVAS_MIN_WIDTH = 360;
@@ -636,6 +637,19 @@ export function App() {
           onPrefillConsumed={() => setPrefillText(null)}
           inputRef={chatInputRef}
           onOpenPalette={() => setPaletteOpen(true)}
+          modelPicker={{
+            currentModel: settings.llmModel || "",
+            availableModels: getProvider(settings.provider || "custom").suggestedModels || [],
+            providerLabel: getProvider(settings.provider || "custom").label,
+            onChange: (model) => {
+              const next = { ...settings, llmModel: model };
+              handleSettingsSave(next);
+              toasts.pushToast({
+                kind: "success",
+                title: language === "zh" ? `已切换模型：${model}` : `Model switched: ${model}`,
+              });
+            },
+          }}
           onAttach={async () => {
             // Paperclip flow mirrors drag-drop: open the system picker for
             // files OR a folder, then route through inspect-dropped-paths

@@ -309,6 +309,125 @@ body,
   display: block;
 }
 
+/* ── Model picker (top of chat panel, OpenWebUI-style) ──────────────── */
+.model-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.model-picker-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-main);
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.model-picker-trigger:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+
+.model-picker-provider {
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  padding: 2px 7px;
+  background: var(--surface);
+  border-radius: 999px;
+}
+
+.model-picker-name {
+  font-weight: 500;
+}
+
+.model-picker-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 240px;
+  max-width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.18));
+  padding: 6px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-picker-item,
+.model-picker-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-main);
+  font: inherit;
+  font-size: 13px;
+  width: 100%;
+}
+
+.model-picker-item:hover,
+.model-picker-settings:hover {
+  background: var(--accent-soft);
+}
+
+.model-picker-item.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.model-picker-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-picker-item-tag {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  background: var(--border-default);
+  color: var(--text-muted);
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.model-picker-settings {
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-default);
+  color: var(--text-muted);
+  font-size: 12px;
+  justify-content: center;
+}
+
+.model-picker-empty {
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
 .composer textarea {
   width: 100%;
   min-height: 56px;

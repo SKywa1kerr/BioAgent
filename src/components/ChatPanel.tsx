@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Paperclip } from "lucide-react";
+import { ModelPicker } from "./ModelPicker";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
 import { Icon } from "./ui/Icon";
@@ -31,6 +32,14 @@ interface ChatPanelProps {
    *  picker and routes the chosen paths through the same import flow as
    *  drag-and-drop. Hide the button when this is undefined. */
   onAttach?: () => void;
+  /** Model picker (OpenWebUI-style top selector). Optional — if omitted
+   *  the chat title is shown instead of the picker. */
+  modelPicker?: {
+    currentModel: string;
+    availableModels: readonly string[];
+    providerLabel: string;
+    onChange: (model: string) => void;
+  };
 }
 
 function renderInlineRichText(text: string): ReactNode[] {
@@ -122,7 +131,7 @@ function formatTime(ts: number): string {
 export function ChatPanel({
   messages, isRunning, progress, language, initialized,
   onSend, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
-  prefillText, onPrefillConsumed, inputRef, onOpenPalette, onAttach,
+  prefillText, onPrefillConsumed, inputRef, onOpenPalette, onAttach, modelPicker,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [expandedMessageKeys, setExpandedMessageKeys] = useState<Set<string>>(new Set());
@@ -198,7 +207,22 @@ export function ChatPanel({
   return (
     <aside className="chat-panel" aria-label="Chat">
       <div className="panel-title panel-title-row">
-        <span>{t(language, "app.title")}</span>
+        {modelPicker ? (
+          <ModelPicker
+            currentModel={modelPicker.currentModel}
+            availableModels={modelPicker.availableModels}
+            providerLabel={modelPicker.providerLabel}
+            onChange={modelPicker.onChange}
+            onOpenSettings={onOpenSettings}
+            labels={{
+              current: t(language, "modelPicker.current"),
+              chooseLabel: t(language, "modelPicker.choose"),
+              settingsCTA: t(language, "modelPicker.settingsCTA"),
+            }}
+          />
+        ) : (
+          <span>{t(language, "app.title")}</span>
+        )}
         <div className="panel-action-group">
           <button className="icon-button" onClick={onClear} title={t(language, "chat.clear")} aria-label={t(language, "chat.clear")}>
             <Icon name="trash" size={16} />
