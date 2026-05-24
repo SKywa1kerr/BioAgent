@@ -17,6 +17,20 @@ interface SettingsModalProps {
   onToggleLanguage: () => void;
 }
 
+/** Curated accent-color presets — friendlier than a hex picker for the
+ *  target audience (biologists, not designers). Empty value = use the
+ *  theme default. labelKey resolves through the i18n table. */
+const ACCENT_PRESETS: Array<{ value: string; labelKey: string }> = [
+  { value: "", labelKey: "settings.accentColor.default" },
+  { value: "#d97757", labelKey: "settings.accentColor.warmth" },
+  { value: "#3b82f6", labelKey: "settings.accentColor.blue" },
+  { value: "#10b981", labelKey: "settings.accentColor.green" },
+  { value: "#8b5cf6", labelKey: "settings.accentColor.purple" },
+  { value: "#ec4899", labelKey: "settings.accentColor.pink" },
+  { value: "#f59e0b", labelKey: "settings.accentColor.amber" },
+  { value: "#64748b", labelKey: "settings.accentColor.slate" },
+];
+
 export function SettingsModal({
   open, onClose, onSave, currentSettings, language, theme, onToggleTheme, onToggleLanguage,
 }: SettingsModalProps) {
@@ -142,31 +156,26 @@ export function SettingsModal({
 
           <label className="init-dialog-field">
             <span className="init-dialog-field-label">{t(language, "settings.accentColor")}</span>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                type="color"
-                value={draft.accentColor || "#d97757"}
-                onChange={(e) => setDraft((prev) => ({ ...prev, accentColor: e.target.value }))}
-                style={{ width: 36, height: 34, padding: 0, border: "1px solid var(--border-default)", borderRadius: 6, background: "transparent", cursor: "pointer" }}
-              />
-              <input
-                type="text"
-                value={draft.accentColor || ""}
-                onChange={(e) => setDraft((prev) => ({ ...prev, accentColor: e.target.value }))}
-                placeholder="#d97757"
-                style={{ flex: 1 }}
-              />
-              {draft.accentColor ? (
-                <button
-                  type="button"
-                  className="init-dialog-secondary"
-                  onClick={() => setDraft((prev) => ({ ...prev, accentColor: "" }))}
-                  title={t(language, "settings.accentColor.reset")}
-                  style={{ padding: "6px 10px", fontSize: 12 }}
-                >
-                  {t(language, "settings.accentColor.reset")}
-                </button>
-              ) : null}
+            <div className="settings-color-swatches" role="radiogroup" aria-label={t(language, "settings.accentColor")}>
+              {ACCENT_PRESETS.map((preset) => {
+                const selected = (draft.accentColor || "") === preset.value;
+                return (
+                  <button
+                    key={preset.value || "default"}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    title={t(language, preset.labelKey)}
+                    onClick={() => setDraft((prev) => ({ ...prev, accentColor: preset.value }))}
+                    className={`settings-color-swatch${selected ? " is-selected" : ""}`}
+                    style={preset.value ? { background: preset.value } : undefined}
+                  >
+                    {!preset.value ? (
+                      <span aria-hidden="true" style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)" }}>A</span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
           </label>
 

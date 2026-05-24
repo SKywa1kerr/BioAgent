@@ -17,6 +17,11 @@ interface DropZoneProps {
   /** Triggered when the dropped folder contains several dataset-shaped
    *  subfolders — App shows the chooser dialog instead of the import form. */
   onRequestChoose?: (candidates: Array<{ name: string; path: string; layout: "subdirs" | "flat" }>) => void;
+  /** Triggered when the dropped files aren't analyzable on their own
+   *  (PDFs, single .ab1, mixed extensions). Host prefills the composer
+   *  with a "please read these" prompt so the agent can call read_pdf /
+   *  read_sequence_file. */
+  onRequestComposerPrefill?: (text: string) => void;
 }
 
 interface DroppedFilesResponse {
@@ -30,6 +35,7 @@ interface DroppedFilesResponse {
 
 const AB1_RE = /\.ab1$/i;
 const GB_RE = /\.(gb|gbk)$/i;
+const PDF_RE = /\.pdf$/i;
 
 function dragHasFiles(event: DragEvent): boolean {
   const types = event.dataTransfer?.types;
@@ -46,7 +52,7 @@ function dragHasFiles(event: DragEvent): boolean {
  * instant local check, and forwards the lists to the main process via the
  * `analyze-dropped-files` IPC channel. Feedback is delivered through toasts.
  */
-export function DropZone({ language, children, onRequestImport, onRequestChoose }: DropZoneProps): JSX.Element {
+export function DropZone({ language, children, onRequestImport, onRequestChoose, onRequestComposerPrefill }: DropZoneProps): JSX.Element {
   const [dragActive, setDragActive] = useState(false);
   const dragCounterRef = useRef(0);
   const toasts = useToasts();
@@ -165,9 +171,38 @@ export function DropZone({ language, children, onRequestImport, onRequestChoose 
         }
       }
 
+      // Single-file paths the analyze pipeline can't use: PDFs, lone ab1
+      // or gb files without a partner, or anything we don't recognise.
+      // Route into the composer-prefill flow so the agent can read them
+      // via read_pdf / read_sequence_file. This mirrors the 📎 picker.
+      const pdfPaths = allPaths.filter((p) => PDF_RE.test(p));
+      const knownExt = (p: string) => AB1_RE.test(p) || GB_RE.test(p) || PDF_RE.test(p);
+      const otherFiles = allPaths.filter((p) => !knownExt(p));
+
+      if (pdfPaths.length > 0 && onRequestComposerPrefill) {
+        const intro = lang === "zh"
+          ? "请帮我读一下并总结这些 PDF："
+          : "Please read and summarize these PDFs:";
+        onRequestComposerPrefill(`${intro}\n${pdfPaths.map((p) => `- ${p}`).join("\n")}`);
+        // If only PDFs were dropped, we're done. Otherwise fall through
+        // so the .ab1/.gb pairing still runs alongside.
+        if (ab1Paths.length === 0 && gbPaths.length === 0) return;
+      }
+
       const { pairs, unpairedAb1, unpairedGb } = pairAb1Gb(ab1Paths, gbPaths);
 
       if (pairs.length === 0) {
+        // Before the loud "no pairs" toast, try the gentle composer-
+        // prefill fallback for any single .ab1 / .gb / unknown files so
+        // the user isn't stuck.
+        if (onRequestComposerPrefill && (ab1Paths.length > 0 || gbPaths.length > 0 || otherFiles.length > 0)) {
+          const intro = lang === "zh"
+            ? "请帮我看一下这些文件："
+            : "Please take a look at these files:";
+          const all = [...ab1Paths, ...gbPaths, ...otherFiles];
+          onRequestComposerPrefill(`${intro}\n${all.map((p) => `- ${p}`).join("\n")}`);
+          return;
+        }
         toasts.pushToast({
           kind: "error",
           title: t(lang, "dropzone.error.noPairs"),

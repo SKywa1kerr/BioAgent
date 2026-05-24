@@ -18,6 +18,7 @@ import { DropZone } from "./components/DropZone";
 import { InitDialog } from "./components/InitDialog";
 import { ImportDatasetDialog } from "./components/ImportDatasetDialog";
 import { MultiDatasetChooserDialog, type DatasetCandidate } from "./components/MultiDatasetChooserDialog";
+import { AppDialog } from "./components/AppDialog";
 import { useAgentHarness, type LastErrorEvent } from "./hooks/useAgentHarness";
 import { useAnalysisHistory } from "./hooks/useAnalysisHistory";
 import { useConversations, type Conversation } from "./hooks/useConversations";
@@ -212,6 +213,18 @@ export function App() {
   const [importPrefill, setImportPrefill] = useState<{ ab1Dir?: string; gbDir?: string } | null>(null);
   const [datasetCandidates, setDatasetCandidates] = useState<DatasetCandidate[] | null>(null);
 
+  // Themed replacement for window.confirm / window.prompt. One state slot
+  // for whichever dialog is currently open. Each entry point sets it; the
+  // dialog's onCancel / onConfirm clears it. This kills the unstyled OS
+  // native confirm boxes and also fixes the "can't rename" bug — Electron
+  // renderers no longer honour window.prompt().
+  type AppDialogState =
+    | { kind: "confirm"; title: string; body?: React.ReactNode; confirmLabel?: string; danger?: boolean; onConfirm: () => void }
+    | { kind: "prompt"; title: string; body?: React.ReactNode; defaultValue?: string; placeholder?: string; onConfirm: (value: string) => void }
+    | null;
+  const [appDialog, setAppDialog] = useState<AppDialogState>(null);
+  const closeAppDialog = useCallback(() => setAppDialog(null), []);
+
   const refreshDatasets = useCallback(async () => {
     if (!agent.initialized) return;
     try {
@@ -398,7 +411,13 @@ export function App() {
       // Ctrl+Shift+Delete → clear chat
       if (mod && e.shiftKey && e.key === "Delete") {
         e.preventDefault();
-        if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages();
+        setAppDialog({
+          kind: "confirm",
+          title: t(language, "chat.clear"),
+          body: t(language, "chat.clearConfirm"),
+          danger: true,
+          onConfirm: () => { agent.clearMessages(); closeAppDialog(); },
+        });
         return;
       }
     }
@@ -621,30 +640,38 @@ export function App() {
         onOpenSettings={() => setSettingsOpen(true)}
         onSelectDataset={(name) => setPrefillText(`分析 ${name} 数据集`)}
         onAddDataset={() => { setImportPrefill(null); setImportDialogOpen(true); }}
-        onDeleteDataset={async (id, label) => {
-          const confirmMsg = language === "zh"
-            ? `确定要删除数据集「${label}」吗？仅移除注册，不会删除磁盘上的文件。`
-            : `Delete the dataset "${label}"? This only removes the registration; the files on disk are untouched.`;
-          if (!confirm(confirmMsg)) return;
-          try {
-            const resp = await window.electronAPI.invoke("dataset-delete", id);
-            if (resp?.ok) {
-              void refreshDatasets();
-              toasts.pushToast({
-                kind: "success",
-                title: language === "zh" ? `已删除：${label}` : `Deleted: ${label}`,
-              });
-            } else {
-              toasts.pushToast({
-                kind: "error",
-                title: resp?.error || (language === "zh" ? "删除失败" : "Delete failed"),
-                durationMs: 0,
-              });
-            }
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : String(err);
-            toasts.pushToast({ kind: "error", title: msg, durationMs: 0 });
-          }
+        onDeleteDataset={(id, label) => {
+          setAppDialog({
+            kind: "confirm",
+            title: language === "zh" ? `删除数据集「${label}」？` : `Delete dataset "${label}"?`,
+            body: language === "zh"
+              ? "仅移除注册，不会删除磁盘上的文件。"
+              : "Only the registration is removed — the files on disk are untouched.",
+            danger: true,
+            confirmLabel: t(language, "common.delete"),
+            onConfirm: async () => {
+              closeAppDialog();
+              try {
+                const resp = await window.electronAPI.invoke("dataset-delete", id);
+                if (resp?.ok) {
+                  void refreshDatasets();
+                  toasts.pushToast({
+                    kind: "success",
+                    title: language === "zh" ? `已删除：${label}` : `Deleted: ${label}`,
+                  });
+                } else {
+                  toasts.pushToast({
+                    kind: "error",
+                    title: resp?.error || (language === "zh" ? "删除失败" : "Delete failed"),
+                    durationMs: 0,
+                  });
+                }
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
+                toasts.pushToast({ kind: "error", title: msg, durationMs: 0 });
+              }
+            },
+          });
         }}
         conversations={conversations.conversations.map((c) => ({
           id: c.id,
@@ -669,24 +696,36 @@ export function App() {
           Promise.resolve().then(() => { swappingConversationRef.current = false; });
         }}
         onDeleteConversation={(id, title) => {
-          const ok = confirm(language === "zh"
-            ? `确定删除对话「${title}」吗？`
-            : `Delete conversation "${title}"?`);
-          if (!ok) return;
-          conversations.remove(id);
-          if (conversations.currentId === id) {
-            swappingConversationRef.current = true;
-            agent.clearMessages();
-            Promise.resolve().then(() => { swappingConversationRef.current = false; });
-          }
+          setAppDialog({
+            kind: "confirm",
+            title: language === "zh" ? `删除对话「${title}」？` : `Delete conversation "${title}"?`,
+            body: language === "zh"
+              ? "对话记录将从本地存储中移除，且不可恢复。"
+              : "The conversation will be removed from local storage and cannot be restored.",
+            danger: true,
+            confirmLabel: t(language, "common.delete"),
+            onConfirm: () => {
+              closeAppDialog();
+              conversations.remove(id);
+              if (conversations.currentId === id) {
+                swappingConversationRef.current = true;
+                agent.clearMessages();
+                Promise.resolve().then(() => { swappingConversationRef.current = false; });
+              }
+            },
+          });
         }}
         onRenameConversation={(id, currentTitle) => {
-          const next = window.prompt(
-            language === "zh" ? "新的对话标题：" : "New conversation title:",
-            currentTitle,
-          );
-          if (next == null) return;  // cancelled
-          conversations.rename(id, next);
+          setAppDialog({
+            kind: "prompt",
+            title: language === "zh" ? "重命名对话" : "Rename conversation",
+            defaultValue: currentTitle,
+            placeholder: language === "zh" ? "新对话标题" : "New conversation title",
+            onConfirm: (next) => {
+              closeAppDialog();
+              conversations.rename(id, next);
+            },
+          });
         }}
       />
 
@@ -747,7 +786,15 @@ export function App() {
           onToggleLanguage={() => setLanguage((l) => (l === "zh" ? "en" : "zh"))}
           onToggleTheme={() => setTheme((v) => (v === "dark" ? "light" : "dark"))}
           onOpenSettings={() => setSettingsOpen(true)}
-          onClear={() => { if (confirm(t(language, "chat.clearConfirm"))) agent.clearMessages(); }}
+          onClear={() => {
+            setAppDialog({
+              kind: "confirm",
+              title: t(language, "chat.clear"),
+              body: t(language, "chat.clearConfirm"),
+              danger: true,
+              onConfirm: () => { agent.clearMessages(); closeAppDialog(); },
+            });
+          }}
           theme={theme}
           prefillText={prefillText}
           onPrefillConsumed={() => setPrefillText(null)}
@@ -912,6 +959,10 @@ export function App() {
           language={language}
           onRequestImport={(prefill) => { setImportPrefill(prefill); setImportDialogOpen(true); }}
           onRequestChoose={(candidates) => setDatasetCandidates(candidates)}
+          onRequestComposerPrefill={(text) => {
+            setPrefillText(text);
+            chatInputRef.current?.focus();
+          }}
         >
           {shellContent}
         </DropZone>
@@ -1007,6 +1058,29 @@ export function App() {
       {!onboarding.complete && !settingsOpen && !paletteOpen && !shortcutsOpen && agent.initialized ? (
         <OnboardingCoach language={language} onDismiss={onboarding.finish} />
       ) : null}
+
+      <AppDialog
+        open={appDialog?.kind === "confirm"}
+        kind="confirm"
+        language={language}
+        title={appDialog?.kind === "confirm" ? appDialog.title : ""}
+        body={appDialog?.kind === "confirm" ? appDialog.body : undefined}
+        confirmLabel={appDialog?.kind === "confirm" ? appDialog.confirmLabel : undefined}
+        danger={appDialog?.kind === "confirm" ? appDialog.danger : undefined}
+        onConfirm={() => { if (appDialog?.kind === "confirm") appDialog.onConfirm(); }}
+        onCancel={closeAppDialog}
+      />
+      <AppDialog
+        open={appDialog?.kind === "prompt"}
+        kind="prompt"
+        language={language}
+        title={appDialog?.kind === "prompt" ? appDialog.title : ""}
+        body={appDialog?.kind === "prompt" ? appDialog.body : undefined}
+        defaultValue={appDialog?.kind === "prompt" ? appDialog.defaultValue : undefined}
+        placeholder={appDialog?.kind === "prompt" ? appDialog.placeholder : undefined}
+        onConfirm={(v) => { if (appDialog?.kind === "prompt") appDialog.onConfirm(v); }}
+        onCancel={closeAppDialog}
+      />
     </div>
   );
 }
