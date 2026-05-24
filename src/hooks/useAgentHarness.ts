@@ -548,6 +548,15 @@ export function useAgentHarness(language: AppLanguage) {
     confirmMessage,
     initialize,
     sendMessage,
+    cancel: async () => {
+      try {
+        await window.electronAPI.invoke("agent-harness-cancel");
+      } catch {
+        // ignore — the cancel IPC is best-effort
+      }
+      setIsRunning(false);
+      setProgressState("ready", 100, "");
+    },
     exportDebugLog,
     setPanelType,
     clearMessages: () => setMessages([]),

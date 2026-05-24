@@ -327,6 +327,8 @@
   "chat.scrollToBottom": "跳到最新消息",
   "chat.edit": "编辑",
   "chat.resend": "重新发送",
+  "chat.exportMarkdown": "导出为 Markdown",
+  "app.action.cancel": "停止",
   "sidebar.panels": "面板",
   "sidebar.settings": "设置",
   "splitter.collapseChat": "折叠对话",

@@ -746,6 +746,22 @@ app.whenReady().then(async () => {
     }
     return { ok: true };
   });
+
+  // Cancel an in-flight runTurn. We don't actually abort the OpenAI HTTP
+  // request (no AbortSignal plumbed through the SDK call yet), but bumping
+  // currentTurnId via cancel() makes every isCurrentTurn(turnId) gate
+  // return false, so all subsequent events from the running turn are
+  // dropped and the renderer's isRunning flips false immediately.
+  ipcMain.handle("agent-harness-cancel", async () => {
+    if (!agentHarness) return { ok: false, error: "Agent harness not initialized" };
+    try {
+      agentHarness.cancel();
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { ok: false, error: message };
+    }
+  });
 });
 
 app.on("window-all-closed", () => {

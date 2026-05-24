@@ -327,6 +327,8 @@
   "chat.scrollToBottom": "Jump to latest",
   "chat.edit": "Edit",
   "chat.resend": "Resend",
+  "chat.exportMarkdown": "Export as Markdown",
+  "app.action.cancel": "Stop",
   "sidebar.panels": "Panels",
   "sidebar.settings": "Settings",
   "splitter.collapseChat": "Collapse chat",

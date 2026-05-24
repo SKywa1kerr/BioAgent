@@ -387,6 +387,16 @@ export class AgentHarness extends EventEmitter {
     return this.currentTurnId === turnId;
   }
 
+  /** Cancel the active run by bumping the turn id. Any pending events
+   *  from the previous turn become no-ops via isCurrentTurn checks.
+   *  The underlying HTTP request to the LLM keeps running until the
+   *  provider returns, but its result is discarded — good enough to
+   *  unblock the UI immediately. */
+  cancel() {
+    this.currentTurnId += 1;
+    this.isRunning = false;
+  }
+
   startAnalysisSummary(result, dataset, onEvent, turnId) {
     const summaryMeta = {
       dataset: result.dataset || dataset,

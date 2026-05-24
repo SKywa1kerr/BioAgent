@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, Bot, Loader2, Paperclip, Pencil, RotateCcw, User } from "lucide-react";
+import { ArrowDown, ArrowUp, Bot, Download, Loader2, Paperclip, Pencil, RotateCcw, Square, User } from "lucide-react";
 import { ModelPicker } from "./ModelPicker";
 import type { AppLanguage } from "../i18n";
 import { t } from "../i18n";
@@ -17,6 +17,9 @@ interface ChatPanelProps {
   language: AppLanguage;
   initialized: boolean;
   onSend: (text: string) => void;
+  /** Cancel the in-flight runTurn. Optional — when omitted the Stop
+   *  button is hidden and the send button just stays in spinner mode. */
+  onCancel?: () => void;
   /** Resend a previous user message verbatim. */
   onResend?: (text: string) => void;
   /** Pull a previous user message back into the composer for editing.
@@ -28,6 +31,8 @@ interface ChatPanelProps {
   onToggleTheme: () => void;
   onOpenSettings: () => void;
   onClear: () => void;
+  /** Optional: export current chat as Markdown. */
+  onExportMarkdown?: () => void;
   theme: "light" | "dark";
   prefillText?: string | null;
   onPrefillConsumed?: () => void;
@@ -260,10 +265,26 @@ function formatTime(ts: number): string {
 
 export function ChatPanel({
   messages, isRunning, progress, language, initialized,
-  onSend, onResend, onEdit, onExportDebug, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
+  onSend, onCancel, onResend, onEdit, onExportDebug, onExportMarkdown, onToggleLanguage, onToggleTheme, onOpenSettings, onClear, theme,
   prefillText, onPrefillConsumed, inputRef, onOpenPalette, onAttach, modelPicker,
 }: ChatPanelProps) {
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => {
+    try {
+      return window.localStorage?.getItem("bioagent.draftInput") || "";
+    } catch {
+      return "";
+    }
+  });
+  // Auto-save composer draft to localStorage on every change so a refresh
+  // (or an accidental window close) doesn't drop the unsent message.
+  useEffect(() => {
+    try {
+      if (input) window.localStorage?.setItem("bioagent.draftInput", input);
+      else window.localStorage?.removeItem("bioagent.draftInput");
+    } catch {
+      // ignore — storage may be disabled
+    }
+  }, [input]);
   const [expandedMessageKeys, setExpandedMessageKeys] = useState<Set<string>>(new Set());
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messageListRef = useRef<HTMLDivElement | null>(null);
@@ -387,6 +408,17 @@ export function ChatPanel({
           <button className="icon-button" onClick={onExportDebug} aria-label={t(language, "app.action.exportDebug")} title={t(language, "app.action.exportDebug")}>
             <Icon name="download" size={16} />
           </button>
+          {onExportMarkdown ? (
+            <button
+              className="icon-button"
+              onClick={onExportMarkdown}
+              aria-label={t(language, "chat.exportMarkdown")}
+              title={t(language, "chat.exportMarkdown")}
+              disabled={messages.length === 0}
+            >
+              <Download size={16} strokeWidth={1.7} aria-hidden="true" />
+            </button>
+          ) : null}
           <button className="icon-button" onClick={onToggleTheme} aria-label={theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")} title={theme === "dark" ? t(language, "app.theme.light") : t(language, "app.theme.dark")}>
             <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
           </button>
@@ -549,13 +581,13 @@ export function ChatPanel({
         />
         <button
           className="composer-send"
-          onClick={handleSendClick}
-          disabled={!initialized || isRunning}
-          aria-label={isRunning ? t(language, "app.action.sending") : t(language, "app.action.send")}
-          title={isRunning ? t(language, "app.action.sending") : t(language, "app.action.send")}
+          onClick={isRunning && onCancel ? onCancel : handleSendClick}
+          disabled={!initialized || (!isRunning && input.trim().length === 0)}
+          aria-label={isRunning ? t(language, "app.action.cancel") : t(language, "app.action.send")}
+          title={isRunning ? t(language, "app.action.cancel") : t(language, "app.action.send")}
         >
           {isRunning ? (
-            <Loader2 size={16} strokeWidth={2} className="message-pending-spinner" aria-hidden="true" />
+            <Square size={14} strokeWidth={2.4} fill="currentColor" aria-hidden="true" />
           ) : (
             <ArrowUp size={16} strokeWidth={2.2} aria-hidden="true" />
           )}

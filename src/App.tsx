@@ -681,7 +681,38 @@ export function App() {
           language={language}
           initialized={agent.initialized}
           onSend={handleSend}
+          onCancel={() => void agent.cancel()}
           onResend={(text) => handleSend(text)}
+          onExportMarkdown={() => {
+            // Pull together every message into a portable .md file.
+            // Format: `## user` / `## assistant` headers separated by
+            // blank lines, then a timestamp footer.
+            if (agent.messages.length === 0) return;
+            const blocks: string[] = [];
+            blocks.push(`# BioAgent Conversation`);
+            blocks.push(`Exported: ${new Date().toISOString()}`);
+            blocks.push(``);
+            for (const m of agent.messages) {
+              const heading = m.role === "user" ? "## You" : m.role === "assistant" ? "## Assistant" : `## ${m.role}`;
+              blocks.push(heading);
+              blocks.push(m.content || "");
+              blocks.push(``);
+            }
+            const blob = new Blob([blocks.join("\n")], { type: "text/markdown;charset=utf-8" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            a.href = url;
+            a.download = `bioagent-conversation-${ts}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            toasts.pushToast({
+              kind: "success",
+              title: language === "zh" ? "已导出对话为 Markdown" : "Exported conversation as Markdown",
+            });
+          }}
           onEdit={(idx, text) => {
             // Truncate the message list to right before this user message,
             // then drop the prompt back into the composer so the user can
