@@ -27,7 +27,22 @@ export function ImportDatasetDialog({
 
   useEffect(() => {
     if (open) {
-      setLabel("");
+      // Auto-derive a friendly label from the prefilled folder path so the
+      // user doesn't have to type one for the common "drop a folder" flow.
+      // Picks the deepest segment that ISN'T a generic ab1/gb sibling name,
+      // since those are the conventional subdirs of a real dataset folder.
+      const deriveLabel = (raw: string | undefined): string => {
+        if (!raw) return "";
+        const norm = raw.replace(/\\/g, "/").replace(/\/$/, "");
+        const parts = norm.split("/").filter(Boolean);
+        for (let i = parts.length - 1; i >= 0; i -= 1) {
+          const seg = parts[i] || "";
+          if (!/^(ab1|ab1_files|gb|gbk|genbank)$/i.test(seg)) return seg;
+        }
+        return parts[parts.length - 1] || "";
+      };
+      const guessed = deriveLabel(prefill?.ab1Dir) || deriveLabel(prefill?.gbDir);
+      setLabel(guessed);
       setAb1Dir(prefill?.ab1Dir ?? "");
       setGbDir(prefill?.gbDir ?? "");
       setSubmitting(false);
